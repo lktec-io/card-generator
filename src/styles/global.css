@@ -1,0 +1,132 @@
+/* ── Design tokens & global reset ────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Colors */
+  --gold:          #C9A84C;
+  --gold-light:    #E8D48B;
+  --gold-dark:     #8B6914;
+  --gold-bg:       #FBF5E6;
+  --white:         #FFFFFF;
+  --off-white:     #FAF8F3;
+  --dark:          #1A1A1A;
+  --dark-soft:     #2D2D2D;
+  --gray:          #6B6B6B;
+  --gray-light:    #E8E8E8;
+  --success:       #2D7D46;
+  --success-light: #D4EDDA;
+  --error:         #C0392B;
+  --error-light:   #FADBD8;
+
+  /* Glass */
+  --glass-bg:     rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.18);
+
+  /* Typography */
+  --font-elegant: 'Georgia', 'Times New Roman', serif;
+  --font-ui:      'Segoe UI', 'Inter', system-ui, sans-serif;
+
+  /* Spacing / Radius */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+
+  /* Shadows */
+  --shadow-sm:   0 2px 8px  rgba(0,0,0,0.08);
+  --shadow-md:   0 8px 24px rgba(0,0,0,0.12);
+  --shadow-lg:   0 16px 48px rgba(0,0,0,0.16);
+  --shadow-gold: 0 4px 20px rgba(201,168,76,0.30);
+
+  /* Transition */
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+  font-family: var(--font-ui);
+  background-color: var(--off-white);
+  color: var(--dark);
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-elegant);
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button {
+  cursor: pointer;
+  font-family: var(--font-ui);
+  border: none;
+  outline: none;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ── Shared button utilities ────────────────────────────────────────── */
+.btn-gold {
+  display: inline-block;
+  padding: 0.9rem 1.5rem;
+  background: var(--gold);
+  color: var(--white);
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: none;
+  transition: var(--transition);
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.btn-gold:hover:not(:disabled) {
+  background: var(--gold-dark);
+  box-shadow: var(--shadow-gold);
+  transform: translateY(-2px);
+}
+
+.btn-gold:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-outline {
+  display: inline-block;
+  padding: 0.85rem 1.5rem;
+  border: 2px solid var(--gold);
+  color: var(--gold-dark);
+  background: transparent;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  text-align: center;
+}
+
+.btn-outline:hover {
+  background: var(--gold);
+  color: var(--white);
+}
+
+.form-error {
+  background: var(--error-light);
+  color: var(--error);
+  border: 1px solid #f5c6c2;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 1rem;
+  font-size: 0.88rem;
+}

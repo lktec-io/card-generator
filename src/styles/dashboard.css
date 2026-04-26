@@ -1,0 +1,110 @@
+/* ── Dashboard Page ──────────────────────────────────────────────────── */
+
+.dashboard-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+}
+
+.dashboard-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.dashboard-header h1 {
+  font-size: 2.2rem;
+  color: var(--gold-dark);
+  margin-bottom: 0.4rem;
+}
+
+.dashboard-header p {
+  color: var(--gray);
+  font-size: 0.95rem;
+}
+
+/* ── Stats grid ──────────────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.stat-card {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  padding: 2rem 1.5rem;
+  text-align: center;
+  box-shadow: var(--shadow-md);
+  transition: var(--transition);
+  border-bottom: 3px solid var(--gold-light);
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.stat-icon {
+  font-size: 1.8rem;
+  margin-bottom: 0.6rem;
+}
+
+.stat-number {
+  font-size: 3rem;
+  font-weight: 700;
+  font-family: var(--font-elegant);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  color: var(--gray);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+/* ── Quick actions ──────────────────────────────────────────────────── */
+.quick-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.quick-btn {
+  min-width: 200px;
+}
+
+.dash-error {
+  background: var(--error-light);
+  color: var(--error);
+  border: 1px solid #f5c6c2;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.dash-loading {
+  text-align: center;
+  color: var(--gray);
+  padding: 3rem 0;
+  font-size: 0.95rem;
+}
+
+.dash-footer {
+  text-align: center;
+  color: var(--gray);
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+@media (max-width: 600px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .quick-actions { flex-direction: column; align-items: center; }
+}

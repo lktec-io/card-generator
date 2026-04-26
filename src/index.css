@@ -1,0 +1,6 @@
+/* Global resets and tokens are in src/styles/global.css (imported by App.jsx).
+   This file is kept for Vite's default entry — no duplicate rules here. */
+
+.app-main {
+  min-height: calc(100vh - 64px);
+}
