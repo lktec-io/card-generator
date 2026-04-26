@@ -9,11 +9,11 @@ const errorHandler = require('./middleware/errorHandler');
 require('./config/db');
 
 const app  = express();
-const PORT = process.env.PORT || 8003;
+const PORT = process.env.PORT || 8803;
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({
-  origin:      process.env.CLIENT_URL || 'https://wedding.nardio.online/',
+  origin:      process.env.CLIENT_URL || 'https://wedding.nardio.online',
   credentials: true,
   methods:     ['GET', 'POST'],
 }));
@@ -24,8 +24,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/generated', express.static(path.join(__dirname, 'generated')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api', inviteRoutes);
+// Mounted at / because Nginx strips the /api prefix before forwarding.
+// The frontend sends to https://wedding.nardio.online/api/*, Nginx strips /api,
+// Express receives /* — so routes live at root level.
+app.use('/', inviteRoutes);
 
+// Root health check (also handles stray GET / if Nginx config changes)
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -34,5 +38,5 @@ app.get('/health', (_req, res) => {
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`\n💍 Wedding QR Server  →  https://wedding.nardio.online:${PORT}\n`);
+  console.log(`\n💍 Wedding QR Server  →  http://localhost:${PORT}\n`);
 });
