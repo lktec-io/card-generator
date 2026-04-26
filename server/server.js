@@ -38,5 +38,5 @@ app.get('/health', (_req, res) => {
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`\n💍 Wedding QR Server  →  http://localhost:${PORT}\n`);
+  console.log(`\n💍 Wedding QR Server  →  https://wedding.nardio.online${PORT}\n`);
 });
