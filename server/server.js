@@ -9,7 +9,7 @@ const errorHandler = require('./middleware/errorHandler');
 require('./config/db');
 
 const app  = express();
-const PORT = process.env.PORT || 8803;
+const PORT = process.env.PORT || 8003;
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({
