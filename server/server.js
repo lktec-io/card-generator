@@ -9,11 +9,11 @@ const errorHandler = require('./middleware/errorHandler');
 require('./config/db');
 
 const app  = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8003;
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({
-  origin:      process.env.CLIENT_URL || 'http://localhost:5174',
+  origin:      process.env.CLIENT_URL || 'https://wedding.nardio.online/',
   credentials: true,
   methods:     ['GET', 'POST'],
 }));
@@ -34,5 +34,5 @@ app.get('/health', (_req, res) => {
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`\n💍 Wedding QR Server  →  http://localhost:${PORT}\n`);
+  console.log(`\n💍 Wedding QR Server  →  https://wedding.nardio.online:${PORT}\n`);
 });

@@ -4,10 +4,10 @@ const cors = require('cors');
 const apiRoutes = require('./routes/api');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8003;
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: process.env.CLIENT_URL || 'https://wedding.nardio.online/',
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],
 }));
@@ -31,5 +31,5 @@ app.use((err, _req, res, _next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n✦ Wedding QR Server running on http://localhost:${PORT}\n`);
+  console.log(`\n✦ Wedding QR Server running on https://wedding.nardio.online:${PORT}\n`);
 });
