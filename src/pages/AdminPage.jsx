@@ -1,14 +1,8 @@
 import { useState, useEffect } from 'react';
+import { MdRefresh } from 'react-icons/md';
 import '../styles/admin.css';
 
-function StatCard({ label, value, accent }) {
-  return (
-    <div className={`stat-card${accent ? ' accent' : ''}`}>
-      <p className="stat-value">{value ?? '—'}</p>
-      <p className="stat-label">{label}</p>
-    </div>
-  );
-}
+const API_BASE = import.meta.env.VITE_API_URL || 'https://wedding.nardio.online/api';
 
 function StatusBadge({ status }) {
   return (
@@ -27,15 +21,15 @@ function formatDate(raw) {
 }
 
 export default function AdminPage() {
-  const [data, setData]       = useState(null);
+  const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
+  const [error,   setError]   = useState('');
 
   const fetchDashboard = async () => {
     setLoading(true);
     setError('');
     try {
-      const res  = await fetch('/api/admin/dashboard');
+      const res  = await fetch(`${API_BASE}/admin/dashboard`);
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       setData(json);
@@ -49,32 +43,40 @@ export default function AdminPage() {
   useEffect(() => { fetchDashboard(); }, []);
 
   return (
-    <div className="admin-page">
+    <div className="admin-page page-enter">
       <div className="admin-container">
 
         <header className="admin-header">
           <div>
-            <p className="admin-ornament">✦ &nbsp; ✦ &nbsp; ✦</p>
+            <p className="admin-ornament">— Admin Panel —</p>
             <h1>Admin Dashboard</h1>
             <p className="admin-subtitle">Wedding Invitation Overview</p>
           </div>
           <button className="btn-refresh" onClick={fetchDashboard} disabled={loading}>
-            {loading ? '…' : '↻ Refresh'}
+            <MdRefresh size={15} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />
+            {loading ? 'Loading…' : 'Refresh'}
           </button>
         </header>
 
         {error && <p className="admin-error">{error}</p>}
 
-        {/* Stats */}
         {data && (
-          <div className="stats-grid">
-            <StatCard label="Total Generated" value={data.stats.total}  accent />
-            <StatCard label="Used"            value={data.stats.used} />
-            <StatCard label="Unused"          value={data.stats.unused} />
+          <div className="admin-stats-grid">
+            <div className="admin-stat-card accent">
+              <p className="stat-value">{data.stats.total ?? '—'}</p>
+              <p className="stat-label">Total Generated</p>
+            </div>
+            <div className="admin-stat-card">
+              <p className="stat-value">{data.stats.used ?? '—'}</p>
+              <p className="stat-label">Used</p>
+            </div>
+            <div className="admin-stat-card">
+              <p className="stat-value">{data.stats.unused ?? '—'}</p>
+              <p className="stat-label">Unused</p>
+            </div>
           </div>
         )}
 
-        {/* Table */}
         <div className="table-wrap">
           <h2 className="table-heading">Recent Invitations</h2>
 
@@ -108,11 +110,7 @@ export default function AdminPage() {
                       <td>
                         {inv.image_url ? (
                           <a href={inv.image_url} target="_blank" rel="noreferrer">
-                            <img
-                              src={inv.image_url}
-                              alt={inv.code}
-                              className="thumb"
-                            />
+                            <img src={inv.image_url} alt={inv.code} className="thumb" />
                           </a>
                         ) : (
                           <span className="no-thumb">—</span>

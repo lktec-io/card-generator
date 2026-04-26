@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import { getStats } from '../utils/api';
+import { MdStyle, MdCheckCircle, MdPendingActions, MdAddPhotoAlternate, MdQrCodeScanner } from 'react-icons/md';
 import '../styles/dashboard.css';
 
 export default function DashboardPage() {
@@ -13,21 +14,25 @@ export default function DashboardPage() {
   useEffect(() => {
     getStats()
       .then(({ data }) => setStats(data))
-      .catch(() => setError('Failed to load stats. Is the server running?'))
+      .catch(() => setError('Could not reach the server. Check your connection.'))
       .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div className="dashboard-page">
+    <div className="dashboard-page page-enter">
       <div className="dashboard-header">
-        <h1>💍 Wedding Invitation System</h1>
-        <p>Manage and track your wedding invitations</p>
+        <span className="dash-ornament">— Wedding QR System —</span>
+        <h1>Invitation <span>Dashboard</span></h1>
+        <p>Real-time overview of your wedding invitation cards</p>
       </div>
 
       {error && <p className="dash-error">{error}</p>}
 
       {loading && !stats && (
-        <div className="dash-loading">Loading stats…</div>
+        <div className="dash-loading">
+          <div className="dash-loading-spinner" />
+          Loading stats…
+        </div>
       )}
 
       {stats && (
@@ -35,34 +40,34 @@ export default function DashboardPage() {
           <StatCard
             label="Total Generated"
             value={stats.total}
-            icon="📋"
-            color="var(--gold-dark)"
+            icon={MdStyle}
+            color="var(--gold)"
           />
           <StatCard
-            label="Used"
+            label="Checked In"
             value={stats.used}
-            icon="✅"
-            color="#2D7D46"
+            icon={MdCheckCircle}
+            color="#22c55e"
           />
           <StatCard
-            label="Unused"
+            label="Awaiting Arrival"
             value={stats.unused}
-            icon="🔖"
-            color="#2C5282"
+            icon={MdPendingActions}
+            color="#60a5fa"
           />
         </div>
       )}
 
       <div className="quick-actions">
         <button className="btn-gold quick-btn" onClick={() => navigate('/create')}>
-          🎨 Create Invitation Cards
+          <MdAddPhotoAlternate size={18} /> Create Invitation Cards
         </button>
         <button className="btn-outline quick-btn" onClick={() => navigate('/verify')}>
-          📷 Scan &amp; Verify QR
+          <MdQrCodeScanner size={18} /> Scan &amp; Verify QR
         </button>
       </div>
 
-      <p className="dash-footer">Real-time stats from database</p>
+      <p className="dash-footer">Stats update on each page load</p>
     </div>
   );
 }

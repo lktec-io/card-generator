@@ -1,25 +1,24 @@
 import { useState, useRef, useCallback } from 'react';
 import { generateCard } from '../utils/api';
+import { MdCloudUpload, MdDownload, MdAutoAwesome, MdAddPhotoAlternate } from 'react-icons/md';
+import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
 const LANG_OPTIONS = [
-  { value: 'english',  label: 'English' },
-  { value: 'swahili',  label: 'Kiswahili' },
+  { value: 'english', label: 'English' },
+  { value: 'swahili', label: 'Kiswahili' },
 ];
 
 export default function CardGenerator() {
-  const [imageFile, setImageFile]     = useState(null);
+  const [imageFile,    setImageFile]  = useState(null);
   const [imagePreview, setPreview]    = useState(null);
-  const [guestName, setGuestName]     = useState('');
-  const [language, setLanguage]       = useState('english');
-  const [loading, setLoading]         = useState(false);
-  const [result, setResult]           = useState(null);   // { code, guest_name, image_url }
-  const [error, setError]             = useState('');
-  const [dragOver, setDragOver]       = useState(false);
-
+  const [guestName,    setGuestName]  = useState('');
+  const [language,     setLanguage]   = useState('english');
+  const [loading,      setLoading]    = useState(false);
+  const [result,       setResult]     = useState(null);
+  const [error,        setError]      = useState('');
+  const [dragOver,     setDragOver]   = useState(false);
   const fileInputRef = useRef(null);
-
-  // ── file handling ─────────────────────────────────────────────────────
 
   const applyFile = useCallback((file) => {
     if (!file) return;
@@ -43,8 +42,6 @@ export default function CardGenerator() {
     applyFile(e.dataTransfer.files[0]);
   }, [applyFile]);
 
-  // ── generate ──────────────────────────────────────────────────────────
-
   const handleGenerate = async () => {
     if (!imageFile)        return setError('Please upload a wedding card image first.');
     if (!guestName.trim()) return setError('Please enter the guest name.');
@@ -52,15 +49,14 @@ export default function CardGenerator() {
     setLoading(true);
     setError('');
 
-    const formData = new FormData();
-    formData.append('image',      imageFile);
-    formData.append('guest_name', guestName.trim());
-    formData.append('language',   language);
+    const fd = new FormData();
+    fd.append('image',      imageFile);
+    fd.append('guest_name', guestName.trim());
+    fd.append('language',   language);
 
     try {
-      const { data } = await generateCard(formData);
+      const { data } = await generateCard(fd);
       setResult(data);
-      // Store last generated URL so VerifyPage can use it as background
       localStorage.setItem('lastCardUrl', data.image_url);
     } catch (err) {
       setError(err.response?.data?.message || 'Generation failed. Please try again.');
@@ -78,13 +74,12 @@ export default function CardGenerator() {
     setError('');
   };
 
-  // ── render ────────────────────────────────────────────────────────────
-
   return (
-    <div className="create-page">
+    <div className="create-page page-enter">
       <div className="create-header">
-        <h1>💍 Create Invitation Card</h1>
-        <p>Upload your card design — we'll embed the QR code and guest details.</p>
+        <span className="create-ornament">— Card Generator —</span>
+        <h1>Create Invitation Card</h1>
+        <p>Upload your design — we'll embed the QR code and guest details.</p>
       </div>
 
       <div className="create-layout">
@@ -102,7 +97,7 @@ export default function CardGenerator() {
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current.click()}
-            aria-label="Upload wedding card"
+            aria-label="Upload wedding card image"
           >
             <input
               ref={fileInputRef}
@@ -115,7 +110,7 @@ export default function CardGenerator() {
               <img src={imagePreview} alt="Card preview" />
             ) : (
               <>
-                <div className="upload-icon">📂</div>
+                <div className="upload-icon"><MdCloudUpload /></div>
                 <p className="upload-title">Drop wedding card here</p>
                 <p className="upload-sub">or click to browse · JPG · PNG · WebP · max 10 MB</p>
               </>
@@ -156,14 +151,23 @@ export default function CardGenerator() {
             onClick={handleGenerate}
             disabled={loading || !imageFile || !guestName.trim()}
           >
-            {loading ? '⏳ Generating…' : '✨ Generate Card'}
+            <MdAutoAwesome size={17} />
+            {loading ? 'Generating…' : 'Generate Card'}
           </button>
         </div>
 
         {/* ── Right: result ── */}
         <div className="result-panel">
-          {!result ? (
+          {loading ? (
+            <div className="generate-loading">
+              <div className="generate-spinner" />
+              <p>Creating your invitation…</p>
+            </div>
+          ) : !result ? (
             <div className="result-placeholder">
+              <div className="result-placeholder-icon">
+                <MdAddPhotoAlternate />
+              </div>
               <p>Generated card will appear here</p>
             </div>
           ) : (
@@ -171,8 +175,8 @@ export default function CardGenerator() {
               <img src={result.image_url} alt="Generated invitation" />
 
               <div className="result-meta">
-                <p className="result-code">Code: {result.code}</p>
-                <p className="result-name">Guest: {result.guest_name}</p>
+                <p className="result-code">{result.code}</p>
+                <p className="result-name">{result.guest_name}</p>
               </div>
 
               <div className="result-actions">
@@ -183,10 +187,10 @@ export default function CardGenerator() {
                   rel="noreferrer"
                   className="btn-gold"
                 >
-                  ⬇ Download Card
+                  <MdDownload size={17} /> Download
                 </a>
                 <button className="btn-outline" onClick={handleReset}>
-                  Create Another
+                  <FiRefreshCw size={15} /> New Card
                 </button>
               </div>
             </div>

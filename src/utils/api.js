@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // Use env var in production; fall back to '/api' so Vite's proxy handles it in dev
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://wedding.nardio.online/api',
   timeout: 30_000,
 });
 

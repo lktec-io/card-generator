@@ -39,9 +39,9 @@ async function generateCard(req, res) {
 
     // 2 — Insert the row immediately so the code is locked in DB
     await connection.execute(
-      `INSERT INTO invitations (code, guest_name, language, status)
-       VALUES (?, ?, ?, 'unused')`,
-      [code, guestName, language]
+      `INSERT INTO invitations (code, guest_name, status)
+       VALUES (?, ?, 'unused')`,
+      [code, guestName]
     );
 
     // 3 — Upload original card to Cloudinary
@@ -71,12 +71,10 @@ async function generateCard(req, res) {
       quality:       'auto:best',
     });
 
-    // 8 — Persist URLs in DB
+    // 8 — Persist image URL in DB
     await connection.execute(
-      `UPDATE invitations
-          SET image_url = ?, cloudinary_public_id = ?
-        WHERE code = ?`,
-      [finalUpload.secure_url, finalUpload.public_id, code]
+      `UPDATE invitations SET image_url = ? WHERE code = ?`,
+      [finalUpload.secure_url, code]
     );
 
     await connection.commit();
