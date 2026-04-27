@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MdRefresh, MdDelete } from 'react-icons/md';
+import { MdRefresh, MdDelete, MdDeleteSweep } from 'react-icons/md';
 import '../styles/admin.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://wedding.nardio.online/api';
@@ -21,10 +21,11 @@ function formatDate(raw) {
 }
 
 export default function AdminPage() {
-  const [data,     setData]     = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState('');
-  const [deleting, setDeleting] = useState(null);
+  const [data,        setData]        = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState('');
+  const [deleting,    setDeleting]    = useState(null);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -44,7 +45,9 @@ export default function AdminPage() {
   useEffect(() => { fetchDashboard(); }, []);
 
   const handleDelete = async (inv) => {
+    if (!inv.id) { alert('Invalid invitation ID.'); return; }
     if (!window.confirm(`Delete invitation for ${inv.guest_name} (${inv.code})?\n\nThis cannot be undone.`)) return;
+
     setDeleting(inv.id);
     try {
       const res  = await fetch(`${API_BASE}/invitations/${inv.id}`, { method: 'DELETE' });
@@ -63,6 +66,21 @@ export default function AdminPage() {
       alert(err.message || 'Failed to delete invitation.');
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!window.confirm('Delete ALL invitations?\n\nThis will permanently remove every record. This cannot be undone.')) return;
+    setDeletingAll(true);
+    try {
+      const res  = await fetch(`${API_BASE}/invitations`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message);
+      setData(prev => ({ ...prev, recent: [], stats: { total: 0, used: 0, unused: 0 } }));
+    } catch (err) {
+      alert(err.message || 'Failed to delete all invitations.');
+    } finally {
+      setDeletingAll(false);
     }
   };
 
@@ -102,7 +120,20 @@ export default function AdminPage() {
         )}
 
         <div className="table-wrap">
-          <h2 className="table-heading">Recent Invitations</h2>
+          <div className="table-heading-row">
+            <h2 className="table-heading">Recent Invitations</h2>
+            {data && data.recent.length > 0 && (
+              <button
+                className="btn-delete-all"
+                onClick={handleDeleteAll}
+                disabled={deletingAll}
+                title="Delete all invitations"
+              >
+                <MdDeleteSweep size={16} />
+                {deletingAll ? 'Deleting…' : 'Delete All'}
+              </button>
+            )}
+          </div>
 
           {loading && !data && (
             <div className="table-loading">

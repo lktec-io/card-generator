@@ -4,6 +4,27 @@ import { MdCloudUpload, MdDownload, MdAutoAwesome, MdAddPhotoAlternate } from 'r
 import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
+// Compress image client-side before upload — faster upload + server processing
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX_W = 1400;
+      let w = img.width;
+      let h = img.height;
+      if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
+      const canvas = document.createElement('canvas');
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(resolve, 'image/jpeg', 0.88);
+    };
+    img.src = url;
+  });
+}
+
 export default function CardGenerator() {
   const [imageFile,    setImageFile]  = useState(null);
   const [imagePreview, setPreview]    = useState(null);
@@ -40,21 +61,23 @@ export default function CardGenerator() {
   const handleGenerate = async () => {
     if (!imageFile) return setError('Please upload a wedding card image first.');
 
-    setLoading(true);
-    setError('');
-
     const name = guestName.trim();
     if (!name) {
       setError('Guest name is required.');
-      setLoading(false);
       return;
     }
 
-    const fd = new FormData();
-    fd.append('image',      imageFile);
-    fd.append('guest_name', name);
+    setLoading(true);
+    setError('');
 
     try {
+      // Compress before upload — reduces upload time significantly
+      const compressed = await compressImage(imageFile);
+
+      const fd = new FormData();
+      fd.append('image',      compressed, 'card.jpg');
+      fd.append('guest_name', name);
+
       const { data } = await generateCard(fd);
       setResult(data);
       localStorage.setItem('lastCardUrl', data.image_url);
@@ -137,7 +160,7 @@ export default function CardGenerator() {
             )}
           </div>
 
-          {/* Guest name — optional */}
+          {/* Guest name — required */}
           <div className="form-group">
             <label htmlFor="guestName">Guest Name</label>
             <input

@@ -198,6 +198,22 @@ async function getStats(req, res) {
   }
 }
 
+// ── deleteAllInvitations ──────────────────────────────────────────────────────
+
+async function deleteAllInvitations(req, res) {
+  const connection = await pool.getConnection();
+  try {
+    const [result] = await connection.execute('DELETE FROM invitations');
+    console.log(`[deleteAllInvitations] Deleted ${result.affectedRows} rows`);
+    return res.status(200).json({ success: true, message: `Deleted ${result.affectedRows} invitation(s).` });
+  } catch (err) {
+    console.error('[deleteAllInvitations]', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete all invitations.' });
+  } finally {
+    connection.release();
+  }
+}
+
 // ── deleteInvitation ──────────────────────────────────────────────────────────
 
 async function deleteInvitation(req, res) {
@@ -225,4 +241,4 @@ async function deleteInvitation(req, res) {
   }
 }
 
-module.exports = { generateCard, verifyCode, getStats, deleteInvitation };
+module.exports = { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations };

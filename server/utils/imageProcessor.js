@@ -18,7 +18,7 @@ const QR_SIZE       = 260;                     // QR pixel size
 const QR_PAD        = 20;                      // border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 300 — total box size
 const TEXT_HEIGHT   = 90;                      // two lines: name + code
-const BOTTOM_MARGIN = 70;                      // gap from card bottom edge
+const BOTTOM_MARGIN = 90;                      // gap from card bottom edge
 
 function xmlEsc(s) {
   return String(s)
@@ -100,7 +100,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code) {
   const qrY   = cardH - QR_BLOCK - TEXT_HEIGHT - BOTTOM_MARGIN;
   const textY = qrY + QR_BLOCK + 4;
 
-  console.log(`[processCardImage] Card ${cardW}×${cardH} | QR at (${qrX}, ${qrY}) | Guest: "${guestName}" | Code: ${code}`);
+  console.log(`[processCardImage] ${cardW}×${cardH} | QR (${qrX},${qrY}) | "${guestName}" | ${code}`);
 
   // STEP 5 — Composite and output high-res PNG
   return card

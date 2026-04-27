@@ -3,7 +3,7 @@ const router  = express.Router();
 const path    = require('path');
 
 const upload                                     = require('../middleware/upload');
-const { generateCard, verifyCode, getStats, deleteInvitation } = require('../controllers/invitationController');
+const { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations } = require('../controllers/invitationController');
 const { getDashboard }                           = require('../controllers/adminController');
 
 // GET  /  (becomes /api when proxied) — API status
@@ -23,7 +23,10 @@ router.get('/stats', getStats);
 // GET  /admin/dashboard  — full invitation list + stats for admin page
 router.get('/admin/dashboard', getDashboard);
 
-// DELETE /invitations/:id  — remove an invitation record
+// DELETE /invitations  — remove ALL invitation records
+router.delete('/invitations', deleteAllInvitations);
+
+// DELETE /invitations/:id  — remove a single invitation record
 router.delete('/invitations/:id', deleteInvitation);
 
 // GET  /generated/:filename  — serve locally saved generated cards
