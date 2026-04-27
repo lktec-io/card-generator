@@ -20,7 +20,7 @@ const QR_SIZE       = 170;                     // QR pixel size
 const QR_PAD        = 16;                      // off-white border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
 const TEXT_HEIGHT   = 120;                     // two-line label height
-const BOTTOM_MARGIN = 250;                     // ← adjust this to move QR up/down
+const BOTTOM_MARGIN = 265;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
   return String(s)
