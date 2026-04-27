@@ -198,4 +198,31 @@ async function getStats(req, res) {
   }
 }
 
-module.exports = { generateCard, verifyCode, getStats };
+// ── deleteInvitation ──────────────────────────────────────────────────────────
+
+async function deleteInvitation(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (!id || isNaN(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid invitation ID.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    const [result] = await connection.execute(
+      'DELETE FROM invitations WHERE id = ?',
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Invitation not found.' });
+    }
+    console.log(`[deleteInvitation] Deleted id=${id}`);
+    return res.status(200).json({ success: true, message: 'Invitation deleted.' });
+  } catch (err) {
+    console.error('[deleteInvitation]', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete invitation.' });
+  } finally {
+    connection.release();
+  }
+}
+
+module.exports = { generateCard, verifyCode, getStats, deleteInvitation };

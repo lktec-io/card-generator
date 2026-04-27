@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MdRefresh } from 'react-icons/md';
+import { MdRefresh, MdDelete } from 'react-icons/md';
 import '../styles/admin.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://wedding.nardio.online/api';
@@ -21,9 +21,10 @@ function formatDate(raw) {
 }
 
 export default function AdminPage() {
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState('');
+  const [data,     setData]     = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
+  const [deleting, setDeleting] = useState(null);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -41,6 +42,29 @@ export default function AdminPage() {
   };
 
   useEffect(() => { fetchDashboard(); }, []);
+
+  const handleDelete = async (inv) => {
+    if (!window.confirm(`Delete invitation for ${inv.guest_name} (${inv.code})?\n\nThis cannot be undone.`)) return;
+    setDeleting(inv.id);
+    try {
+      const res  = await fetch(`${API_BASE}/invitations/${inv.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message);
+      setData(prev => ({
+        ...prev,
+        recent: prev.recent.filter(i => i.id !== inv.id),
+        stats: {
+          total:  (prev.stats.total  || 0) - 1,
+          used:   (prev.stats.used   || 0) - (inv.status === 'used'   ? 1 : 0),
+          unused: (prev.stats.unused || 0) - (inv.status === 'unused' ? 1 : 0),
+        },
+      }));
+    } catch (err) {
+      alert(err.message || 'Failed to delete invitation.');
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   return (
     <div className="admin-page page-enter">
@@ -102,6 +126,7 @@ export default function AdminPage() {
                     <th>Status</th>
                     <th>Created</th>
                     <th>Scanned At</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -121,6 +146,17 @@ export default function AdminPage() {
                       <td><StatusBadge status={inv.status} /></td>
                       <td className="date-cell">{formatDate(inv.created_at)}</td>
                       <td className="date-cell">{formatDate(inv.used_at)}</td>
+                      <td>
+                        <button
+                          className="btn-delete"
+                          onClick={() => handleDelete(inv)}
+                          disabled={deleting === inv.id}
+                          aria-label={`Delete ${inv.code}`}
+                          title="Delete invitation"
+                        >
+                          <MdDelete size={16} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

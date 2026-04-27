@@ -43,8 +43,12 @@ export default function CardGenerator() {
     setLoading(true);
     setError('');
 
-    // Guest name is optional — default to "Guest"
-    const name = guestName.trim() || 'Guest';
+    const name = guestName.trim();
+    if (!name) {
+      setError('Guest name is required.');
+      setLoading(false);
+      return;
+    }
 
     const fd = new FormData();
     fd.append('image',      imageFile);
@@ -135,9 +139,7 @@ export default function CardGenerator() {
 
           {/* Guest name — optional */}
           <div className="form-group">
-            <label htmlFor="guestName">
-              Guest Name <span className="form-optional">(optional)</span>
-            </label>
+            <label htmlFor="guestName">Guest Name</label>
             <input
               id="guestName"
               type="text"
@@ -153,7 +155,7 @@ export default function CardGenerator() {
           <button
             className="btn-gold"
             onClick={handleGenerate}
-            disabled={loading || !imageFile}
+            disabled={loading || !imageFile || !guestName.trim()}
           >
             {loading
               ? <><div className="btn-spinner" /> Generating…</>

@@ -19,6 +19,8 @@ export default function Navbar() {
         {open ? <MdClose /> : <MdMenu />}
       </button>
 
+      {open && <div className="nav-overlay" onClick={close} aria-hidden="true" />}
+
       <ul className={`navbar-links${open ? ' open' : ''}`}>
         <li>
           <NavLink to="/" end onClick={close} className={({ isActive }) => isActive ? 'active' : ''}>

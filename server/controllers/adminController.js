@@ -9,7 +9,7 @@ async function getDashboard(req, res) {
     const [[{ unused }]] = await connection.execute("SELECT COUNT(*) AS unused FROM invitations WHERE status = 'unused'");
 
     const [recent] = await connection.execute(
-      `SELECT code, guest_name, status, image_url, created_at, used_at
+      `SELECT id, code, guest_name, status, image_url, created_at, used_at
          FROM invitations
         ORDER BY created_at DESC
         LIMIT 50`
