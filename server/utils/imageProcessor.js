@@ -14,11 +14,13 @@
 const sharp     = require('sharp');
 const { Resvg } = require('@resvg/resvg-js');
 
-const QR_SIZE       = 180;                     // QR pixel size (reduced for speed + look)
-const QR_PAD        = 16;                      // border around QR
-const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 212 — total box size
-const TEXT_HEIGHT   = 100;                     // two lines: name + code
-const BOTTOM_MARGIN = 110;                     // gap from card bottom edge (higher position)
+// ─── Position/size constants ───────────────────────────────────────────────
+// ↑ Increase BOTTOM_MARGIN → QR moves UP   ↓ Decrease → QR moves DOWN
+const QR_SIZE       = 160;                     // QR pixel size
+const QR_PAD        = 16;                      // off-white border around QR
+const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
+const TEXT_HEIGHT   = 110;                     // two-line label height
+const BOTTOM_MARGIN = 130;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
   return String(s)
@@ -37,18 +39,18 @@ function buildTextSVG(cardW, guestName, code) {
 <svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${TEXT_HEIGHT}">
   <style>
     .name {
-      font: 600 34px Georgia, 'Times New Roman', serif;
+      font: 600 42px Georgia, 'Times New Roman', serif;
       fill: #111111;
       letter-spacing: 2px;
     }
     .code {
-      font: bold 42px Georgia, 'Times New Roman', serif;
+      font: bold 52px Georgia, 'Times New Roman', serif;
       fill: #111111;
-      letter-spacing: 5px;
+      letter-spacing: 6px;
     }
   </style>
-  <text x="50%" y="38" text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
-  <text x="50%" y="88" text-anchor="middle" class="code">${xmlEsc(code)}</text>
+  <text x="50%" y="44" text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
+  <text x="50%" y="100" text-anchor="middle" class="code">${xmlEsc(code)}</text>
 </svg>`;
 }
 

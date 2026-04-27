@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MdRefresh, MdDelete, MdDeleteSweep } from 'react-icons/md';
+import { MdRefresh, MdDelete, MdDeleteSweep, MdWarning } from 'react-icons/md';
 import '../styles/admin.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://wedding.nardio.online/api';
@@ -20,12 +20,35 @@ function formatDate(raw) {
   });
 }
 
+/* ── Reusable confirm modal ─────────────────────────────────────────── */
+function ConfirmModal({ title, message, onConfirm, onCancel, confirmLabel = 'Delete', danger = true }) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+        <div className={`modal-icon ${danger ? 'modal-icon-danger' : ''}`}>
+          <MdWarning size={28} />
+        </div>
+        <h3 className="modal-title">{title}</h3>
+        <p className="modal-message">{message}</p>
+        <div className="modal-actions">
+          <button className="modal-btn-cancel" onClick={onCancel}>Cancel</button>
+          <button className={`modal-btn-confirm ${danger ? 'modal-btn-danger' : ''}`} onClick={onConfirm}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
-  const [data,        setData]        = useState(null);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState('');
-  const [deleting,    setDeleting]    = useState(null);
-  const [deletingAll, setDeletingAll] = useState(false);
+  const [data,           setData]           = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState('');
+  const [deleting,       setDeleting]       = useState(null);
+  const [deletingAll,    setDeletingAll]    = useState(false);
+  const [deleteModal,    setDeleteModal]    = useState(null);   // inv object | null
+  const [deleteAllModal, setDeleteAllModal] = useState(false);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -44,10 +67,12 @@ export default function AdminPage() {
 
   useEffect(() => { fetchDashboard(); }, []);
 
-  const handleDelete = async (inv) => {
-    if (!inv.id) { alert('Invalid invitation ID.'); return; }
-    if (!window.confirm(`Delete invitation for ${inv.guest_name} (${inv.code})?\n\nThis cannot be undone.`)) return;
-
+  /* ── Single delete ── */
+  const openDeleteModal    = (inv) => { if (!inv.id) return; setDeleteModal(inv); };
+  const cancelDeleteModal  = () => setDeleteModal(null);
+  const confirmDelete      = async () => {
+    const inv = deleteModal;
+    setDeleteModal(null);
     setDeleting(inv.id);
     try {
       const res  = await fetch(`${API_BASE}/invitations/${inv.id}`, { method: 'DELETE' });
@@ -63,14 +88,17 @@ export default function AdminPage() {
         },
       }));
     } catch (err) {
-      alert(err.message || 'Failed to delete invitation.');
+      setError(err.message || 'Failed to delete invitation.');
     } finally {
       setDeleting(null);
     }
   };
 
-  const handleDeleteAll = async () => {
-    if (!window.confirm('Delete ALL invitations?\n\nThis will permanently remove every record. This cannot be undone.')) return;
+  /* ── Delete all ── */
+  const openDeleteAllModal   = () => setDeleteAllModal(true);
+  const cancelDeleteAllModal = () => setDeleteAllModal(false);
+  const confirmDeleteAll     = async () => {
+    setDeleteAllModal(false);
     setDeletingAll(true);
     try {
       const res  = await fetch(`${API_BASE}/invitations`, { method: 'DELETE' });
@@ -78,7 +106,7 @@ export default function AdminPage() {
       if (!json.success) throw new Error(json.message);
       setData(prev => ({ ...prev, recent: [], stats: { total: 0, used: 0, unused: 0 } }));
     } catch (err) {
-      alert(err.message || 'Failed to delete all invitations.');
+      setError(err.message || 'Failed to delete all invitations.');
     } finally {
       setDeletingAll(false);
     }
@@ -125,7 +153,7 @@ export default function AdminPage() {
             {data && data.recent.length > 0 && (
               <button
                 className="btn-delete-all"
-                onClick={handleDeleteAll}
+                onClick={openDeleteAllModal}
                 disabled={deletingAll}
                 title="Delete all invitations"
               >
@@ -180,7 +208,7 @@ export default function AdminPage() {
                       <td>
                         <button
                           className="btn-delete"
-                          onClick={() => handleDelete(inv)}
+                          onClick={() => openDeleteModal(inv)}
                           disabled={deleting === inv.id}
                           aria-label={`Delete ${inv.code}`}
                           title="Delete invitation"
@@ -197,6 +225,28 @@ export default function AdminPage() {
         </div>
 
       </div>
+
+      {/* ── Single delete modal ── */}
+      {deleteModal && (
+        <ConfirmModal
+          title="Delete Invitation?"
+          message={`Remove ${deleteModal.guest_name} (${deleteModal.code})? This cannot be undone.`}
+          confirmLabel="Yes, Delete"
+          onConfirm={confirmDelete}
+          onCancel={cancelDeleteModal}
+        />
+      )}
+
+      {/* ── Delete all modal ── */}
+      {deleteAllModal && (
+        <ConfirmModal
+          title="Delete All Invitations?"
+          message="Every invitation record will be permanently removed. This cannot be undone."
+          confirmLabel="Delete All"
+          onConfirm={confirmDeleteAll}
+          onCancel={cancelDeleteAllModal}
+        />
+      )}
     </div>
   );
 }

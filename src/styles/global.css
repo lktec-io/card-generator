@@ -92,6 +92,7 @@
 /* ── Body ────────────────────────────────────────────────────────────── */
 
 body {
+  font-family: 'Poppins', 'Segoe UI', system-ui, sans-serif;
   font-family: var(--font-main);
   background-color: var(--bg);
   color: var(--text);
