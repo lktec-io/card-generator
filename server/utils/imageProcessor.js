@@ -4,21 +4,21 @@
  *
  * Pipeline:
  *   1. Load card; upscale to ≥1200px wide if needed
- *   2. Build QR block with #f5f5f5 background (260px QR + 20px padding → 300×300)
- *   3. Build two-line SVG label: "John Doe" / "CN-001" — 90px tall, full card width
+ *   2. Build QR block with #f5f5f5 background (180px QR + 16px padding → 212×212)
+ *   3. Build two-line SVG label: "John Doe" / "CN-001" — 100px tall, full card width
  *   4. Rasterize SVG with @resvg/resvg-js
- *   5. Composite: card + QR block + label — centred, 70px above bottom edge
+ *   5. Composite: card + QR block + label — centred, 110px above bottom edge
  *   6. Return final PNG buffer (high-res, print-ready)
  */
 
 const sharp     = require('sharp');
 const { Resvg } = require('@resvg/resvg-js');
 
-const QR_SIZE       = 260;                     // QR pixel size
-const QR_PAD        = 20;                      // border around QR
-const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 300 — total box size
-const TEXT_HEIGHT   = 90;                      // two lines: name + code
-const BOTTOM_MARGIN = 90;                      // gap from card bottom edge
+const QR_SIZE       = 180;                     // QR pixel size (reduced for speed + look)
+const QR_PAD        = 16;                      // border around QR
+const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 212 — total box size
+const TEXT_HEIGHT   = 100;                     // two lines: name + code
+const BOTTOM_MARGIN = 110;                     // gap from card bottom edge (higher position)
 
 function xmlEsc(s) {
   return String(s)
@@ -37,18 +37,18 @@ function buildTextSVG(cardW, guestName, code) {
 <svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${TEXT_HEIGHT}">
   <style>
     .name {
-      font: 600 30px Georgia, 'Times New Roman', serif;
-      fill: #1a1a1a;
+      font: 600 34px Georgia, 'Times New Roman', serif;
+      fill: #111111;
       letter-spacing: 2px;
     }
     .code {
-      font: bold 36px Georgia, 'Times New Roman', serif;
-      fill: #1a1a1a;
-      letter-spacing: 4px;
+      font: bold 42px Georgia, 'Times New Roman', serif;
+      fill: #111111;
+      letter-spacing: 5px;
     }
   </style>
-  <text x="50%" y="32" text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
-  <text x="50%" y="76" text-anchor="middle" class="code">${xmlEsc(code)}</text>
+  <text x="50%" y="38" text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
+  <text x="50%" y="88" text-anchor="middle" class="code">${xmlEsc(code)}</text>
 </svg>`;
 }
 

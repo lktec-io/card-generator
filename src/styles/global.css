@@ -56,6 +56,20 @@
   --transition: all 0.3s ease;
 }
 
+/* ── YouTube-style top progress bar ──────────────────────────────────── */
+
+.top-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-light));
+  z-index: 9999;
+  transition: width 0.3s ease, opacity 0.4s ease;
+  pointer-events: none;
+  box-shadow: 0 0 8px var(--gold-glow);
+}
+
 /* ── Animated wedding background ─────────────────────────────────────── */
 
 .bg {
@@ -102,8 +116,13 @@ button {
   font-family: var(--font-main);
   border: none;
   outline: none;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
   transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease, opacity 0.3s ease;
 }
+
+button:focus         { outline: none; box-shadow: none; }
+button:active        { transform: scale(0.97); }
 
 a {
   text-decoration: none;
@@ -161,7 +180,7 @@ a {
 }
 
 .btn-gold:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .btn-gold:disabled {
