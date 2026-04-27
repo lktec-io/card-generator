@@ -16,10 +16,10 @@ const { Resvg } = require('@resvg/resvg-js');
 
 // ─── Position/size constants ───────────────────────────────────────────────
 // ↑ Increase BOTTOM_MARGIN → QR moves UP   ↓ Decrease → QR moves DOWN
-const QR_SIZE       = 150;                     // QR pixel size
-const QR_PAD        = 18;                      // off-white border around QR
+const QR_SIZE       = 170;                     // QR pixel size
+const QR_PAD        = 16;                      // off-white border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
-const TEXT_HEIGHT   = 110;                     // two-line label height
+const TEXT_HEIGHT   = 120;                     // two-line label height
 const BOTTOM_MARGIN = 160;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
