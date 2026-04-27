@@ -16,11 +16,11 @@ const { Resvg } = require('@resvg/resvg-js');
 
 // ─── Position/size constants ───────────────────────────────────────────────
 // ↑ Increase BOTTOM_MARGIN → QR moves UP   ↓ Decrease → QR moves DOWN
-const QR_SIZE       = 160;                     // QR pixel size
-const QR_PAD        = 16;                      // off-white border around QR
+const QR_SIZE       = 150;                     // QR pixel size
+const QR_PAD        = 18;                      // off-white border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
 const TEXT_HEIGHT   = 110;                     // two-line label height
-const BOTTOM_MARGIN = 130;                     // ← adjust this to move QR up/down
+const BOTTOM_MARGIN = 160;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
   return String(s)
@@ -39,14 +39,14 @@ function buildTextSVG(cardW, guestName, code) {
 <svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${TEXT_HEIGHT}">
   <style>
     .name {
-      font: 600 42px Georgia, 'Times New Roman', serif;
+      font: 600 42px Georgia,'Poppins', serif;
       fill: #111111;
       letter-spacing: 2px;
     }
     .code {
-      font: bold 52px Georgia, 'Times New Roman', serif;
+      font: bold 52px Georgia, 'Poppins', serif;
       fill: #111111;
-      letter-spacing: 6px;
+      letter-spacing: 4px;
     }
   </style>
   <text x="50%" y="44" text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
@@ -59,7 +59,7 @@ function buildTextSVG(cardW, guestName, code) {
  *
  * @param {Buffer} cardBuffer  Raw image buffer (JPEG / PNG / WebP)
  * @param {Buffer} qrBuffer    QR PNG buffer (any size — resized internally)
- * @param {string} guestName   Guest name, e.g. "John & Jane Doe"
+ * @param {string} guestName   Guest name, e.g. "Amos & Angle "
  * @param {string} code        Invitation code, e.g. "CN-001"
  * @returns {Promise<Buffer>}  Final PNG buffer, print-ready
  */
