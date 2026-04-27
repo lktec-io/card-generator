@@ -39,12 +39,12 @@ function buildTextSVG(cardW, guestName, code) {
 <svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${TEXT_HEIGHT}">
   <style>
     .name {
-      font: 600 42px Georgia,'Poppins', serif;
+      font: 600 58px Georgia,'Poppins', serif;
       fill: #111111;
       letter-spacing: 2px;
     }
     .code {
-      font: bold 52px Georgia, 'Poppins', serif;
+      font: bold 65px Georgia, 'Poppins', serif;
       fill: #111111;
       letter-spacing: 4px;
     }
