@@ -4,10 +4,10 @@
  *
  * Pipeline:
  *   1. Load card; upscale to ≥1200px wide if needed
- *   2. Build QR block with #f5f5f5 background (180px QR + 16px padding → 212×212)
- *   3. Build two-line SVG label: "John Doe" / "CN-001" — 100px tall, full card width
+ *   2. Build QR block with #f5f5f5 background (170px QR + 16px padding → 202×202)
+ *   3. Build two-line SVG label: guest name 68px / code 58px — 180px tall, full card width
  *   4. Rasterize SVG with @resvg/resvg-js
- *   5. Composite: card + QR block + label — centred, 110px above bottom edge
+ *   5. Composite: card + QR block + label — centred, BOTTOM_MARGIN above bottom edge
  *   6. Return final PNG buffer (high-res, print-ready)
  */
 
@@ -19,7 +19,7 @@ const { Resvg } = require('@resvg/resvg-js');
 const QR_SIZE       = 170;                     // QR pixel size
 const QR_PAD        = 16;                      // off-white border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
-const TEXT_HEIGHT   = 120;                     // two-line label height
+const TEXT_HEIGHT   = 180;                     // two-line label height — increase if text is clipped
 const BOTTOM_MARGIN = 265;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
@@ -39,18 +39,21 @@ function buildTextSVG(cardW, guestName, code) {
 <svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${TEXT_HEIGHT}">
   <style>
     .name {
-      font: 600 58px Georgia,'Poppins', serif;
+      /* ↑ Increase px to make guest name bigger  ↓ Decrease to make it smaller */
+      font: 700 68px Georgia, 'Times New Roman', serif;
       fill: #111111;
       letter-spacing: 2px;
     }
     .code {
-      font: bold 65px Georgia, 'Poppins', serif;
-      fill: #111111;
-      letter-spacing: 4px;
+      /* ↑ Increase px to make CN code bigger  ↓ Decrease to make it smaller */
+      font: 600 58px Georgia, 'Times New Roman', serif;
+      fill: #333333;
+      letter-spacing: 6px;
     }
   </style>
-  <text x="50%" y="44" text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
-  <text x="50%" y="100" text-anchor="middle" class="code">${xmlEsc(code)}</text>
+  <!-- y = baseline position. Rule: y must be ≥ font-size*0.75 or top letters get clipped -->
+  <text x="50%" y="62"  text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
+  <text x="50%" y="150" text-anchor="middle" class="code">${xmlEsc(code)}</text>
 </svg>`;
 }
 
