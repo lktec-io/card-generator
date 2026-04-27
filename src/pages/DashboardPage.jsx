@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import { getStats } from '../utils/api';
-import { MdStyle, MdCheckCircle, MdPendingActions, MdAddPhotoAlternate, MdQrCodeScanner } from 'react-icons/md';
+import { MdAddPhotoAlternate, MdQrCodeScanner } from 'react-icons/md';
 import '../styles/dashboard.css';
 
 export default function DashboardPage() {
@@ -37,24 +37,9 @@ export default function DashboardPage() {
 
       {stats && (
         <div className="stats-grid">
-          <StatCard
-            label="Total Generated"
-            value={stats.total}
-            icon={MdStyle}
-            color="var(--gold)"
-          />
-          <StatCard
-            label="Checked In"
-            value={stats.used}
-            icon={MdCheckCircle}
-            color="#22c55e"
-          />
-          <StatCard
-            label="Awaiting Arrival"
-            value={stats.unused}
-            icon={MdPendingActions}
-            color="#60a5fa"
-          />
+          <StatCard label="Total"   value={stats.total}  color="var(--gold)" />
+          <StatCard label="Used"    value={stats.used}   color="#22c55e" />
+          <StatCard label="Pending" value={stats.unused} color="#60a5fa" />
         </div>
       )}
 

@@ -4,20 +4,15 @@ import { MdCloudUpload, MdDownload, MdAutoAwesome, MdAddPhotoAlternate } from 'r
 import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
-const LANG_OPTIONS = [
-  { value: 'english', label: 'English' },
-  { value: 'swahili', label: 'Kiswahili' },
-];
-
 export default function CardGenerator() {
   const [imageFile,    setImageFile]  = useState(null);
   const [imagePreview, setPreview]    = useState(null);
   const [guestName,    setGuestName]  = useState('');
-  const [language,     setLanguage]   = useState('english');
   const [loading,      setLoading]    = useState(false);
   const [result,       setResult]     = useState(null);
   const [error,        setError]      = useState('');
   const [dragOver,     setDragOver]   = useState(false);
+  const [downloading,  setDownloading] = useState(false);
   const fileInputRef = useRef(null);
 
   const applyFile = useCallback((file) => {
@@ -43,16 +38,17 @@ export default function CardGenerator() {
   }, [applyFile]);
 
   const handleGenerate = async () => {
-    if (!imageFile)        return setError('Please upload a wedding card image first.');
-    if (!guestName.trim()) return setError('Please enter the guest name.');
+    if (!imageFile) return setError('Please upload a wedding card image first.');
 
     setLoading(true);
     setError('');
 
+    // Guest name is optional — default to "Guest"
+    const name = guestName.trim() || 'Guest';
+
     const fd = new FormData();
     fd.append('image',      imageFile);
-    fd.append('guest_name', guestName.trim());
-    fd.append('language',   language);
+    fd.append('guest_name', name);
 
     try {
       const { data } = await generateCard(fd);
@@ -65,11 +61,31 @@ export default function CardGenerator() {
     }
   };
 
+  const handleDownload = async (url, code) => {
+    setDownloading(true);
+    try {
+      const res  = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error('fetch failed');
+      const blob    = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link    = document.createElement('a');
+      link.href     = blobUrl;
+      link.download = `wedding-invitation-${code}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(url, '_blank');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handleReset = () => {
     setImageFile(null);
     setPreview(null);
     setGuestName('');
-    setLanguage('english');
     setResult(null);
     setError('');
   };
@@ -117,9 +133,11 @@ export default function CardGenerator() {
             )}
           </div>
 
-          {/* Guest name */}
+          {/* Guest name — optional */}
           <div className="form-group">
-            <label htmlFor="guestName">Guest Name</label>
+            <label htmlFor="guestName">
+              Guest Name <span className="form-optional">(optional)</span>
+            </label>
             <input
               id="guestName"
               type="text"
@@ -130,29 +148,17 @@ export default function CardGenerator() {
             />
           </div>
 
-          {/* Language */}
-          <div className="form-group">
-            <label htmlFor="language">Invitation Language</label>
-            <select
-              id="language"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            >
-              {LANG_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-
           {error && <p className="form-error">{error}</p>}
 
           <button
             className="btn-gold"
             onClick={handleGenerate}
-            disabled={loading || !imageFile || !guestName.trim()}
+            disabled={loading || !imageFile}
           >
-            <MdAutoAwesome size={17} />
-            {loading ? 'Generating…' : 'Generate Card'}
+            {loading
+              ? <><div className="btn-spinner" /> Generating…</>
+              : <><MdAutoAwesome size={17} /> Generate Card</>
+            }
           </button>
         </div>
 
@@ -171,7 +177,7 @@ export default function CardGenerator() {
               <p>Generated card will appear here</p>
             </div>
           ) : (
-            <div className="result-card">
+            <div className="result-card fade">
               <img src={result.image_url} alt="Generated invitation" />
 
               <div className="result-meta">
@@ -180,15 +186,14 @@ export default function CardGenerator() {
               </div>
 
               <div className="result-actions">
-                <a
-                  href={result.image_url}
-                  download={`${result.code}.png`}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
                   className="btn-gold"
+                  onClick={() => handleDownload(result.image_url, result.code)}
+                  disabled={downloading}
                 >
-                  <MdDownload size={17} /> Download
-                </a>
+                  <MdDownload size={17} />
+                  {downloading ? 'Saving…' : 'Download'}
+                </button>
                 <button className="btn-outline" onClick={handleReset}>
                   <FiRefreshCw size={15} /> New Card
                 </button>

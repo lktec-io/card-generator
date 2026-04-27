@@ -10,6 +10,7 @@ import './App.css';
 export default function App() {
   return (
     <>
+      <div className="bg" aria-hidden="true" />
       <Navbar />
       <main>
         <Routes>
