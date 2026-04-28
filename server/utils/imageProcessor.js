@@ -19,7 +19,7 @@ const { Resvg } = require('@resvg/resvg-js');
 const QR_SIZE       = 170;                     // QR pixel size
 const QR_PAD        = 16;                      // off-white border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
-const TEXT_HEIGHT   = 170;                     // two-line label height — increase if text gets clipped at bottom
+const TEXT_HEIGHT   = 250;                     // two-line label height — increase if text gets clipped at bottom
 const BOTTOM_MARGIN = 240;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
@@ -39,27 +39,27 @@ function buildTextSVG(cardW, guestName, code) {
 <svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${TEXT_HEIGHT}">
   <style>
     .name {
-      /* ↑ Increase this value to make guest name BIGGER */
-      /* ↓ Decrease this value to make guest name SMALLER */
-      font: 700 80px Georgia, 'Times New Roman', serif;
+      /* ↑ Increase 120px → name gets BIGGER on card */
+      /* ↓ Decrease 120px → name gets smaller on card */
+      font: 700 120px Georgia, 'Times New Roman', serif;
       fill: #111111;
       letter-spacing: 2px;
     }
     .code {
-      /* ↑ Increase this value to make CN code BIGGER */
-      /* ↓ Decrease this value to make CN code SMALLER */
-      font: 600 68px Georgia, 'Times New Roman', serif;
-      fill: #333333;
-      letter-spacing: 4px;
+      /* ↑ Increase 96px → CN code gets BIGGER on card */
+      /* ↓ Decrease 96px → CN code gets smaller on card */
+      font: 600 96px Georgia, 'Times New Roman', serif;
+      fill: #222222;
+      letter-spacing: 5px;
     }
   </style>
-  <!-- y = SVG baseline. Must be ≥ font-size × 0.75 to avoid top-letter clipping     -->
-  <!-- name: 80px → y=74  (cap top ≈ y=16px, 16px from canvas top — safe)            -->
-  <!-- code: 68px → y=150 (cap top ≈ y=100px, only 10px below name descenders — tight block) -->
-  <!-- ↑ Increase y="150" to add space between name and code                          -->
-  <!-- ↓ Decrease y="150" to bring name and code closer together                      -->
-  <text x="50%" y="74"  text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
-  <text x="50%" y="150" text-anchor="middle" class="code">${xmlEsc(code)}</text>
+  <!-- y = SVG baseline. Rule: y ≥ font-size × 0.75 or cap letters get clipped at top -->
+  <!-- name: 120px → y=102 (cap top ≈ y=14px — safe)                                  -->
+  <!-- code:  96px → y=210 (12px gap below name descenders — tight readable block)     -->
+  <!-- ↑ Increase y="210" to add space between name and code                           -->
+  <!-- ↓ Decrease y="210" to bring name and code closer together                       -->
+  <text x="50%" y="102" text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
+  <text x="50%" y="210" text-anchor="middle" class="code">${xmlEsc(code)}</text>
 </svg>`;
 }
 

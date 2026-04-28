@@ -9,7 +9,7 @@ function compressImage(file) {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const MAX_W = 800;   // smaller upload = faster server processing
+      const MAX_W = 700;   // smaller upload = faster server processing
       let w = img.width;
       let h = img.height;
       if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
@@ -18,7 +18,7 @@ function compressImage(file) {
       canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url);
-      canvas.toBlob(resolve, 'image/jpeg', 0.75); // 0.75 quality — smaller, faster
+      canvas.toBlob(resolve, 'image/jpeg', 0.60); // 0.60 quality — strong compression, fast upload
     };
     img.src = url;
   });
