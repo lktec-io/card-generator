@@ -20,7 +20,7 @@ const QR_SIZE       = 170;                     // QR pixel size
 const QR_PAD        = 16;                      // off-white border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
 const TEXT_HEIGHT   = 100;                     // two-line label height — increase if text is clipped
-const BOTTOM_MARGIN = 265;                     // ← adjust this to move QR up/down
+const BOTTOM_MARGIN = 268;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
   return String(s)
@@ -40,13 +40,13 @@ function buildTextSVG(cardW, guestName, code) {
   <style>
     .name {
       /* ↑ Increase px to make guest name bigger  ↓ Decrease to make it smaller */
-      font: 700 75px Georgia, 'poppins', serif;
+      font: 700 68px Georgia, 'poppins', serif;
       fill: #111111;
       letter-spacing: 2px;
     }
     .code {
       /* ↑ Increase px to make CN code bigger  ↓ Decrease to make it smaller */
-      font: 600 65px Georgia, 'Poppins', serif;
+      font: 600 58px Georgia, 'Poppins', serif;
       fill: #333333;
       letter-spacing: 6px;
     }
