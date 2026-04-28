@@ -19,8 +19,8 @@ const { Resvg } = require('@resvg/resvg-js');
 const QR_SIZE       = 170;                     // QR pixel size
 const QR_PAD        = 16;                      // off-white border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
-const TEXT_HEIGHT   = 150;                     // two-line label height — increase if text gets clipped at bottom
-const BOTTOM_MARGIN = 265;                     // ← adjust this to move QR up/down
+const TEXT_HEIGHT   = 200;                     // two-line label height — increase if text gets clipped at bottom
+const BOTTOM_MARGIN = 260;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
   return String(s)
