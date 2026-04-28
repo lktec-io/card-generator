@@ -19,7 +19,7 @@ const { Resvg } = require('@resvg/resvg-js');
 const QR_SIZE       = 170;                     // QR pixel size
 const QR_PAD        = 16;                      // off-white border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
-const TEXT_HEIGHT   = 150;                     // two-line label height — increase if text gets clipped at bottom
+const TEXT_HEIGHT   = 170;                     // two-line label height — increase if text gets clipped at bottom
 const BOTTOM_MARGIN = 260;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
@@ -53,11 +53,13 @@ function buildTextSVG(cardW, guestName, code) {
       letter-spacing: 4px;
     }
   </style>
-  <!-- y = SVG baseline. Must be ≥ font-size × 0.75 to avoid top-letter clipping -->
-  <!-- name: 80px font → baseline y=74 (cap top at y≈16px, safe) -->
-  <!-- code: 68px font → baseline y=168 (28px gap below name, bottom at y=182 within 200px canvas) -->
+  <!-- y = SVG baseline. Must be ≥ font-size × 0.75 to avoid top-letter clipping     -->
+  <!-- name: 80px → y=74  (cap top ≈ y=16px, 16px from canvas top — safe)            -->
+  <!-- code: 68px → y=150 (cap top ≈ y=100px, only 10px below name descenders — tight block) -->
+  <!-- ↑ Increase y="150" to add space between name and code                          -->
+  <!-- ↓ Decrease y="150" to bring name and code closer together                      -->
   <text x="50%" y="74"  text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
-  <text x="50%" y="168" text-anchor="middle" class="code">${xmlEsc(code)}</text>
+  <text x="50%" y="150" text-anchor="middle" class="code">${xmlEsc(code)}</text>
 </svg>`;
 }
 
