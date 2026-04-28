@@ -140,7 +140,7 @@ export default function CardGenerator() {
         <div className="create-header">
           <span className="create-ornament">— Card Generator —</span>
           <h1>Create Invitation Card</h1>
-          <p>Upload your design — we'll embed the QR code and guest details.</p>
+          <p>Upload your design — To embed the QR code and guest details.</p>
         </div>
 
         <div className="create-layout">
@@ -182,7 +182,7 @@ export default function CardGenerator() {
               <input
                 id="guestName"
                 type="text"
-                placeholder="e.g. John & Jane Doe"
+                placeholder="e.g. William & Janeth"
                 value={guestName}
                 onChange={(e) => setGuestName(e.target.value)}
                 maxLength={100}
