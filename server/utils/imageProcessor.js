@@ -19,7 +19,7 @@ const { Resvg } = require('@resvg/resvg-js');
 const QR_SIZE       = 170;                     // QR pixel size
 const QR_PAD        = 16;                      // off-white border around QR
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 192 — total padded box
-const TEXT_HEIGHT   = 100;                     // two-line label height — increase if text is clipped
+const TEXT_HEIGHT   = 200;                     // two-line label height — increase if text gets clipped at bottom
 const BOTTOM_MARGIN = 268;                     // ← adjust this to move QR up/down
 
 function xmlEsc(s) {
@@ -39,21 +39,25 @@ function buildTextSVG(cardW, guestName, code) {
 <svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${TEXT_HEIGHT}">
   <style>
     .name {
-      /* ↑ Increase px to make guest name bigger  ↓ Decrease to make it smaller */
-      font: 700 68px Georgia, 'poppins', serif;
+      /* ↑ Increase this value to make guest name BIGGER */
+      /* ↓ Decrease this value to make guest name SMALLER */
+      font: 700 80px Georgia, 'Times New Roman', serif;
       fill: #111111;
       letter-spacing: 2px;
     }
     .code {
-      /* ↑ Increase px to make CN code bigger  ↓ Decrease to make it smaller */
-      font: 600 58px Georgia, 'Poppins', serif;
+      /* ↑ Increase this value to make CN code BIGGER */
+      /* ↓ Decrease this value to make CN code SMALLER */
+      font: 600 68px Georgia, 'Times New Roman', serif;
       fill: #333333;
       letter-spacing: 6px;
     }
   </style>
-  <!-- y = baseline position. Rule: y must be ≥ font-size*0.75 or top letters get clipped -->
-  <text x="50%" y="62"  text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
-  <text x="50%" y="150" text-anchor="middle" class="code">${xmlEsc(code)}</text>
+  <!-- y = SVG baseline. Must be ≥ font-size × 0.75 to avoid top-letter clipping -->
+  <!-- name: 80px font → baseline y=74 (cap top at y≈16px, safe) -->
+  <!-- code: 68px font → baseline y=168 (28px gap below name, bottom at y=182 within 200px canvas) -->
+  <text x="50%" y="74"  text-anchor="middle" class="name">${xmlEsc(guestName)}</text>
+  <text x="50%" y="168" text-anchor="middle" class="code">${xmlEsc(code)}</text>
 </svg>`;
 }
 

@@ -9,7 +9,7 @@ function compressImage(file) {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const MAX_W = 1400;
+      const MAX_W = 800;   // smaller upload = faster server processing
       let w = img.width;
       let h = img.height;
       if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W; }
@@ -18,7 +18,7 @@ function compressImage(file) {
       canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(url);
-      canvas.toBlob(resolve, 'image/jpeg', 0.88);
+      canvas.toBlob(resolve, 'image/jpeg', 0.75); // 0.75 quality — smaller, faster
     };
     img.src = url;
   });
@@ -68,9 +68,11 @@ export default function CardGenerator() {
     const name = guestName.trim();
     if (!name) return setError('Guest name is required.');
 
+    // Set loading state FIRST, then yield so React repaints before heavy work
     setLoading(true);
     setError('');
     setProgress(10);
+    await new Promise((r) => setTimeout(r, 0)); // yield to event loop → UI updates instantly
 
     try {
       setProgress(30);
