@@ -340,7 +340,7 @@
 ========================= */
 .guest-name {
   left: 135px;
-  top: 1050px;            /* top of the white field area */
+  top: 1000px;            /* top of the white field area */
   font-size: 38px;
   font-weight: 600;
   color: #111;
