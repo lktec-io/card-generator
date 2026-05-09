@@ -1,14 +1,17 @@
-import { useState, useRef } from 'react';
-import Draggable  from 'react-draggable';
-import QRCode     from 'qrcode';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import Draggable   from 'react-draggable';
+import QRCode      from 'qrcode';
 import html2canvas from 'html2canvas';
 import { reserveCard } from '../utils/api';
 import { MdAutoAwesome, MdDownload, MdAddPhotoAlternate } from 'react-icons/md';
 import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
+const CANVAS_W = 560; // fixed canvas width (px)
+
 export default function CardGenerator() {
-  const cardRef = useRef(null);
+  const cardRef         = useRef(null);
+  const previewOuterRef = useRef(null);
 
   // nodeRefs required by react-draggable (avoids deprecated findDOMNode)
   const qrNodeRef   = useRef(null);
@@ -24,10 +27,36 @@ export default function CardGenerator() {
   const [progress,      setProgress]      = useState(0);
   const [error,         setError]         = useState('');
 
-  // Drag positions (offset from CSS base position)
+  // Scale state — computed from available width vs fixed canvas width
+  const [canvasScale, setCanvasScale] = useState(1);
+  const [cardHeight,  setCardHeight]  = useState(0);
+
+  // Drag positions (pixel offset from CSS base position)
   const [qrPos,   setQrPos]   = useState({ x: 0, y: 0 });
   const [namePos, setNamePos] = useState({ x: 0, y: 0 });
   const [codePos, setCodePos] = useState({ x: 0, y: 0 });
+
+  // ── Responsive scale ──────────────────────────────────────────────────
+  // transform: scale() keeps internal pixel positions stable on all screens.
+  // The preview-outer height is set to the visual (scaled) height so no dead
+  // space is left in the layout.
+
+  const updateScale = useCallback(() => {
+    if (!previewOuterRef.current) return;
+    const available = previewOuterRef.current.offsetWidth;
+    const scale = available < CANVAS_W ? available / CANVAS_W : 1;
+    setCanvasScale(scale);
+    if (cardRef.current) setCardHeight(cardRef.current.offsetHeight);
+  }, []);
+
+  useEffect(() => {
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [updateScale]);
+
+  // Re-compute once the background image has loaded (card height is final)
+  const handleBgLoad = () => updateScale();
 
   // ── Image upload ──────────────────────────────────────────────────────
 
@@ -74,7 +103,11 @@ export default function CardGenerator() {
       setProgress(65);
       const qrDataUrl = await QRCode.toDataURL(
         JSON.stringify({ code: data.code, name: data.guest_name }),
-        { errorCorrectionLevel: 'L', margin: 1, width: 160 }
+        {
+          errorCorrectionLevel: 'H', // high reliability for scanning
+          margin: 4,                  // quiet zone around QR
+          width: 200,
+        }
       );
 
       setProgress(90);
@@ -92,16 +125,19 @@ export default function CardGenerator() {
   };
 
   // ── Download ──────────────────────────────────────────────────────────
+  // html2canvas captures the UNSCALED canvas (scale CSS transform does not
+  // affect the DOM pixels it reads), so the export is always full-resolution.
 
   const handleDownload = async () => {
     if (!cardRef.current || !invitation) return;
     setDownloading(true);
     try {
       const canvas = await html2canvas(cardRef.current, {
-        scale:      2,
-        useCORS:    true,
-        allowTaint: false,
-        logging:    false,
+        scale:           3,     // ~1680px wide export from 560px canvas
+        useCORS:         true,
+        allowTaint:      false,
+        logging:         false,
+        backgroundColor: null,
       });
       const link    = document.createElement('a');
       link.download = `${invitation.invitation_code}.png`;
@@ -133,6 +169,11 @@ export default function CardGenerator() {
   };
 
   // ── Render ────────────────────────────────────────────────────────────
+
+  // Visual height of the scaled canvas — prevents dead space below preview
+  const outerHeight = canvasScale < 1 && cardHeight > 0
+    ? cardHeight * canvasScale
+    : undefined;
 
   return (
     <>
@@ -228,46 +269,67 @@ export default function CardGenerator() {
             ) : (
               <div className="result-card fade">
 
-                {/* Fixed-width canvas — scrolls on mobile, never reflows */}
-                <div className="preview-outer">
-                <div className="card-template" ref={cardRef}>
-                  <img
-                    src={uploadedImage}
-                    className="template-bg"
-                    alt="Invitation card"
-                    crossOrigin="anonymous"
-                  />
-
-                  <Draggable
-                    nodeRef={nameNodeRef}
-                    position={namePos}
-                    onStop={(_, d) => setNamePos({ x: d.x, y: d.y })}
+                {/*
+                  preview-outer: measures available width for scale computation.
+                  Height is explicitly set to the visual (scaled) card height so
+                  the layout below doesn't have unexpected empty space.
+                */}
+                <div
+                  className="preview-outer"
+                  ref={previewOuterRef}
+                  style={{ height: outerHeight }}
+                >
+                  <div
+                    className="card-template"
+                    ref={cardRef}
+                    style={{
+                      transform:       `scale(${canvasScale})`,
+                      transformOrigin: 'top center',
+                    }}
                   >
-                    <div className="guest-name" ref={nameNodeRef}>
-                      {invitation.guest_name}
-                    </div>
-                  </Draggable>
+                    <img
+                      src={uploadedImage}
+                      className="template-bg"
+                      alt="Invitation card"
+                      crossOrigin="anonymous"
+                      onLoad={handleBgLoad}
+                    />
 
-                  <Draggable
-                    nodeRef={codeNodeRef}
-                    position={codePos}
-                    onStop={(_, d) => setCodePos({ x: d.x, y: d.y })}
-                  >
-                    <div className="invitation-code" ref={codeNodeRef}>
-                      {invitation.invitation_code}
-                    </div>
-                  </Draggable>
+                    {/* scale prop tells Draggable the CSS scale so drag speed matches visuals */}
+                    <Draggable
+                      nodeRef={nameNodeRef}
+                      position={namePos}
+                      scale={canvasScale}
+                      onStop={(_, d) => setNamePos({ x: d.x, y: d.y })}
+                    >
+                      <div className="guest-name" ref={nameNodeRef}>
+                        {invitation.guest_name}
+                      </div>
+                    </Draggable>
 
-                  <Draggable
-                    nodeRef={qrNodeRef}
-                    position={qrPos}
-                    onStop={(_, d) => setQrPos({ x: d.x, y: d.y })}
-                  >
-                    <div className="qr-wrapper" ref={qrNodeRef}>
-                      <img src={invitation.qr_data_url} alt="QR Code" />
-                    </div>
-                  </Draggable>
-                </div>
+                    <Draggable
+                      nodeRef={codeNodeRef}
+                      position={codePos}
+                      scale={canvasScale}
+                      onStop={(_, d) => setCodePos({ x: d.x, y: d.y })}
+                    >
+                      <div className="invitation-code" ref={codeNodeRef}>
+                        {invitation.invitation_code}
+                      </div>
+                    </Draggable>
+
+                    <Draggable
+                      nodeRef={qrNodeRef}
+                      position={qrPos}
+                      scale={canvasScale}
+                      onStop={(_, d) => setQrPos({ x: d.x, y: d.y })}
+                    >
+                      <div className="qr-wrapper" ref={qrNodeRef}>
+                        <img src={invitation.qr_data_url} alt="QR Code" />
+                      </div>
+                    </Draggable>
+
+                  </div>
                 </div>{/* /preview-outer */}
 
                 <div className="result-actions">
