@@ -353,6 +353,42 @@
 @media (max-width: 768px) {
   .create-layout  { grid-template-columns: 1fr; }
   .result-actions { flex-direction: column; }
+
+  /* =========================
+     QR CODE MOBILE POSITION
+     Increase bottom = move UP
+     Decrease bottom = move DOWN
+  ========================= */
+  .qr-wrapper {
+    right: 58px;
+    bottom: 170px; /* lower than desktop */
+    width: 92px;
+    height: 92px;
+  }
+
+  /* =========================
+     GUEST NAME MOBILE
+     Increase bottom = move UP
+     Decrease bottom = move DOWN
+  ========================= */
+  .guest-name {
+    left: 58px;
+    bottom: 205px; /* lower than desktop */
+    width: 200px;
+    font-size: 17px;
+  }
+
+  /* =========================
+     INVITATION CODE MOBILE
+     Increase bottom = move UP
+     Decrease bottom = move DOWN
+  ========================= */
+  .invitation-code {
+    left: 58px;
+    bottom: 135px; /* lower than desktop */
+    width: 200px;
+    font-size: 17px;
+  }
 }
 
 @media (max-width: 480px) {
