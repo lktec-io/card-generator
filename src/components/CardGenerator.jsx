@@ -228,7 +228,8 @@ export default function CardGenerator() {
             ) : (
               <div className="result-card fade">
 
-                {/* Card composite — captured by html2canvas */}
+                {/* Fixed-width canvas — scrolls on mobile, never reflows */}
+                <div className="preview-outer">
                 <div className="card-template" ref={cardRef}>
                   <img
                     src={uploadedImage}
@@ -267,6 +268,7 @@ export default function CardGenerator() {
                     </div>
                   </Draggable>
                 </div>
+                </div>{/* /preview-outer */}
 
                 <div className="result-actions">
                   <button
