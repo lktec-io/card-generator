@@ -257,33 +257,39 @@
 /* ── Card template (dynamic overlays on uploaded card image) ─────────── */
 
 /*
- * THREE-LAYER SCALING ARCHITECTURE
+ * TWO-LAYER SCALING ARCHITECTURE
  * ─────────────────────────────────────────────────────────────────────────
- * .card-canvas-wrapper  — measures available width; JS sets explicit height
- *                         so no dead space below the scaled canvas.
- * .card-scale-container — receives CSS transform: scale() via inline style.
- *                         This is the ONLY element with a transform.
- * .card-template        — fixed 1080px canvas; NO transform here.
- *                         html2canvas reads this element and always captures
- *                         at full 1080px resolution — no pre-capture hacks.
- *
- * Overlay positions are absolute px inside the 1080px canvas.
- * They never change between screen sizes. Only the visual zoom changes.
+ * .card-frame   — aspect-ratio container that clips the canvas visually.
+ *                 JS adjusts aspect-ratio to match the uploaded image on load.
+ * .card-canvas  — fixed 1080px canvas; transform set directly on DOM node
+ *                 (canvasRef.current.style.transform) by updateScale() and
+ *                 cleared to scale(1) before html2canvas, restored after.
+ *                 Overlay pixel positions never change across screen sizes.
  * ─────────────────────────────────────────────────────────────────────────
  */
 
-.card-canvas-wrapper {
+.card-frame {
   width: 100%;
-  overflow: hidden;   /* clips the unscaled layout box when scale < 1 */
+  max-width: 1080px;
+  aspect-ratio: 1080 / 1350;   /* overridden by JS once image loads */
+  margin: 0 auto;
+  overflow: hidden;
+  position: relative;
 }
 
-.card-template {
-  position: relative;
-  width: 1080px;      /* design reference width — never changes */
+.card-canvas {
+  width: 1080px;
+  height: 1350px;               /* overridden by JS once image loads */
+  transform-origin: top left;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .template-bg {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
   display: block;
   border-radius: 24px;
 }
