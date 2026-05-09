@@ -257,27 +257,29 @@
 /* ── Card template (dynamic overlays on uploaded card image) ─────────── */
 
 /*
- * FIXED-CANVAS APPROACH
+ * THREE-LAYER SCALING ARCHITECTURE
  * ─────────────────────────────────────────────────────────────────────────
- * .preview-outer scrolls horizontally when viewport < 560px.
- * .card-template is ALWAYS 560px wide — never fluid.
- * Because the width never changes, all pixel positions below are stable
- * on every screen size. No responsive overrides needed.
- * html2canvas at scale:2 exports ~1120px wide (≈ 1080p standard).
+ * .card-canvas-wrapper  — measures available width; JS sets explicit height
+ *                         so no dead space below the scaled canvas.
+ * .card-scale-container — receives CSS transform: scale() via inline style.
+ *                         This is the ONLY element with a transform.
+ * .card-template        — fixed 1080px canvas; NO transform here.
+ *                         html2canvas reads this element and always captures
+ *                         at full 1080px resolution — no pre-capture hacks.
+ *
+ * Overlay positions are absolute px inside the 1080px canvas.
+ * They never change between screen sizes. Only the visual zoom changes.
  * ─────────────────────────────────────────────────────────────────────────
  */
 
-.preview-outer {
+.card-canvas-wrapper {
   width: 100%;
-  overflow-x: auto;
-  display: flex;
-  justify-content: center;
+  overflow: hidden;   /* clips the unscaled layout box when scale < 1 */
 }
 
 .card-template {
   position: relative;
-  width: 560px;      /* FIXED — never shrinks, never grows */
-  flex-shrink: 0;
+  width: 1080px;      /* design reference width — never changes */
 }
 
 .template-bg {
@@ -286,7 +288,7 @@
   border-radius: 24px;
 }
 
-/* Draggable overlays — grab cursor signals they can be moved */
+/* Draggable overlays */
 .qr-wrapper,
 .guest-name,
 .invitation-code {
@@ -301,36 +303,41 @@
 }
 
 /* =========================
-   QR CODE POSITION
+   QR CODE — inside 1080px canvas
    Increase bottom = move UP   | Decrease = move DOWN
    Increase right  = move LEFT | Decrease = move RIGHT
+   White box ensures scannability over any card texture/pattern.
 ========================= */
 .qr-wrapper {
-  right: 72px;
-  bottom: 188px;
-  width: 120px;
-  height: 120px;
+  right: 139px;
+  bottom: 363px;
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  border-radius: 12px;
 }
 
 .qr-wrapper img {
-  width: 120px;
-  height: 120px;
+  width: 200px;
+  height: 200px;
   object-fit: contain;
+  display: block;
 }
 
 /* =========================
-   GUEST NAME POSITION
+   GUEST NAME — inside 1080px canvas
+   The value appears on the line AFTER the "GUEST NAME:" label
+   that is baked into the template image. If there is overlap,
+   drag the element down or decrease the bottom value.
    Increase bottom = move UP | Decrease = move DOWN
 ========================= */
 .guest-name {
-  left: 70px;
-  bottom: 230px;
-  font-size: 20px;
+  left: 135px;
+  bottom: 430px;
+  font-size: 38px;
   font-weight: 600;
   color: #111;
   font-family: 'Poppins', sans-serif;
@@ -338,13 +345,13 @@
 }
 
 /* =========================
-   INVITATION CODE POSITION
+   INVITATION CODE — inside 1080px canvas
    Increase bottom = move UP | Decrease = move DOWN
 ========================= */
 .invitation-code {
-  left: 70px;
-  bottom: 150px;
-  font-size: 20px;
+  left: 135px;
+  bottom: 265px;
+  font-size: 38px;
   font-weight: 600;
   color: #111;
   font-family: 'Poppins', sans-serif;

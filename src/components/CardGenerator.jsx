@@ -1,16 +1,22 @@
-import { useState, useRef } from 'react';
-import Draggable  from 'react-draggable';
-import QRCode     from 'qrcode';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import Draggable   from 'react-draggable';
+import QRCode      from 'qrcode';
 import html2canvas from 'html2canvas';
 import { reserveCard } from '../utils/api';
 import { MdAutoAwesome, MdDownload, MdAddPhotoAlternate } from 'react-icons/md';
 import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
-export default function CardGenerator() {
-  const cardRef = useRef(null);
+const DESIGN_W = 1080; // internal canvas width (px) — never changes
 
-  // nodeRefs required by react-draggable (avoids deprecated findDOMNode)
+export default function CardGenerator() {
+  // cardRef   → the unscaled 1080px canvas — what html2canvas captures
+  // scaleRef  → the wrapper that receives CSS transform: scale()
+  // wrapperRef → the outer div that measures available width + sets explicit height
+  const cardRef    = useRef(null);
+  const scaleRef   = useRef(null);
+  const wrapperRef = useRef(null);
+
   const qrNodeRef   = useRef(null);
   const nameNodeRef = useRef(null);
   const codeNodeRef = useRef(null);
@@ -24,10 +30,35 @@ export default function CardGenerator() {
   const [progress,      setProgress]      = useState(0);
   const [error,         setError]         = useState('');
 
-  // Drag positions (offset from CSS base position)
+  const [canvasScale, setCanvasScale] = useState(1);
+
   const [qrPos,   setQrPos]   = useState({ x: 0, y: 0 });
   const [namePos, setNamePos] = useState({ x: 0, y: 0 });
   const [codePos, setCodePos] = useState({ x: 0, y: 0 });
+
+  // ── Responsive scale ──────────────────────────────────────────────────
+  // The CSS transform is applied to scaleRef (parent of cardRef).
+  // cardRef itself has NO transform — html2canvas always captures at full
+  // DESIGN_W resolution without any special reset needed.
+
+  const updateScale = useCallback(() => {
+    if (!wrapperRef.current || !cardRef.current) return;
+    const avail = wrapperRef.current.offsetWidth;
+    const scale = avail < DESIGN_W ? avail / DESIGN_W : 1;
+    setCanvasScale(scale);
+    // Set wrapper height to the visual (scaled) height so no dead space below
+    wrapperRef.current.style.height = scale < 1
+      ? `${cardRef.current.offsetHeight * scale}px`
+      : '';
+  }, []);
+
+  useEffect(() => {
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [updateScale]);
+
+  const handleBgLoad = () => updateScale();
 
   // ── Image upload ──────────────────────────────────────────────────────
 
@@ -65,7 +96,7 @@ export default function CardGenerator() {
     setError('');
     setProgress(10);
     resetPositions();
-    await new Promise((r) => setTimeout(r, 0)); // yield → UI repaints
+    await new Promise((r) => setTimeout(r, 0));
 
     try {
       setProgress(30);
@@ -74,7 +105,11 @@ export default function CardGenerator() {
       setProgress(65);
       const qrDataUrl = await QRCode.toDataURL(
         JSON.stringify({ code: data.code, name: data.guest_name }),
-        { errorCorrectionLevel: 'L', margin: 1, width: 160 }
+        {
+          errorCorrectionLevel: 'L', // low density = easier to scan
+          margin:               4,   // quiet zone
+          width:                400, // generate large, display at CSS size
+        }
       );
 
       setProgress(90);
@@ -92,16 +127,19 @@ export default function CardGenerator() {
   };
 
   // ── Download ──────────────────────────────────────────────────────────
+  // cardRef has no CSS transform on it — html2canvas always reads the full
+  // 1080px canvas, producing a clean high-resolution PNG.
 
   const handleDownload = async () => {
     if (!cardRef.current || !invitation) return;
     setDownloading(true);
     try {
       const canvas = await html2canvas(cardRef.current, {
-        scale:      2,
-        useCORS:    true,
-        allowTaint: false,
-        logging:    false,
+        scale:           2,    // 2× → ~2160px wide output
+        useCORS:         true,
+        allowTaint:      false,
+        logging:         false,
+        backgroundColor: null,
       });
       const link    = document.createElement('a');
       link.download = `${invitation.invitation_code}.png`;
@@ -208,7 +246,7 @@ export default function CardGenerator() {
               <div className="inv-summary">
                 <p className="inv-code">{invitation.invitation_code}</p>
                 <p className="inv-name">{invitation.guest_name}</p>
-                <p className="inv-drag-hint">Drag QR, name, or code to reposition</p>
+                <p className="inv-drag-hint">Drag QR, name, or code to fine-tune position</p>
               </div>
             )}
           </div>
@@ -228,47 +266,68 @@ export default function CardGenerator() {
             ) : (
               <div className="result-card fade">
 
-                {/* Fixed-width canvas — scrolls on mobile, never reflows */}
-                <div className="preview-outer">
-                <div className="card-template" ref={cardRef}>
-                  <img
-                    src={uploadedImage}
-                    className="template-bg"
-                    alt="Invitation card"
-                    crossOrigin="anonymous"
-                  />
-
-                  <Draggable
-                    nodeRef={nameNodeRef}
-                    position={namePos}
-                    onStop={(_, d) => setNamePos({ x: d.x, y: d.y })}
+                {/*
+                  wrapperRef — measures available width, holds explicit visual height.
+                  scaleRef   — receives CSS transform: scale() (visual only).
+                  cardRef    — 1080px unscaled canvas; html2canvas target.
+                  Because cardRef has no transform, html2canvas always exports
+                  at full 1080px resolution with no pre-capture hacks needed.
+                */}
+                <div className="card-canvas-wrapper" ref={wrapperRef}>
+                  <div
+                    className="card-scale-container"
+                    ref={scaleRef}
+                    style={{
+                      transform:       `scale(${canvasScale})`,
+                      transformOrigin: 'top left',
+                    }}
                   >
-                    <div className="guest-name" ref={nameNodeRef}>
-                      {invitation.guest_name}
-                    </div>
-                  </Draggable>
+                    <div className="card-template" ref={cardRef}>
+                      <img
+                        src={uploadedImage}
+                        className="template-bg"
+                        alt="Invitation card"
+                        crossOrigin="anonymous"
+                        onLoad={handleBgLoad}
+                      />
 
-                  <Draggable
-                    nodeRef={codeNodeRef}
-                    position={codePos}
-                    onStop={(_, d) => setCodePos({ x: d.x, y: d.y })}
-                  >
-                    <div className="invitation-code" ref={codeNodeRef}>
-                      {invitation.invitation_code}
-                    </div>
-                  </Draggable>
+                      {/* scale prop corrects drag speed to match visual canvas size */}
+                      <Draggable
+                        nodeRef={nameNodeRef}
+                        position={namePos}
+                        scale={canvasScale}
+                        onStop={(_, d) => setNamePos({ x: d.x, y: d.y })}
+                      >
+                        <div className="guest-name" ref={nameNodeRef}>
+                          {invitation.guest_name}
+                        </div>
+                      </Draggable>
 
-                  <Draggable
-                    nodeRef={qrNodeRef}
-                    position={qrPos}
-                    onStop={(_, d) => setQrPos({ x: d.x, y: d.y })}
-                  >
-                    <div className="qr-wrapper" ref={qrNodeRef}>
-                      <img src={invitation.qr_data_url} alt="QR Code" />
+                      <Draggable
+                        nodeRef={codeNodeRef}
+                        position={codePos}
+                        scale={canvasScale}
+                        onStop={(_, d) => setCodePos({ x: d.x, y: d.y })}
+                      >
+                        <div className="invitation-code" ref={codeNodeRef}>
+                          {invitation.invitation_code}
+                        </div>
+                      </Draggable>
+
+                      <Draggable
+                        nodeRef={qrNodeRef}
+                        position={qrPos}
+                        scale={canvasScale}
+                        onStop={(_, d) => setQrPos({ x: d.x, y: d.y })}
+                      >
+                        <div className="qr-wrapper" ref={qrNodeRef}>
+                          <img src={invitation.qr_data_url} alt="QR Code" />
+                        </div>
+                      </Draggable>
+
                     </div>
-                  </Draggable>
+                  </div>
                 </div>
-                </div>{/* /preview-outer */}
 
                 <div className="result-actions">
                   <button
