@@ -318,8 +318,8 @@
   right: 139px;
   bottom: 363px;
   background: #ffffff;
-  padding: 16px;
-  border-radius: 16px;
+  padding: 4px;          /* minimal quiet-zone border */
+  border-radius: 4px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
   display: flex;
   align-items: center;
@@ -327,22 +327,20 @@
 }
 
 .qr-wrapper img {
-  width: 200px;
-  height: 200px;
+  width: 260px;          /* ~30% larger than previous 200px */
+  height: 260px;
   object-fit: contain;
   display: block;
 }
 
 /* =========================
    GUEST NAME — inside 1080px canvas
-   The value appears on the line AFTER the "GUEST NAME:" label
-   that is baked into the template image. If there is overlap,
-   drag the element down or decrease the bottom value.
-   Increase bottom = move UP | Decrease = move DOWN
+   Positioned at TOP of the white field area on the template.
+   Decrease top = move UP | Increase top = move DOWN
 ========================= */
 .guest-name {
   left: 135px;
-  bottom: 430px;
+  top: 480px;            /* top of the white field area */
   font-size: 38px;
   font-weight: 600;
   color: #111;
@@ -352,11 +350,12 @@
 
 /* =========================
    INVITATION CODE — inside 1080px canvas
-   Increase bottom = move UP | Decrease = move DOWN
+   ~100px below guest name so it sits on the next line.
+   Decrease top = move UP | Increase top = move DOWN
 ========================= */
 .invitation-code {
   left: 135px;
-  bottom: 265px;
+  top: 580px;            /* ~100px below guest name */
   font-size: 38px;
   font-weight: 600;
   color: #111;

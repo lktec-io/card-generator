@@ -108,7 +108,7 @@ export default function CardGenerator() {
       // QRScanner already handles both plain text and JSON payloads.
       const qrDataUrl = await QRCode.toDataURL(data.code, {
         errorCorrectionLevel: 'L', // lowest density
-        margin:               4,   // quiet zone
+        margin:               1,   // minimal quiet zone — CSS padding handles the rest
         width:                400, // generate large, display at CSS size
       });
 
