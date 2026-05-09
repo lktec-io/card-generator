@@ -254,16 +254,80 @@
   animation: spin 0.8s linear infinite;
 }
 
-/* ── QR wrapper (reference style for overlay on card images) ─────────── */
+/* ── Card template (fixed design with dynamic overlays) ─────────────── */
 
+.card-template {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.template-bg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+/* Increase right/bottom to move QR up/right; decrease to move down/left */
 .qr-wrapper {
-  background: rgba(255, 255, 255, 0.7);
-  padding: 12px;
-  border-radius: 14px;
-  backdrop-filter: blur(6px);
-  display: inline-flex;
+  position: absolute;
+  right: 95px;
+  bottom: 265px;
+  width: 160px;
+  height: 160px;
+  display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.qr-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Adjust bottom to move guest name up/down on the template */
+.guest-name {
+  position: absolute;
+  left: 90px;
+  bottom: 340px;
+  font-size: 30px;
+  font-weight: 700;
+  color: #111;
+  font-family: 'Poppins', sans-serif;
+  line-height: 1.2;
+}
+
+/* Adjust bottom to move invitation code up/down on the template */
+.invitation-code {
+  position: absolute;
+  left: 90px;
+  bottom: 250px;
+  font-size: 26px;
+  font-weight: 600;
+  color: #222;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ── Invitation summary (below result panel) ─────────────────────────── */
+
+.inv-summary {
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+.inv-code {
+  font-family: var(--font-elegant);
+  font-size: 1.1rem;
+  color: var(--gold);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.inv-name {
+  color: var(--text-muted);
+  font-size: 0.86rem;
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────── */

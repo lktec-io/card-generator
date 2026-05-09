@@ -16,6 +16,15 @@ export function generateCard(formData) {
 }
 
 /**
+ * Reserve an invitation code (no image upload).
+ * Frontend renders the card with html2canvas and downloads directly.
+ * @param {string} guestName
+ */
+export function reserveCard(guestName) {
+  return api.post('/reserve', { guest_name: guestName });
+}
+
+/**
  * Verify a scanned invitation QR code.
  * @param {string} code  e.g. "CN-001"
  */

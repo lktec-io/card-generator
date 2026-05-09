@@ -3,7 +3,7 @@ const router  = express.Router();
 const path    = require('path');
 
 const upload                                     = require('../middleware/upload');
-const { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations } = require('../controllers/invitationController');
+const { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode } = require('../controllers/invitationController');
 const { getDashboard }                           = require('../controllers/adminController');
 
 // GET  /  (becomes /api when proxied) — API status
@@ -11,7 +11,10 @@ router.get('/', (_req, res) => {
   res.json({ status: 'ok', service: 'Wedding QR API' });
 });
 
-// POST /generate  — upload card image + generate QR overlay
+// POST /reserve   — reserve a CN code (no image); frontend renders card with html2canvas
+router.post('/reserve', reserveCode);
+
+// POST /generate  — upload card image + generate QR overlay (legacy / server-side flow)
 router.post('/generate', upload.single('image'), generateCard);
 
 // POST /verify    — verify a scanned QR code

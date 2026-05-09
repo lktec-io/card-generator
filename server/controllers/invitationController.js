@@ -198,6 +198,40 @@ async function getStats(req, res) {
   }
 }
 
+// ── reserveCode ───────────────────────────────────────────────────────────────
+// Lightweight endpoint: no image upload — just reserves a CN code and returns it.
+// Frontend renders the card with html2canvas and downloads directly.
+
+async function reserveCode(req, res) {
+  const guestName = (req.body.guest_name || '').trim();
+
+  if (!guestName) {
+    return res.status(400).json({ success: false, message: 'Guest name is required.' });
+  }
+  if (guestName.length > 100) {
+    return res.status(400).json({ success: false, message: 'Guest name must be 100 characters or fewer.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const code = await getNextCode(connection);
+    await connection.execute(
+      `INSERT INTO invitations (code, guest_name, status) VALUES (?, ?, 'unused')`,
+      [code, guestName]
+    );
+    await connection.commit();
+    console.log(`[reserveCode] Reserved: ${code} for "${guestName}"`);
+    return res.status(201).json({ success: true, code, guest_name: guestName });
+  } catch (err) {
+    await connection.rollback();
+    console.error('[reserveCode]', err);
+    return res.status(500).json({ success: false, message: 'Failed to reserve invitation code.' });
+  } finally {
+    connection.release();
+  }
+}
+
 // ── deleteAllInvitations ──────────────────────────────────────────────────────
 
 async function deleteAllInvitations(req, res) {
@@ -241,4 +275,4 @@ async function deleteInvitation(req, res) {
   }
 }
 
-module.exports = { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations };
+module.exports = { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode };
