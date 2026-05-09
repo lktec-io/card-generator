@@ -327,8 +327,8 @@
 }
 
 .qr-wrapper img {
-  width: 230px;          /* ~30% larger than previous 200px */
-  height: 230px;
+  width: 225px;          /* ~30% larger than previous 200px */
+  height: 220px;
   object-fit: contain;
   display: block;
 }
@@ -340,7 +340,7 @@
 ========================= */
 .guest-name {
   left: 135px;
-  top: 420px;            /* top of the white field area */
+  top: 380px;            /* top of the white field area */
   font-size: 38px;
   font-weight: 600;
   color: #111;
@@ -355,7 +355,7 @@
 ========================= */
 .invitation-code {
   left: 135px;
-  top: 580px;            /* ~100px below guest name */
+  top: 4800px;            /* ~100px below guest name */
   font-size: 38px;
   font-weight: 600;
   color: #111;
