@@ -270,6 +270,19 @@
   border-radius: 24px;
 }
 
+/* Draggable overlays — grab cursor signals they can be moved */
+.qr-wrapper,
+.guest-name,
+.invitation-code {
+  cursor: grab;
+  user-select: none;
+}
+.qr-wrapper:active,
+.guest-name:active,
+.invitation-code:active {
+  cursor: grabbing;
+}
+
 /* =========================
    QR CODE POSITION
    Increase bottom = move UP
@@ -348,6 +361,13 @@
   font-size: 0.86rem;
 }
 
+.inv-drag-hint {
+  color: var(--text-faint);
+  font-size: 0.74rem;
+  margin-top: 0.3rem;
+  opacity: 0.7;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
@@ -369,7 +389,7 @@
   .qr-wrapper {
     position: absolute;
     right: 11%;
-    bottom: 24%;
+    bottom: 27%; /* increased = moved UP */
     width: 18%;
     height: 18%;
     display: flex;
@@ -391,7 +411,7 @@
   .guest-name {
     position: absolute;
     left: 11%;
-    bottom: 31%;
+    bottom: 34%; /* increased = moved UP */
     width: 40%;
     font-size: 3.2vw;
     font-weight: 600;
@@ -406,7 +426,7 @@
   .invitation-code {
     position: absolute;
     left: 11%;
-    bottom: 22%;
+    bottom: 25%; /* increased = moved UP */
     width: 40%;
     font-size: 3vw;
     font-weight: 600;

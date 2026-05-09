@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import Draggable  from 'react-draggable';
 import QRCode     from 'qrcode';
 import html2canvas from 'html2canvas';
 import { reserveCard } from '../utils/api';
@@ -9,14 +10,24 @@ import '../styles/create.css';
 export default function CardGenerator() {
   const cardRef = useRef(null);
 
-  const [uploadedImage, setUploadedImage] = useState(null);   // data URL of uploaded card
+  // nodeRefs required by react-draggable (avoids deprecated findDOMNode)
+  const qrNodeRef   = useRef(null);
+  const nameNodeRef = useRef(null);
+  const codeNodeRef = useRef(null);
+
+  const [uploadedImage, setUploadedImage] = useState(null);
   const [dragOver,      setDragOver]      = useState(false);
   const [guestName,     setGuestName]     = useState('');
-  const [invitation,    setInvitation]    = useState(null);   // { guest_name, invitation_code, qr_data_url }
+  const [invitation,    setInvitation]    = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [downloading,   setDownloading]   = useState(false);
   const [progress,      setProgress]      = useState(0);
   const [error,         setError]         = useState('');
+
+  // Drag positions (offset from CSS base position)
+  const [qrPos,   setQrPos]   = useState({ x: 0, y: 0 });
+  const [namePos, setNamePos] = useState({ x: 0, y: 0 });
+  const [codePos, setCodePos] = useState({ x: 0, y: 0 });
 
   // ── Image upload ──────────────────────────────────────────────────────
 
@@ -27,6 +38,7 @@ export default function CardGenerator() {
     reader.readAsDataURL(file);
     setInvitation(null);
     setError('');
+    resetPositions();
   };
 
   const handleFileChange = (e) => loadFile(e.target.files[0]);
@@ -52,6 +64,7 @@ export default function CardGenerator() {
     setLoading(true);
     setError('');
     setProgress(10);
+    resetPositions();
     await new Promise((r) => setTimeout(r, 0)); // yield → UI repaints
 
     try {
@@ -104,12 +117,19 @@ export default function CardGenerator() {
 
   // ── Reset ─────────────────────────────────────────────────────────────
 
+  const resetPositions = () => {
+    setQrPos({ x: 0, y: 0 });
+    setNamePos({ x: 0, y: 0 });
+    setCodePos({ x: 0, y: 0 });
+  };
+
   const handleReset = () => {
     setUploadedImage(null);
     setGuestName('');
     setInvitation(null);
     setError('');
     setProgress(0);
+    resetPositions();
   };
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -135,7 +155,6 @@ export default function CardGenerator() {
           {/* ── Left: form ── */}
           <div className="form-panel">
 
-            {/* Upload box */}
             <label
               className={`upload-box${dragOver ? ' drag-over' : ''}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -159,7 +178,6 @@ export default function CardGenerator() {
               )}
             </label>
 
-            {/* Guest name */}
             <div className="form-group">
               <label htmlFor="guestName">Guest Name</label>
               <input
@@ -190,11 +208,12 @@ export default function CardGenerator() {
               <div className="inv-summary">
                 <p className="inv-code">{invitation.invitation_code}</p>
                 <p className="inv-name">{invitation.guest_name}</p>
+                <p className="inv-drag-hint">Drag QR, name, or code to reposition</p>
               </div>
             )}
           </div>
 
-          {/* ── Right: card preview + download ── */}
+          {/* ── Right: card preview ── */}
           <div className="result-panel">
             {loading ? (
               <div className="generate-loading">
@@ -209,7 +228,7 @@ export default function CardGenerator() {
             ) : (
               <div className="result-card fade">
 
-                {/* Card template with dynamic overlays */}
+                {/* Card composite — captured by html2canvas */}
                 <div className="card-template" ref={cardRef}>
                   <img
                     src={uploadedImage}
@@ -218,20 +237,37 @@ export default function CardGenerator() {
                     crossOrigin="anonymous"
                   />
 
-                  <div className="guest-name">
-                    {invitation.guest_name}
-                  </div>
+                  <Draggable
+                    nodeRef={nameNodeRef}
+                    position={namePos}
+                    onStop={(_, d) => setNamePos({ x: d.x, y: d.y })}
+                  >
+                    <div className="guest-name" ref={nameNodeRef}>
+                      {invitation.guest_name}
+                    </div>
+                  </Draggable>
 
-                  <div className="invitation-code">
-                    {invitation.invitation_code}
-                  </div>
+                  <Draggable
+                    nodeRef={codeNodeRef}
+                    position={codePos}
+                    onStop={(_, d) => setCodePos({ x: d.x, y: d.y })}
+                  >
+                    <div className="invitation-code" ref={codeNodeRef}>
+                      {invitation.invitation_code}
+                    </div>
+                  </Draggable>
 
-                  <div className="qr-wrapper">
-                    <img src={invitation.qr_data_url} alt="QR Code" />
-                  </div>
+                  <Draggable
+                    nodeRef={qrNodeRef}
+                    position={qrPos}
+                    onStop={(_, d) => setQrPos({ x: d.x, y: d.y })}
+                  >
+                    <div className="qr-wrapper" ref={qrNodeRef}>
+                      <img src={invitation.qr_data_url} alt="QR Code" />
+                    </div>
+                  </Draggable>
                 </div>
 
-                {/* Actions */}
                 <div className="result-actions">
                   <button
                     className="btn-gold"
