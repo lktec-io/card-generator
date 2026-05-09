@@ -354,40 +354,63 @@
   .create-layout  { grid-template-columns: 1fr; }
   .result-actions { flex-direction: column; }
 
+  .card-template {
+    position: relative;
+    width: 100%;
+  }
+
   /* =========================
-     QR CODE MOBILE POSITION
-     Increase bottom = move UP
-     Decrease bottom = move DOWN
+     QR CODE MOBILE
+     Increase bottom % = move UP
+     Decrease bottom % = move DOWN
+     Increase right %  = move LEFT
+     Decrease right %  = move RIGHT
   ========================= */
   .qr-wrapper {
-    right: 58px;
-    bottom: 170px; /* lower than desktop */
-    width: 92px;
-    height: 92px;
+    position: absolute;
+    right: 11%;
+    bottom: 24%;
+    width: 18%;
+    height: 18%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .qr-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 
   /* =========================
      GUEST NAME MOBILE
-     Increase bottom = move UP
-     Decrease bottom = move DOWN
+     Increase bottom % = move UP
+     Decrease bottom % = move DOWN
   ========================= */
   .guest-name {
-    left: 58px;
-    bottom: 205px; /* lower than desktop */
-    width: 200px;
-    font-size: 17px;
+    position: absolute;
+    left: 11%;
+    bottom: 31%;
+    width: 40%;
+    font-size: 3.2vw;
+    font-weight: 600;
+    line-height: 1.1;
   }
 
   /* =========================
      INVITATION CODE MOBILE
-     Increase bottom = move UP
-     Decrease bottom = move DOWN
+     Increase bottom % = move UP
+     Decrease bottom % = move DOWN
   ========================= */
   .invitation-code {
-    left: 58px;
-    bottom: 135px; /* lower than desktop */
-    width: 200px;
-    font-size: 17px;
+    position: absolute;
+    left: 11%;
+    bottom: 22%;
+    width: 40%;
+    font-size: 3vw;
+    font-weight: 600;
+    line-height: 1.1;
   }
 }
 
