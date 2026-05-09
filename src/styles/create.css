@@ -340,7 +340,7 @@
 ========================= */
 .guest-name {
   left: 135px;
-  top: 1100px;            /* top of the white field area */
+  top: 1050px;            /* top of the white field area */
   font-size: 38px;
   font-weight: 600;
   color: #111;
@@ -355,7 +355,7 @@
 ========================= */
 .invitation-code {
   left: 135px;
-  top: 1200px;            /* ~100px below guest name */
+  top: 1150px;            /* ~100px below guest name */
   font-size: 38px;
   font-weight: 600;
   color: #111;
