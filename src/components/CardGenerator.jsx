@@ -2,19 +2,42 @@ import { useState, useRef } from 'react';
 import QRCode     from 'qrcode';
 import html2canvas from 'html2canvas';
 import { reserveCard } from '../utils/api';
-import { MdAutoAwesome, MdDownload } from 'react-icons/md';
+import { MdAutoAwesome, MdDownload, MdAddPhotoAlternate } from 'react-icons/md';
 import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
 export default function CardGenerator() {
-  const cardRef  = useRef(null);
+  const cardRef = useRef(null);
 
-  const [guestName,   setGuestName]   = useState('');
-  const [invitation,  setInvitation]  = useState(null); // { guest_name, invitation_code, qr_data_url }
-  const [loading,     setLoading]     = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [progress,    setProgress]    = useState(0);
-  const [error,       setError]       = useState('');
+  const [uploadedImage, setUploadedImage] = useState(null);   // data URL of uploaded card
+  const [dragOver,      setDragOver]      = useState(false);
+  const [guestName,     setGuestName]     = useState('');
+  const [invitation,    setInvitation]    = useState(null);   // { guest_name, invitation_code, qr_data_url }
+  const [loading,       setLoading]       = useState(false);
+  const [downloading,   setDownloading]   = useState(false);
+  const [progress,      setProgress]      = useState(0);
+  const [error,         setError]         = useState('');
+
+  // ── Image upload ──────────────────────────────────────────────────────
+
+  const loadFile = (file) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => setUploadedImage(e.target.result);
+    reader.readAsDataURL(file);
+    setInvitation(null);
+    setError('');
+  };
+
+  const handleFileChange = (e) => loadFile(e.target.files[0]);
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    loadFile(e.dataTransfer.files[0]);
+  };
+
+  // ── Generate ──────────────────────────────────────────────────────────
 
   const finishProgress = () => {
     setProgress(100);
@@ -22,20 +45,19 @@ export default function CardGenerator() {
   };
 
   const handleGenerate = async () => {
+    if (!uploadedImage) return setError('Please upload a card image first.');
     const name = guestName.trim();
     if (!name) return setError('Guest name is required.');
 
     setLoading(true);
     setError('');
     setProgress(10);
-    await new Promise((r) => setTimeout(r, 0)); // yield → UI repaints instantly
+    await new Promise((r) => setTimeout(r, 0)); // yield → UI repaints
 
     try {
-      // 1 — Reserve a unique CN code from backend
       setProgress(30);
       const { data } = await reserveCard(name);
 
-      // 2 — Generate QR client-side (once, stored in state, reused for download)
       setProgress(65);
       const qrDataUrl = await QRCode.toDataURL(
         JSON.stringify({ code: data.code, name: data.guest_name }),
@@ -56,19 +78,21 @@ export default function CardGenerator() {
     }
   };
 
+  // ── Download ──────────────────────────────────────────────────────────
+
   const handleDownload = async () => {
     if (!cardRef.current || !invitation) return;
     setDownloading(true);
     try {
       const canvas = await html2canvas(cardRef.current, {
-        scale:      2,          // 2× resolution for print quality
+        scale:      2,
         useCORS:    true,
         allowTaint: false,
         logging:    false,
       });
-      const link      = document.createElement('a');
-      link.download   = `${invitation.invitation_code}.png`;
-      link.href       = canvas.toDataURL('image/png');
+      const link    = document.createElement('a');
+      link.download = `${invitation.invitation_code}.png`;
+      link.href     = canvas.toDataURL('image/png');
       link.click();
     } catch (err) {
       console.error('[html2canvas]', err);
@@ -78,16 +102,20 @@ export default function CardGenerator() {
     }
   };
 
+  // ── Reset ─────────────────────────────────────────────────────────────
+
   const handleReset = () => {
+    setUploadedImage(null);
     setGuestName('');
     setInvitation(null);
     setError('');
     setProgress(0);
   };
 
+  // ── Render ────────────────────────────────────────────────────────────
+
   return (
     <>
-      {/* YouTube-style top progress bar */}
       {progress > 0 && (
         <div
           className="top-loader"
@@ -99,19 +127,45 @@ export default function CardGenerator() {
         <div className="create-header">
           <span className="create-ornament">— Card Generator —</span>
           <h1>Create Invitation Card</h1>
-          <p>Enter the guest name — QR code and invitation number are generated automatically.</p>
+          <p>Upload your card design, enter the guest name — QR code and invitation number are added automatically.</p>
         </div>
 
         <div className="create-layout">
 
           {/* ── Left: form ── */}
           <div className="form-panel">
+
+            {/* Upload box */}
+            <label
+              className={`upload-box${dragOver ? ' drag-over' : ''}`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+              {uploadedImage ? (
+                <img src={uploadedImage} alt="Uploaded card" />
+              ) : (
+                <>
+                  <MdAddPhotoAlternate className="upload-icon" />
+                  <span className="upload-title">Upload Card Design</span>
+                  <span className="upload-sub">Click or drag &amp; drop — JPG, PNG, WebP</span>
+                </>
+              )}
+            </label>
+
+            {/* Guest name */}
             <div className="form-group">
               <label htmlFor="guestName">Guest Name</label>
               <input
                 id="guestName"
                 type="text"
-                placeholder="e.g. John & Jane Doe"
+                placeholder="e.g. John &amp; Jane Doe"
                 value={guestName}
                 onChange={(e) => setGuestName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !loading && guestName.trim() && handleGenerate()}
@@ -124,7 +178,7 @@ export default function CardGenerator() {
             <button
               className="btn-gold"
               onClick={handleGenerate}
-              disabled={loading || !guestName.trim()}
+              disabled={loading || !guestName.trim() || !uploadedImage}
             >
               {loading
                 ? <><div className="btn-spinner" /> Generating…</>
@@ -155,33 +209,29 @@ export default function CardGenerator() {
             ) : (
               <div className="result-card fade">
 
-                {/* ── Card template with overlaid dynamic elements ── */}
+                {/* Card template with dynamic overlays */}
                 <div className="card-template" ref={cardRef}>
-                  {/* Background template image — place your final design at /card-template.jpg */}
                   <img
-                    src="/card-template.jpg"
+                    src={uploadedImage}
                     className="template-bg"
-                    alt="Invitation card template"
+                    alt="Invitation card"
                     crossOrigin="anonymous"
                   />
 
-                  {/* Guest name — position matches placeholder on your template */}
                   <div className="guest-name">
                     {invitation.guest_name}
                   </div>
 
-                  {/* Invitation code — position matches placeholder on your template */}
                   <div className="invitation-code">
                     {invitation.invitation_code}
                   </div>
 
-                  {/* QR code — fits inside the QR box on your template */}
                   <div className="qr-wrapper">
                     <img src={invitation.qr_data_url} alt="QR Code" />
                   </div>
                 </div>
 
-                {/* ── Actions ── */}
+                {/* Actions */}
                 <div className="result-actions">
                   <button
                     className="btn-gold"
