@@ -25,10 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/generated', express.static(path.join(__dirname, 'generated')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-// Mounted at / because Nginx strips the /api prefix before forwarding.
-// The frontend sends to https://wedding.nardio.online/api/*, Nginx strips /api,
-// Express receives /* — so routes live at root level.
-app.use('/', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/', inviteRoutes);
 
 // Root health check (also handles stray GET / if Nginx config changes)

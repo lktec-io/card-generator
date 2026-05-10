@@ -6,10 +6,10 @@ const ADMIN_EMAIL    = 'admin@wedding.com';
 const ADMIN_PASSWORD = '123456';
 const JWT_SECRET     = 'wedding_secret_key';
 
-// POST /auth/login
-router.post('/auth/login', async (req, res) => {
+// POST /login  (mounted at /api/auth → full path: /api/auth/login)
+router.post('/login', async (req, res) => {
   try {
-    console.log('[auth] login attempt:', req.body);
+    console.log('[LOGIN BODY]', req.body);
 
     const { email = '', password = '' } = req.body;
 
