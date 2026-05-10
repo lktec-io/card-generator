@@ -37,7 +37,7 @@ export default function LoginPage() {
         <div className="login-brand">
           <GiDiamondRing className="login-ring-icon" />
           <h1>Dating to Marriage talk</h1>
-          <p>Wedding Invitation System</p>
+          <p>Event Invitation System</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>

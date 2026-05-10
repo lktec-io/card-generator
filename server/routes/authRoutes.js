@@ -2,24 +2,28 @@ const express = require('express');
 const jwt     = require('jsonwebtoken');
 const router  = express.Router();
 
-const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || 'admin@wedding.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@2024';
-const JWT_SECRET     = process.env.JWT_SECRET     || 'wqr-jwt-secret-key';
-const JWT_EXPIRES    = '12h';
+const ADMIN_EMAIL    = 'admin@wedding.com';
+const ADMIN_PASSWORD = '123456';
+const JWT_SECRET     = 'wedding_secret_key';
 
 // POST /auth/login
-router.post('/auth/login', (req, res) => {
-  const { email = '', password = '' } = req.body;
+router.post('/auth/login', async (req, res) => {
+  try {
+    console.log('[auth] login attempt:', req.body);
 
-  if (
-    email.trim().toLowerCase() !== ADMIN_EMAIL.toLowerCase() ||
-    password !== ADMIN_PASSWORD
-  ) {
-    return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    const { email = '', password = '' } = req.body;
+
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '7d' });
+      return res.json({ success: true, token });
+    }
+
+    return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+
+  } catch (error) {
+    console.error('[auth] error:', error);
+    return res.status(500).json({ success: false, message: 'Server error.' });
   }
-
-  const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  return res.json({ success: true, token });
 });
 
 module.exports = router;

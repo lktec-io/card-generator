@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'wqr-jwt-secret-key';
+
+const JWT_SECRET = 'wedding_secret_key';
 
 module.exports = function verifyToken(req, res, next) {
   const header = req.headers.authorization || '';
