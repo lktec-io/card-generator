@@ -25,7 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/generated', express.static(path.join(__dirname, 'generated')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 app.use('/', inviteRoutes);
 
 // Root health check (also handles stray GET / if Nginx config changes)
