@@ -2,9 +2,10 @@ const express = require('express');
 const router  = express.Router();
 const path    = require('path');
 
-const upload                                     = require('../middleware/upload');
+const upload       = require('../middleware/upload');
+const verifyToken  = require('../middleware/authMiddleware');
 const { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode, verifyManual } = require('../controllers/invitationController');
-const { getDashboard }                           = require('../controllers/adminController');
+const { getDashboard } = require('../controllers/adminController');
 
 // GET  /  (becomes /api when proxied) — API status
 router.get('/', (_req, res) => {
@@ -26,14 +27,14 @@ router.post('/verify/manual', verifyManual);
 // GET  /stats     — dashboard statistics
 router.get('/stats', getStats);
 
-// GET  /admin/dashboard  — full invitation list + stats for admin page
-router.get('/admin/dashboard', getDashboard);
+// GET  /admin/dashboard  — full invitation list + stats (auth required)
+router.get('/admin/dashboard', verifyToken, getDashboard);
 
-// DELETE /invitations  — remove ALL invitation records
-router.delete('/invitations', deleteAllInvitations);
+// DELETE /invitations  — remove ALL invitation records (auth required)
+router.delete('/invitations', verifyToken, deleteAllInvitations);
 
-// DELETE /invitations/:id  — remove a single invitation record
-router.delete('/invitations/:id', deleteInvitation);
+// DELETE /invitations/:id  — remove a single invitation record (auth required)
+router.delete('/invitations/:id', verifyToken, deleteInvitation);
 
 // GET  /generated/:filename  — serve locally saved generated cards
 router.get('/generated/:filename', (req, res) => {

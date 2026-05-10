@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { MdRefresh, MdDelete, MdDeleteSweep, MdWarning } from 'react-icons/md';
+import { MdRefresh, MdDelete, MdDeleteSweep, MdWarning, MdDownload, MdShare } from 'react-icons/md';
+import { API_BASE, getAuthHeaders } from '../utils/api';
 import '../styles/admin.css';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'https://wedding.nardio.online/api';
 
 function StatusBadge({ status }) {
   return (
@@ -47,14 +46,14 @@ export default function AdminPage() {
   const [error,          setError]          = useState('');
   const [deleting,       setDeleting]       = useState(null);
   const [deletingAll,    setDeletingAll]    = useState(false);
-  const [deleteModal,    setDeleteModal]    = useState(null);   // inv object | null
+  const [deleteModal,    setDeleteModal]    = useState(null);
   const [deleteAllModal, setDeleteAllModal] = useState(false);
 
   const fetchDashboard = async () => {
     setLoading(true);
     setError('');
     try {
-      const res  = await fetch(`${API_BASE}/admin/dashboard`);
+      const res  = await fetch(`${API_BASE}/admin/dashboard`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       setData(json);
@@ -67,15 +66,42 @@ export default function AdminPage() {
 
   useEffect(() => { fetchDashboard(); }, []);
 
+  /* ── Download ── */
+  const handleDownload = (inv) => {
+    if (!inv.image_url) return;
+    const a = document.createElement('a');
+    a.href = inv.image_url;
+    a.download = `${inv.code} - ${inv.guest_name}.jpg`;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  /* ── WhatsApp share ── */
+  const handleShare = (inv) => {
+    const lines = [
+      '🎊 *Wedding Invitation*',
+      `👤 Guest: ${inv.guest_name}`,
+      `🔖 Code: ${inv.code}`,
+    ];
+    if (inv.image_url) lines.push(`🖼️ Card: ${inv.image_url}`);
+    const url = `https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`;
+    window.open(url, '_blank');
+  };
+
   /* ── Single delete ── */
-  const openDeleteModal    = (inv) => { if (!inv.id) return; setDeleteModal(inv); };
-  const cancelDeleteModal  = () => setDeleteModal(null);
-  const confirmDelete      = async () => {
+  const openDeleteModal   = (inv) => { if (!inv.id) return; setDeleteModal(inv); };
+  const cancelDeleteModal = () => setDeleteModal(null);
+  const confirmDelete     = async () => {
     const inv = deleteModal;
     setDeleteModal(null);
     setDeleting(inv.id);
     try {
-      const res  = await fetch(`${API_BASE}/invitations/${inv.id}`, { method: 'DELETE' });
+      const res  = await fetch(`${API_BASE}/invitations/${inv.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       setData(prev => ({
@@ -101,7 +127,10 @@ export default function AdminPage() {
     setDeleteAllModal(false);
     setDeletingAll(true);
     try {
-      const res  = await fetch(`${API_BASE}/invitations`, { method: 'DELETE' });
+      const res  = await fetch(`${API_BASE}/invitations`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
       setData(prev => ({ ...prev, recent: [], stats: { total: 0, used: 0, unused: 0 } }));
@@ -206,15 +235,34 @@ export default function AdminPage() {
                       <td className="date-cell">{formatDate(inv.created_at)}</td>
                       <td className="date-cell">{formatDate(inv.used_at)}</td>
                       <td>
-                        <button
-                          className="btn-delete"
-                          onClick={() => openDeleteModal(inv)}
-                          disabled={deleting === inv.id}
-                          aria-label={`Delete ${inv.code}`}
-                          title="Delete invitation"
-                        >
-                          <MdDelete size={16} />
-                        </button>
+                        <div className="row-actions">
+                          <button
+                            className="btn-action btn-download"
+                            onClick={() => handleDownload(inv)}
+                            disabled={!inv.image_url}
+                            aria-label={`Download ${inv.code}`}
+                            title="Download card"
+                          >
+                            <MdDownload size={15} />
+                          </button>
+                          <button
+                            className="btn-action btn-share"
+                            onClick={() => handleShare(inv)}
+                            aria-label={`Share ${inv.code}`}
+                            title="Share via WhatsApp"
+                          >
+                            <MdShare size={15} />
+                          </button>
+                          <button
+                            className="btn-action btn-delete"
+                            onClick={() => openDeleteModal(inv)}
+                            disabled={deleting === inv.id}
+                            aria-label={`Delete ${inv.code}`}
+                            title="Delete invitation"
+                          >
+                            <MdDelete size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -226,7 +274,6 @@ export default function AdminPage() {
 
       </div>
 
-      {/* ── Single delete modal ── */}
       {deleteModal && (
         <ConfirmModal
           title="Delete Invitation?"
@@ -237,7 +284,6 @@ export default function AdminPage() {
         />
       )}
 
-      {/* ── Delete all modal ── */}
       {deleteAllModal && (
         <ConfirmModal
           title="Delete All Invitations?"

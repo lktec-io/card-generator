@@ -44,7 +44,8 @@
   list-style: none;
 }
 
-.navbar-links a {
+.navbar-links a,
+.nav-logout {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -57,7 +58,16 @@
   transition: var(--transition);
 }
 
-.navbar-links a:hover {
+.nav-logout {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+}
+
+.navbar-links a:hover,
+.nav-logout:hover {
   color: var(--gold-light);
   background: rgba(212, 175, 55, 0.08);
 }
@@ -67,6 +77,8 @@
   background: rgba(212, 175, 55, 0.12);
   font-weight: 600;
 }
+
+.nav-logout:hover { color: #fca5a5; background: rgba(239, 68, 68, 0.09); }
 
 /* ── Hamburger (mobile) ──────────────────────────────────────────────── */
 
@@ -117,7 +129,8 @@
 
   .navbar-links.open { top: 80px; }
 
-  .navbar-links a { padding: 0.75rem 1.25rem; border-radius: var(--radius-sm); }
+  .navbar-links a,
+  .nav-logout { padding: 0.75rem 1.25rem; border-radius: var(--radius-sm); }
 
   .nav-overlay {
     display: block;

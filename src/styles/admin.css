@@ -387,32 +387,66 @@
 .modal-btn-cancel:active,
 .modal-btn-confirm:active { transform: scale(0.96); }
 
-/* ── Delete button ───────────────────────────────────────────────────── */
+/* ── Row action buttons ──────────────────────────────────────────────── */
 
-.btn-delete {
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: rgba(239, 68, 68, 0.10);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.22);
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
+  border: 1px solid transparent;
   cursor: pointer;
   transition: var(--transition);
   flex-shrink: 0;
+}
+
+.btn-action:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.btn-download {
+  background: rgba(59, 130, 246, 0.10);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
+.btn-download:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(59, 130, 246, 0.50);
+  transform: scale(1.08);
+}
+
+.btn-share {
+  background: rgba(34, 197, 94, 0.10);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.22);
+}
+
+.btn-share:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.22);
+  border-color: rgba(34, 197, 94, 0.50);
+  transform: scale(1.08);
+}
+
+.btn-delete {
+  background: rgba(239, 68, 68, 0.10);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.22);
 }
 
 .btn-delete:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.22);
   border-color: rgba(239, 68, 68, 0.50);
   transform: scale(1.08);
-}
-
-.btn-delete:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */

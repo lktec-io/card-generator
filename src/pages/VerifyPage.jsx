@@ -51,11 +51,11 @@ export default function VerifyPage() {
   // ── Manual handlers ───────────────────────────────────────────────────
 
   const handleManualVerify = async () => {
-    const code = manualCode.trim().toUpperCase();
-    if (!code) return;
+    if (!manualCode.trim()) return;
+    const fullCode = `CN-${manualCode.padStart(3, '0')}`;
     setManualLoading(true);
     try {
-      const { data } = await verifyManual(code);
+      const { data } = await verifyManual(fullCode);
       if (data.success) {
         playSuccess();
         setManualPopup({ type: 'success', name: data.name, message: data.message });
@@ -79,9 +79,7 @@ export default function VerifyPage() {
   const handleManualClose = useCallback(() => setManualPopup(null), []);
 
   const handleManualKey = (e) => {
-    if (e.key === 'Enter' && !manualLoading && manualCode.trim()) {
-      handleManualVerify();
-    }
+    if (e.key === 'Enter' && !manualLoading && manualCode.trim()) handleManualVerify();
   };
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -119,19 +117,23 @@ export default function VerifyPage() {
           <p>Type the invitation code printed on the card</p>
 
           <div className="manual-input-group">
-            <input
-              ref={inputRef}
-              type="text"
-              className="manual-input"
-              placeholder="Enter code — e.g. CN-001"
-              value={manualCode}
-              onChange={(e) => setManualCode(e.target.value.toUpperCase())}
-              onKeyDown={handleManualKey}
-              maxLength={10}
-              autoComplete="off"
-              spellCheck={false}
-              disabled={manualLoading}
-            />
+            <div className="cn-input-wrap">
+              <span className="cn-prefix">CN-</span>
+              <input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="manual-input cn-number-input"
+                placeholder="001"
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={handleManualKey}
+                autoComplete="off"
+                spellCheck={false}
+                disabled={manualLoading}
+              />
+            </div>
             <button
               className="btn-gold manual-btn"
               onClick={handleManualVerify}

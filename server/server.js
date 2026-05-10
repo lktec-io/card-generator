@@ -3,6 +3,7 @@ const express      = require('express');
 const cors         = require('cors');
 const path         = require('path');
 const inviteRoutes = require('./routes/invitationRoutes');
+const authRoutes   = require('./routes/authRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Trigger connection test on startup
@@ -27,6 +28,7 @@ app.use('/generated', express.static(path.join(__dirname, 'generated')));
 // Mounted at / because Nginx strips the /api prefix before forwarding.
 // The frontend sends to https://wedding.nardio.online/api/*, Nginx strips /api,
 // Express receives /* — so routes live at root level.
+app.use('/', authRoutes);
 app.use('/', inviteRoutes);
 
 // Root health check (also handles stray GET / if Nginx config changes)

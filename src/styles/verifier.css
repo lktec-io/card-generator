@@ -172,43 +172,71 @@ html, body {
   gap: 0.75rem;
 }
 
-.manual-input {
-  width: 100%;
-  padding: 0.9rem 1.1rem;
+/* ── CN prefix input ─────────────────────────────────────────────────── */
+
+.cn-input-wrap {
+  display: flex;
+  align-items: stretch;
   background: rgba(255, 255, 255, 0.06);
   border: 1.5px solid rgba(212, 175, 55, 0.28);
   border-radius: var(--radius-sm);
-  color: var(--white);
-  font-family: 'Poppins', sans-serif;
-  font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-align: center;
-  text-transform: uppercase;
+  overflow: hidden;
   transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
-  appearance: none;
-  -webkit-appearance: none;
-  box-sizing: border-box;
 }
 
-.manual-input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  text-transform: none;
-}
-
-.manual-input:focus {
-  outline: none;
+.cn-input-wrap:focus-within {
   border-color: rgba(212, 175, 55, 0.70);
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.14), 0 0 20px rgba(212, 175, 55, 0.08);
   background: rgba(255, 255, 255, 0.09);
 }
 
+.cn-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 0.9rem 0 1.1rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  background: rgba(212, 175, 55, 0.08);
+  border-right: 1.5px solid rgba(212, 175, 55, 0.20);
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.manual-input {
+  flex: 1;
+  padding: 0.9rem 1.1rem;
+  background: transparent;
+  border: none;
+  color: var(--white);
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-align: center;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.manual-input::placeholder {
+  color: rgba(255, 255, 255, 0.22);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+.manual-input:focus { outline: none; }
+
 .manual-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* cn-number-input is the same element — no extra rules needed */
 
 .manual-btn {
   width: 100%;

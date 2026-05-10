@@ -1,9 +1,43 @@
 import axios from 'axios';
 
+export const API_BASE = import.meta.env.VITE_API_URL || 'https://wedding.nardio.online/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://wedding.nardio.online/api',
+  baseURL: API_BASE,
   timeout: 30_000,
 });
+
+// Attach JWT token to every request automatically
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('wqr_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// On 401 — clear stale token and redirect to login
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('wqr_token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(err);
+  }
+);
+
+// Helper for plain fetch calls that also need the auth header (admin page)
+export function getAuthHeaders() {
+  const token = localStorage.getItem('wqr_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/**
+ * Login with email + password. Returns { success, token }.
+ */
+export function login(email, password) {
+  return api.post('/auth/login', { email, password });
+}
 
 /**
  * Generate a wedding invitation card.
