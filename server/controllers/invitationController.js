@@ -275,4 +275,64 @@ async function deleteInvitation(req, res) {
   }
 }
 
-module.exports = { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode };
+// ── verifyManual ──────────────────────────────────────────────────────────
+// Staff manually types a CN code for guests without smartphones.
+// Reuses the same status/used_at columns as QR verification.
+
+async function verifyManual(req, res) {
+  const code = (req.body.invitation_code || '').trim().toUpperCase();
+
+  if (!code) {
+    return res.status(400).json({ success: false, message: 'Invitation code is required.' });
+  }
+  if (!/^CN-\d{3,}$/.test(code)) {
+    return res.status(200).json({ success: false, type: 'invalid', message: 'Invalid invitation code.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    const [rows] = await connection.execute(
+      'SELECT id, code, guest_name, status, used_at FROM invitations WHERE code = ? LIMIT 1',
+      [code]
+    );
+
+    if (rows.length === 0) {
+      return res.status(200).json({ success: false, type: 'invalid', message: 'Invalid invitation code.' });
+    }
+
+    const inv = rows[0];
+
+    if (inv.status === 'used') {
+      return res.status(200).json({
+        success: false,
+        type:    'used',
+        message: 'Invitation already used.',
+        name:    inv.guest_name,
+        used_at: inv.used_at,
+      });
+    }
+
+    await connection.execute(
+      "UPDATE invitations SET status = 'used', used_at = NOW() WHERE id = ?",
+      [inv.id]
+    );
+
+    console.log(`[verifyManual] Checked in: ${code} — "${inv.guest_name}"`);
+
+    return res.status(200).json({
+      success:         true,
+      type:            'valid',
+      message:         'Guest verified successfully.',
+      name:            inv.guest_name,
+      invitation_code: inv.code,
+    });
+
+  } catch (err) {
+    console.error('[verifyManual]', err);
+    return res.status(500).json({ success: false, type: 'error', message: 'Verification failed.' });
+  } finally {
+    connection.release();
+  }
+}
+
+module.exports = { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode, verifyManual };

@@ -3,7 +3,7 @@ const router  = express.Router();
 const path    = require('path');
 
 const upload                                     = require('../middleware/upload');
-const { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode } = require('../controllers/invitationController');
+const { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode, verifyManual } = require('../controllers/invitationController');
 const { getDashboard }                           = require('../controllers/adminController');
 
 // GET  /  (becomes /api when proxied) — API status
@@ -17,8 +17,11 @@ router.post('/reserve', reserveCode);
 // POST /generate  — upload card image + generate QR overlay (legacy / server-side flow)
 router.post('/generate', upload.single('image'), generateCard);
 
-// POST /verify    — verify a scanned QR code
+// POST /verify        — verify a scanned QR code
 router.post('/verify', verifyCode);
+
+// POST /verify/manual — verify by manually typed CN code (guests without smartphones)
+router.post('/verify/manual', verifyManual);
 
 // GET  /stats     — dashboard statistics
 router.get('/stats', getStats);

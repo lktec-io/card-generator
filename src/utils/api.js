@@ -33,6 +33,14 @@ export function verifyCode(code) {
 }
 
 /**
+ * Verify a manually typed CN code (guests without smartphones).
+ * @param {string} code  e.g. "CN-001"
+ */
+export function verifyManual(code) {
+  return api.post('/verify/manual', { invitation_code: code });
+}
+
+/**
  * Fetch dashboard statistics: { total, used, unused }
  */
 export function getStats() {

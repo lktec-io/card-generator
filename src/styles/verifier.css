@@ -34,6 +34,9 @@ html, body {
   z-index: 1;
   width: 100%;
   max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 /* ── Glassmorphism scanner card ──────────────────────────────────────── */
@@ -121,9 +124,112 @@ html, body {
   animation: spin 0.78s linear infinite;
 }
 
+/* ── Manual verification card ────────────────────────────────────────── */
+
+.manual-card {
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: var(--radius-lg);
+  padding: 2.4rem 2.2rem 2.2rem;
+  text-align: center;
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: pageEnter 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  position: relative;
+  overflow: hidden;
+}
+
+.manual-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(212,175,55,0.20), transparent 40%, transparent 60%, rgba(212,175,55,0.10));
+  z-index: -1;
+  animation: borderGlow 4s ease-in-out infinite alternate;
+}
+
+.manual-card h2 {
+  font-family: var(--font-elegant);
+  color: var(--white);
+  font-size: 1.85rem;
+  font-weight: 400;
+  margin-bottom: 0.4rem;
+}
+
+.manual-card > p {
+  color: var(--text-muted);
+  margin-bottom: 1.6rem;
+  font-size: 0.88rem;
+}
+
+.manual-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.manual-input {
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(212, 175, 55, 0.28);
+  border-radius: var(--radius-sm);
+  color: var(--white);
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+}
+
+.manual-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.manual-input:focus {
+  outline: none;
+  border-color: rgba(212, 175, 55, 0.70);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.14), 0 0 20px rgba(212, 175, 55, 0.08);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.manual-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.manual-btn {
+  width: 100%;
+  justify-content: center;
+  font-size: 0.96rem;
+  padding: 0.85rem 1rem;
+}
+
+.manual-spinner {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+  flex-shrink: 0;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────── */
 
 @media (max-width: 520px) {
-  .scanner-card { padding: 2rem 1.25rem 1.75rem; }
+  .scanner-card  { padding: 2rem 1.25rem 1.75rem; }
   .scanner-card h2 { font-size: 1.65rem; }
+  .manual-card   { padding: 1.8rem 1.25rem 1.6rem; }
+  .manual-card h2  { font-size: 1.5rem; }
+  .manual-input  { font-size: 1rem; }
 }
