@@ -50,7 +50,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@wedding.com"
+              placeholder="event@talk.com"
               required
               autoComplete="email"
               disabled={loading}
