@@ -30,6 +30,8 @@ export default function CardGenerator() {
   // so drag movement matches the visual canvas size at every zoom level.
   const [canvasScale, setCanvasScale] = useState(1);
 
+  const [isLandscape, setIsLandscape] = useState(false);
+
   const [qrPos,   setQrPos]   = useState({ x: 0, y: 0 });
   const [namePos, setNamePos] = useState({ x: 0, y: 0 });
   const [codePos, setCodePos] = useState({ x: 0, y: 0 });
@@ -58,6 +60,8 @@ export default function CardGenerator() {
     const canvasHeight = Math.round(1080 * naturalHeight / naturalWidth);
     if (frameRef.current)  frameRef.current.style.aspectRatio  = `1080 / ${canvasHeight}`;
     if (canvasRef.current) canvasRef.current.style.height       = `${canvasHeight}px`;
+    setIsLandscape(naturalWidth > naturalHeight);
+    resetPositions();
     updateScale();
   };
 
@@ -138,7 +142,7 @@ export default function CardGenerator() {
     el.style.transform = 'scale(1)';
     try {
       const result = await html2canvas(el, {
-        scale:           2,    // 2× → ~2160px wide output
+        scale:           3,    // 3× → ~3240px wide output
         useCORS:         true,
         allowTaint:      false,
         logging:         false,
@@ -172,6 +176,7 @@ export default function CardGenerator() {
     setInvitation(null);
     setError('');
     setProgress(0);
+    setIsLandscape(false);
     resetPositions();
   };
 
@@ -277,7 +282,7 @@ export default function CardGenerator() {
                   Download resets transform to scale(1) before capture, restores after.
                 */}
                 <div className="card-frame" ref={frameRef}>
-                  <div className="card-canvas" ref={canvasRef}>
+                  <div className={`card-canvas${isLandscape ? ' landscape' : ''}`} ref={canvasRef}>
                     <img
                       src={uploadedImage}
                       className="template-bg"

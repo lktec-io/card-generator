@@ -363,6 +363,34 @@
   white-space: nowrap;
 }
 
+/* =============================================================
+   LANDSCAPE MODE — overrides portrait pixel positions.
+   Portrait uses top: 1027px / 1150px which fall outside a
+   landscape canvas (~764px tall). These rules bring all three
+   overlays back into view using bottom-% so they adapt to any
+   landscape aspect ratio.  top:auto removes the portrait value.
+   QR right/bottom are already relative so only small tweaks needed.
+============================================================= */
+
+.card-canvas.landscape .guest-name {
+  top:    auto;
+  bottom: 24%;
+  left:   110px;
+  font-size: 34px;
+}
+
+.card-canvas.landscape .invitation-code {
+  top:    auto;
+  bottom: 14%;
+  left:   110px;
+  font-size: 34px;
+}
+
+.card-canvas.landscape .qr-wrapper {
+  bottom: 14%;
+  right:  90px;
+}
+
 /* ── Invitation summary (below result panel) ─────────────────────────── */
 
 .inv-summary {
