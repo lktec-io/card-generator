@@ -36,7 +36,7 @@ export default function LoginPage() {
       <div className="login-card">
         <div className="login-brand">
           <GiDiamondRing className="login-ring-icon" />
-          <h1>Dating to Marriage talk</h1>
+          <h1>Tmcs tia mbeya</h1>
           <p>Event Invitation System</p>
         </div>
 
@@ -50,7 +50,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="event@talk.com"
+              placeholder="tmcs@talk.com"
               required
               autoComplete="email"
               disabled={loading}
