@@ -2,7 +2,7 @@ const express = require('express');
 const jwt     = require('jsonwebtoken');
 const router  = express.Router();
 
-const ADMIN_EMAIL    = 'tmcs@graduation.com';
+const ADMIN_EMAIL    = 'cardhub@event.com';
 const ADMIN_PASSWORD = '123456';
 const JWT_SECRET     = 'wedding_secret_key';
 
