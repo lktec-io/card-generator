@@ -75,7 +75,7 @@
 .bg {
   position: fixed;
   inset: 0;
-  background: url('/tmcs-bg.jpg') center / cover no-repeat;
+  background: url('/apoly-bg.jpg') center / cover no-repeat;
   z-index: -1;
   opacity: 0.15;
   animation: zoomBg 20s ease-in-out infinite;
