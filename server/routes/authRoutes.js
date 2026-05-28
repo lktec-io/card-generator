@@ -2,8 +2,8 @@ const express = require('express');
 const jwt     = require('jsonwebtoken');
 const router  = express.Router();
 
-const ADMIN_EMAIL    = 'cardhub@event.com';
-const ADMIN_PASSWORD = '123456';
+const ADMIN_EMAIL    = 'cardhub@digital.com';
+const ADMIN_PASSWORD = '098765';
 const JWT_SECRET     = 'wedding_secret_key';
 
 // POST /login  (mounted at /api/auth → full path: /api/auth/login)
