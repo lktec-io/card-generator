@@ -19,7 +19,7 @@ export default function Navbar() {
     <nav className="navbar">
       <Link to="/" className="navbar-logo" onClick={close}>
         <GiDiamondRing className="logo-icon" />
-        Tmcs tia Mbeya Graduation
+        Cardhub Digital Invitation
       </Link>
 
       <button className="nav-hamburger" onClick={() => setOpen(o => !o)} aria-label="Toggle menu">
