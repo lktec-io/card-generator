@@ -7,7 +7,7 @@ import { MdAutoAwesome, MdDownload, MdAddPhotoAlternate } from 'react-icons/md';
 import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
-export default function CardGenerator() {
+export default function CardGenerator({ eventId = null }) {
   // frameRef  → .card-frame  — measures available width; aspect-ratio provides height
   // canvasRef → .card-canvas — 1080px fixed canvas; transform set directly on DOM node
   const frameRef  = useRef(null);
@@ -105,7 +105,7 @@ export default function CardGenerator() {
 
     try {
       setProgress(30);
-      const { data } = await reserveCard(name);
+      const { data } = await reserveCard(name, eventId);
 
       setProgress(65);
       // Encode only the code (e.g. "CN-016") — minimal payload = fewest modules = easiest scan.

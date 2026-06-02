@@ -1,8 +1,21 @@
 import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { GiDiamondRing } from 'react-icons/gi';
-import { MdDashboard, MdQrCodeScanner, MdAdminPanelSettings, MdMenu, MdClose, MdAddPhotoAlternate, MdLogout } from 'react-icons/md';
+import {
+  MdDashboard, MdQrCodeScanner, MdAdminPanelSettings,
+  MdMenu, MdClose, MdAddPhotoAlternate, MdLogout,
+  MdEvent, MdHistory,
+} from 'react-icons/md';
 import '../styles/components.css';
+
+const NAV_LINKS = [
+  { to: '/',        end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard'   },
+  { to: '/events',  end: false, icon: <MdEvent size={16} />,              label: 'Events'      },
+  { to: '/create',  end: false, icon: <MdAddPhotoAlternate size={16} />,  label: 'Create Cards'},
+  { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />,      label: 'Verify'      },
+  { to: '/history', end: false, icon: <MdHistory size={16} />,            label: 'History'     },
+  { to: '/admin',   end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'       },
+];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
@@ -29,26 +42,18 @@ export default function Navbar() {
       {open && <div className="nav-overlay" onClick={close} aria-hidden="true" />}
 
       <ul className={`navbar-links${open ? ' open' : ''}`}>
-        <li>
-          <NavLink to="/" end onClick={close} className={({ isActive }) => isActive ? 'active' : ''}>
-            <MdDashboard size={16} /> Dashboard
-          </NavLink>
-        </li>
-        <li>
-          <NavLink to="/create" onClick={close} className={({ isActive }) => isActive ? 'active' : ''}>
-            <MdAddPhotoAlternate size={16} /> Create Cards
-          </NavLink>
-        </li>
-        <li>
-          <NavLink to="/verify" onClick={close} className={({ isActive }) => isActive ? 'active' : ''}>
-            <MdQrCodeScanner size={16} /> Scan &amp; Verify
-          </NavLink>
-        </li>
-        <li>
-          <NavLink to="/admin" onClick={close} className={({ isActive }) => isActive ? 'active' : ''}>
-            <MdAdminPanelSettings size={16} /> Admin
-          </NavLink>
-        </li>
+        {NAV_LINKS.map(({ to, end, icon, label }) => (
+          <li key={to}>
+            <NavLink
+              to={to}
+              end={end}
+              onClick={close}
+              className={({ isActive }) => isActive ? 'active' : ''}
+            >
+              {icon} {label}
+            </NavLink>
+          </li>
+        ))}
         <li>
           <button className="nav-logout" onClick={handleLogout} aria-label="Sign out">
             <MdLogout size={16} /> Logout

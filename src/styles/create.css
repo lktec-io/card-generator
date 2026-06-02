@@ -1,3 +1,37 @@
+/* ── Event assignment bar ────────────────────────────────────────────── */
+
+.create-event-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 1100px;
+  margin: 1.5rem auto 0;
+  padding: 0.75rem 1.25rem;
+  background: rgba(212, 175, 55, 0.06);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.create-event-bar svg { color: var(--gold); flex-shrink: 0; }
+
+.create-event-bar label { font-weight: 600; white-space: nowrap; }
+
+.create-event-bar select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 6px;
+  color: var(--white);
+  font-family: var(--font-main);
+  font-size: 0.84rem;
+  padding: 0.4rem 0.6rem;
+  min-width: 0;
+}
+.create-event-bar select:focus { outline: none; border-color: rgba(212, 175, 55, 0.50); }
+.create-event-bar select option { background: #1e1e1e; }
+
 /* ── Create / CardGenerator Page ────────────────────────────────────── */
 
 .create-page {

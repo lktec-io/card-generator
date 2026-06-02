@@ -1,42 +1,52 @@
-const express = require('express');
-const router  = express.Router();
-const path    = require('path');
+const express   = require('express');
+const path      = require('path');
+const router    = express.Router();
 
-const upload       = require('../middleware/upload');
-const verifyToken  = require('../middleware/authMiddleware');
-const { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode, verifyManual } = require('../controllers/invitationController');
-const { getDashboard } = require('../controllers/adminController');
+const upload      = require('../middleware/upload');
+const verifyToken = require('../middleware/authMiddleware');
 
-// GET  /  (becomes /api when proxied) — API status
-router.get('/', (_req, res) => {
-  res.json({ status: 'ok', service: 'Wedding QR API' });
-});
+const {
+  generateCard, verifyCode, getStats,
+  deleteInvitation, deleteAllInvitations, reserveCode, verifyManual,
+} = require('../controllers/invitationController');
 
-// POST /reserve   — reserve a CN code (no image); frontend renders card with html2canvas
-router.post('/reserve', reserveCode);
+const { getDashboard }           = require('../controllers/adminController');
+const { listEvents, createEvent, getEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
+const { submitRSVP, getPublicInvite }  = require('../controllers/rsvpController');
+const { getGlobalStats }         = require('../controllers/statsController');
+const { getVerificationHistory } = require('../controllers/verificationLogController');
 
-// POST /generate  — upload card image + generate QR overlay (legacy / server-side flow)
-router.post('/generate', upload.single('image'), generateCard);
+// ── API status ─────────────────────────────────────────────────────────────
+router.get('/', (_req, res) => res.json({ status: 'ok', service: 'Nardio Events API v2' }));
 
-// POST /verify        — verify a scanned QR code
-router.post('/verify', verifyCode);
-
-// POST /verify/manual — verify by manually typed CN code (guests without smartphones)
+// ── Public (no auth) ────────────────────────────────────────────────────────
+router.post('/reserve',       reserveCode);
+router.post('/generate',      upload.single('image'), generateCard);
+router.post('/verify',        verifyCode);
 router.post('/verify/manual', verifyManual);
+router.get( '/stats',         getStats);
 
-// GET  /stats     — dashboard statistics
-router.get('/stats', getStats);
+// Public invite page + RSVP (guests access without accounts)
+router.get( '/invite/:code', getPublicInvite);
+router.post('/rsvp/:code',   submitRSVP);
 
-// GET  /admin/dashboard  — full invitation list + stats (auth required)
-router.get('/admin/dashboard', verifyToken, getDashboard);
+// ── Protected (admin JWT required) ─────────────────────────────────────────
+router.get('/admin/dashboard',   verifyToken, getDashboard);
+router.get('/stats/global',      verifyToken, getGlobalStats);
+router.get('/verification-logs', verifyToken, getVerificationHistory);
 
-// DELETE /invitations  — remove ALL invitation records (auth required)
-router.delete('/invitations', verifyToken, deleteAllInvitations);
-
-// DELETE /invitations/:id  — remove a single invitation record (auth required)
+// Invitations
+router.delete('/invitations',     verifyToken, deleteAllInvitations);
 router.delete('/invitations/:id', verifyToken, deleteInvitation);
 
-// GET  /generated/:filename  — serve locally saved generated cards
+// Events CRUD
+router.get(   '/events',     verifyToken, listEvents);
+router.post(  '/events',     verifyToken, createEvent);
+router.get(   '/events/:id', verifyToken, getEvent);
+router.put(   '/events/:id', verifyToken, updateEvent);
+router.delete('/events/:id', verifyToken, deleteEvent);
+
+// ── Static — generated card images ─────────────────────────────────────────
 router.get('/generated/:filename', (req, res) => {
   const file = path.join(__dirname, '..', 'generated', req.params.filename);
   res.sendFile(file, (err) => {

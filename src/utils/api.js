@@ -7,14 +7,12 @@ const api = axios.create({
   timeout: 30_000,
 });
 
-// Attach JWT token to every request automatically
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('wqr_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// On 401 — clear stale token and redirect to login
 api.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -26,59 +24,45 @@ api.interceptors.response.use(
   }
 );
 
-// Helper for plain fetch calls that also need the auth header (admin page)
 export function getAuthHeaders() {
   const token = localStorage.getItem('wqr_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-/**
- * Login with email + password. Returns { success, token }.
- */
-export function login(email, password) {
-  return api.post('/auth/login', { email, password });
-}
+// ── Auth ──────────────────────────────────────────────────────────────────────
+export const login = (email, password) =>
+  api.post('/auth/login', { email, password });
 
-/**
- * Generate a wedding invitation card.
- * @param {FormData} formData  Must contain: image (File), guest_name, language
- */
-export function generateCard(formData) {
-  return api.post('/generate', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-}
+// ── Invitations ───────────────────────────────────────────────────────────────
+export const generateCard = (formData) =>
+  api.post('/generate', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
-/**
- * Reserve an invitation code (no image upload).
- * Frontend renders the card with html2canvas and downloads directly.
- * @param {string} guestName
- */
-export function reserveCard(guestName) {
-  return api.post('/reserve', { guest_name: guestName });
-}
+export const reserveCard  = (guestName, eventId = null) =>
+  api.post('/reserve', { guest_name: guestName, event_id: eventId });
 
-/**
- * Verify a scanned invitation QR code.
- * @param {string} code  e.g. "CN-001"
- */
-export function verifyCode(code) {
-  return api.post('/verify', { code });
-}
+export const verifyCode   = (code) => api.post('/verify',        { code });
+export const verifyManual = (code) => api.post('/verify/manual', { invitation_code: code });
 
-/**
- * Verify a manually typed CN code (guests without smartphones).
- * @param {string} code  e.g. "CN-001"
- */
-export function verifyManual(code) {
-  return api.post('/verify/manual', { invitation_code: code });
-}
+export const getStats             = () => api.get('/stats');
+export const getGlobalStats       = () => api.get('/stats/global');
+export const getAdminDashboard    = () => api.get('/admin/dashboard');
 
-/**
- * Fetch dashboard statistics: { total, used, unused }
- */
-export function getStats() {
-  return api.get('/stats');
-}
+// ── Events ────────────────────────────────────────────────────────────────────
+export const listEvents  = ()         => api.get('/events');
+export const createEvent = (data)     => api.post('/events', data);
+export const getEvent    = (id)       => api.get(`/events/${id}`);
+export const updateEvent = (id, data) => api.put(`/events/${id}`, data);
+export const deleteEvent = (id)       => api.delete(`/events/${id}`);
+
+// ── Verification history ──────────────────────────────────────────────────────
+export const getVerificationLogs = () => api.get('/verification-logs');
+
+// ── Public invite & RSVP (no auth needed) ────────────────────────────────────
+export const getPublicInvite = (code)       => api.get(`/invite/${code}`);
+export const submitRSVP      = (code, resp) => api.post(`/rsvp/${code}`, { response: resp });
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+export const deleteInvitation     = (id) => api.delete(`/invitations/${id}`);
+export const deleteAllInvitations = ()   => api.delete('/invitations');
 
 export default api;

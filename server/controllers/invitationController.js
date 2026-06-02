@@ -124,7 +124,7 @@ async function verifyCode(req, res) {
 
   try {
     const [rows] = await connection.execute(
-      'SELECT id, code, guest_name, status, used_at FROM invitations WHERE code = ? LIMIT 1',
+      'SELECT id, code, guest_name, status, used_at, event_id FROM invitations WHERE code = ? LIMIT 1',
       [code]
     );
 
@@ -153,6 +153,13 @@ async function verifyCode(req, res) {
       "UPDATE invitations SET status = 'used', used_at = NOW() WHERE id = ?",
       [inv.id]
     );
+
+    // Log verification
+    await connection.execute(
+      `INSERT INTO verification_logs (event_id, invitation_id, verification_method, verified_by)
+       VALUES (?, ?, 'QR', 'Staff')`,
+      [inv.event_id || null, inv.id]
+    ).catch(() => {});
 
     return res.status(200).json({
       success: true,
@@ -204,6 +211,7 @@ async function getStats(req, res) {
 
 async function reserveCode(req, res) {
   const guestName = (req.body.guest_name || '').trim();
+  const eventId   = req.body.event_id ? parseInt(req.body.event_id, 10) : null;
 
   if (!guestName) {
     return res.status(400).json({ success: false, message: 'Guest name is required.' });
@@ -217,12 +225,12 @@ async function reserveCode(req, res) {
     await connection.beginTransaction();
     const code = await getNextCode(connection);
     await connection.execute(
-      `INSERT INTO invitations (code, guest_name, status) VALUES (?, ?, 'unused')`,
-      [code, guestName]
+      `INSERT INTO invitations (code, guest_name, status, event_id) VALUES (?, ?, 'unused', ?)`,
+      [code, guestName, eventId]
     );
     await connection.commit();
-    console.log(`[reserveCode] Reserved: ${code} for "${guestName}"`);
-    return res.status(201).json({ success: true, code, guest_name: guestName });
+    console.log(`[reserveCode] Reserved: ${code} for "${guestName}"${eventId ? ` event=${eventId}` : ''}`);
+    return res.status(201).json({ success: true, code, guest_name: guestName, event_id: eventId });
   } catch (err) {
     await connection.rollback();
     console.error('[reserveCode]', err);
@@ -292,7 +300,7 @@ async function verifyManual(req, res) {
   const connection = await pool.getConnection();
   try {
     const [rows] = await connection.execute(
-      'SELECT id, code, guest_name, status, used_at FROM invitations WHERE code = ? LIMIT 1',
+      'SELECT id, code, guest_name, status, used_at, event_id FROM invitations WHERE code = ? LIMIT 1',
       [code]
     );
 
@@ -316,6 +324,13 @@ async function verifyManual(req, res) {
       "UPDATE invitations SET status = 'used', used_at = NOW() WHERE id = ?",
       [inv.id]
     );
+
+    // Log verification
+    await connection.execute(
+      `INSERT INTO verification_logs (event_id, invitation_id, verification_method, verified_by)
+       VALUES (?, ?, 'CN', 'Staff')`,
+      [inv.event_id || null, inv.id]
+    ).catch(() => {});
 
     console.log(`[verifyManual] Checked in: ${code} — "${inv.guest_name}"`);
 

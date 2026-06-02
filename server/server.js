@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 8003;
 app.use(cors({
   origin:      process.env.CLIENT_URL || 'https://wedding.nardio.online',
   credentials: true,
-  methods:     ['GET', 'POST', 'DELETE'],
+  methods:     ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
