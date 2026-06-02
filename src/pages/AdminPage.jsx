@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MdRefresh, MdDelete, MdDeleteSweep, MdWarning, MdDownload, MdShare } from 'react-icons/md';
+import { MdRefresh, MdDelete, MdDeleteSweep, MdWarning, MdDownload, MdShare, MdContentCopy, MdOpenInNew } from 'react-icons/md';
 import { API_BASE, getAuthHeaders } from '../utils/api';
 import '../styles/admin.css';
 
@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [deletingAll,    setDeletingAll]    = useState(false);
   const [deleteModal,    setDeleteModal]    = useState(null);
   const [deleteAllModal, setDeleteAllModal] = useState(false);
+  const [copiedCode,     setCopiedCode]     = useState(null);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -80,14 +81,27 @@ export default function AdminPage() {
 
   /* ── WhatsApp share ── */
   const handleShare = (inv) => {
+    const inviteUrl = `${window.location.origin}/invite/${inv.code}`;
     const lines = [
-      '🎊 *Wedding Invitation*',
+      '🎊 *Event Invitation*',
       `👤 Guest: ${inv.guest_name}`,
       `🔖 Code: ${inv.code}`,
+      `🔗 ${inviteUrl}`,
     ];
     if (inv.image_url) lines.push(`🖼️ Card: ${inv.image_url}`);
-    const url = `https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`;
-    window.open(url, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+  };
+
+  /* ── Copy invitation link ── */
+  const handleCopyLink = (inv) => {
+    const url = `${window.location.origin}/invite/${inv.code}`;
+    navigator.clipboard.writeText(url).then(() => setCopiedCode(inv.code));
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  /* ── Open public invitation page ── */
+  const handleOpenInvite = (inv) => {
+    window.open(`/invite/${inv.code}`, '_blank');
   };
 
   /* ── Single delete ── */
@@ -240,27 +254,38 @@ export default function AdminPage() {
                             className="btn-action btn-download"
                             onClick={() => handleDownload(inv)}
                             disabled={!inv.image_url}
-                            aria-label={`Download ${inv.code}`}
                             title="Download card"
                           >
-                            <MdDownload size={15} />
+                            <MdDownload size={14} />
                           </button>
                           <button
                             className="btn-action btn-share"
                             onClick={() => handleShare(inv)}
-                            aria-label={`Share ${inv.code}`}
                             title="Share via WhatsApp"
                           >
-                            <MdShare size={15} />
+                            <MdShare size={14} />
+                          </button>
+                          <button
+                            className={`btn-action btn-copy${copiedCode === inv.code ? ' btn-copied' : ''}`}
+                            onClick={() => handleCopyLink(inv)}
+                            title={copiedCode === inv.code ? 'Copied!' : 'Copy invite link'}
+                          >
+                            <MdContentCopy size={14} />
+                          </button>
+                          <button
+                            className="btn-action btn-open"
+                            onClick={() => handleOpenInvite(inv)}
+                            title="Open invitation page"
+                          >
+                            <MdOpenInNew size={14} />
                           </button>
                           <button
                             className="btn-action btn-delete"
                             onClick={() => openDeleteModal(inv)}
                             disabled={deleting === inv.id}
-                            aria-label={`Delete ${inv.code}`}
                             title="Delete invitation"
                           >
-                            <MdDelete size={15} />
+                            <MdDelete size={14} />
                           </button>
                         </div>
                       </td>

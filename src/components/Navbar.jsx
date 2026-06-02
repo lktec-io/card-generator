@@ -4,23 +4,31 @@ import { GiDiamondRing } from 'react-icons/gi';
 import {
   MdDashboard, MdQrCodeScanner, MdAdminPanelSettings,
   MdMenu, MdClose, MdAddPhotoAlternate, MdLogout,
-  MdEvent, MdHistory,
+  MdEvent, MdHistory, MdShield,
 } from 'react-icons/md';
+import { isAdmin, getRole } from '../utils/auth';
 import '../styles/components.css';
 
-const NAV_LINKS = [
-  { to: '/',        end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard'   },
-  { to: '/events',  end: false, icon: <MdEvent size={16} />,              label: 'Events'      },
-  { to: '/create',  end: false, icon: <MdAddPhotoAlternate size={16} />,  label: 'Create Cards'},
-  { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />,      label: 'Verify'      },
-  { to: '/history', end: false, icon: <MdHistory size={16} />,            label: 'History'     },
-  { to: '/admin',   end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'       },
+const ADMIN_LINKS = [
+  { to: '/',        end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard'    },
+  { to: '/events',  end: false, icon: <MdEvent size={16} />,              label: 'Events'       },
+  { to: '/create',  end: false, icon: <MdAddPhotoAlternate size={16} />,  label: 'Create Cards' },
+  { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />,      label: 'Verify'       },
+  { to: '/history', end: false, icon: <MdHistory size={16} />,            label: 'History'      },
+  { to: '/admin',   end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'        },
+];
+
+const STAFF_LINKS = [
+  { to: '/verify', end: false, icon: <MdQrCodeScanner size={16} />, label: 'Scan & Verify' },
 ];
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const close = () => setOpen(false);
+
+  const role  = getRole();
+  const links = isAdmin() ? ADMIN_LINKS : STAFF_LINKS;
 
   const handleLogout = () => {
     close();
@@ -30,10 +38,18 @@ export default function Navbar() {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="navbar-logo" onClick={close}>
+      <Link to={isAdmin() ? '/' : '/verify'} className="navbar-logo" onClick={close}>
         <GiDiamondRing className="logo-icon" />
         Cardhub Digital Invitation
       </Link>
+
+      {/* Role chip */}
+      {role && (
+        <span className={`nav-role-chip nav-role-chip--${role}`}>
+          {role === 'admin' ? <MdAdminPanelSettings size={12}/> : <MdShield size={12}/>}
+          {role === 'admin' ? 'Admin' : 'Gate Staff'}
+        </span>
+      )}
 
       <button className="nav-hamburger" onClick={() => setOpen(o => !o)} aria-label="Toggle menu">
         {open ? <MdClose /> : <MdMenu />}
@@ -42,7 +58,7 @@ export default function Navbar() {
       {open && <div className="nav-overlay" onClick={close} aria-hidden="true" />}
 
       <ul className={`navbar-links${open ? ' open' : ''}`}>
-        {NAV_LINKS.map(({ to, end, icon, label }) => (
+        {links.map(({ to, end, icon, label }) => (
           <li key={to}>
             <NavLink
               to={to}

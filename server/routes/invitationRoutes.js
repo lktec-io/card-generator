@@ -2,8 +2,9 @@ const express   = require('express');
 const path      = require('path');
 const router    = express.Router();
 
-const upload      = require('../middleware/upload');
-const verifyToken = require('../middleware/authMiddleware');
+const upload        = require('../middleware/upload');
+const verifyToken   = require('../middleware/authMiddleware');
+const { requireAdmin } = require('../middleware/authMiddleware');
 
 const {
   generateCard, verifyCode, getStats,
@@ -31,20 +32,20 @@ router.get( '/invite/:code', getPublicInvite);
 router.post('/rsvp/:code',   submitRSVP);
 
 // ── Protected (admin JWT required) ─────────────────────────────────────────
-router.get('/admin/dashboard',   verifyToken, getDashboard);
-router.get('/stats/global',      verifyToken, getGlobalStats);
-router.get('/verification-logs', verifyToken, getVerificationHistory);
+router.get('/admin/dashboard',   requireAdmin, getDashboard);
+router.get('/stats/global',      requireAdmin, getGlobalStats);
+router.get('/verification-logs', requireAdmin, getVerificationHistory);
 
-// Invitations
-router.delete('/invitations',     verifyToken, deleteAllInvitations);
-router.delete('/invitations/:id', verifyToken, deleteInvitation);
+// Invitations — destructive ops are admin-only
+router.delete('/invitations',     requireAdmin, deleteAllInvitations);
+router.delete('/invitations/:id', requireAdmin, deleteInvitation);
 
-// Events CRUD
-router.get(   '/events',     verifyToken, listEvents);
-router.post(  '/events',     verifyToken, createEvent);
-router.get(   '/events/:id', verifyToken, getEvent);
-router.put(   '/events/:id', verifyToken, updateEvent);
-router.delete('/events/:id', verifyToken, deleteEvent);
+// Events CRUD — all admin-only
+router.get(   '/events',     requireAdmin, listEvents);
+router.post(  '/events',     requireAdmin, createEvent);
+router.get(   '/events/:id', requireAdmin, getEvent);
+router.put(   '/events/:id', requireAdmin, updateEvent);
+router.delete('/events/:id', requireAdmin, deleteEvent);
 
 // ── Static — generated card images ─────────────────────────────────────────
 router.get('/generated/:filename', (req, res) => {

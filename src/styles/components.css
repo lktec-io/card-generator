@@ -1,5 +1,33 @@
 /* ── Navbar ──────────────────────────────────────────────────────────── */
 
+.nav-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.nav-role-chip--admin {
+  background: rgba(212, 175, 55, 0.14);
+  color: var(--gold);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+}
+
+.nav-role-chip--gate_staff {
+  background: rgba(96, 165, 250, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+}
+
+@media (max-width: 640px) { .nav-role-chip { display: none; } }
+
 .navbar {
   position: sticky;
   top: 0;

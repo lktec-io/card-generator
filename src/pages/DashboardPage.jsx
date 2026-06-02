@@ -4,9 +4,12 @@ import {
   MdAddPhotoAlternate, MdQrCodeScanner, MdEvent,
   MdPeople, MdCheckCircle, MdHourglassEmpty,
   MdThumbUp, MdThumbDown, MdTrendingUp, MdArrowForward,
+  MdHistory,
 } from 'react-icons/md';
 import { getGlobalStats, listEvents } from '../utils/api';
 import '../styles/dashboard.css';
+
+/* ── Reusable stat card ───────────────────────────────────────────────── */
 
 function StatCard({ icon, label, value, color, sub }) {
   return (
@@ -21,16 +24,93 @@ function StatCard({ icon, label, value, color, sub }) {
   );
 }
 
+/* ── Donut chart (SVG, zero dependencies) ────────────────────────────── */
+
+function DonutChart({ segments, size = 136, thick = 18 }) {
+  const r     = (size - thick) / 2;
+  const cx    = size / 2;
+  const cy    = size / 2;
+  const circ  = 2 * Math.PI * r;
+  const total = segments.reduce((s, d) => s + (d.value || 0), 0);
+
+  let cumulative = 0;
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      {/* Background ring */}
+      <circle
+        cx={cx} cy={cy} r={r}
+        fill="none"
+        stroke="rgba(255,255,255,0.06)"
+        strokeWidth={thick}
+      />
+      <g transform={`rotate(-90, ${cx}, ${cy})`}>
+        {total === 0 ? (
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={thick} />
+        ) : (
+          segments.map((seg, i) => {
+            if (!seg.value) return null;
+            const len     = (seg.value / total) * circ;
+            const offset  = circ - cumulative;
+            cumulative   += len;
+            return (
+              <circle
+                key={i}
+                cx={cx} cy={cy} r={r}
+                fill="none"
+                stroke={seg.color}
+                strokeWidth={thick}
+                strokeDasharray={`${len} ${circ}`}
+                strokeDashoffset={offset}
+                strokeLinecap="butt"
+              />
+            );
+          })
+        )}
+      </g>
+      {/* Centre label */}
+      <text
+        x={cx} y={cy}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="rgba(255,255,255,0.90)"
+        fontSize={Math.round(size * 0.16)}
+        fontWeight="700"
+        fontFamily="Poppins, sans-serif"
+      >
+        {total}
+      </text>
+    </svg>
+  );
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────── */
+
+function ProgressBar({ value, max, color = 'var(--gold)', label }) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  return (
+    <div className="dash-progress-row">
+      <div className="dash-progress-labels">
+        <span>{label}</span>
+        <span className="dash-progress-pct" style={{ color }}>{pct}%</span>
+      </div>
+      <div className="dash-progress-track">
+        <div
+          className="dash-progress-fill"
+          style={{ width: `${pct}%`, background: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ── Helpers ─────────────────────────────────────────────────────────── */
+
 function EventTypeChip({ type }) {
   const colors = {
-    'Wedding':        '#d4af37',
-    'Birthday':       '#a78bfa',
-    'Kitchen Party':  '#fb923c',
-    'Sendoff':        '#34d399',
-    'Graduation':     '#60a5fa',
-    'Conference':     '#f87171',
-    'Church Event':   '#fbbf24',
-    'Corporate Event':'#94a3b8',
+    'Wedding': '#d4af37', 'Birthday': '#a78bfa', 'Kitchen Party': '#fb923c',
+    'Sendoff': '#34d399', 'Graduation': '#60a5fa', 'Conference': '#f87171',
+    'Church Event': '#fbbf24', 'Corporate Event': '#94a3b8',
   };
   return (
     <span className="event-type-chip" style={{ '--chip-color': colors[type] || '#94a3b8' }}>
@@ -40,21 +120,34 @@ function EventTypeChip({ type }) {
 }
 
 function formatDate(raw) {
-  if (!raw) return null;
+  if (!raw) return '—';
   return new Date(raw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function formatTime(raw) {
+  if (!raw) return '—';
+  return new Date(raw).toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+/* ── Page component ──────────────────────────────────────────────────── */
+
 export default function DashboardPage() {
-  const [stats,   setStats]   = useState(null);
-  const [events,  setEvents]  = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState('');
+  const [stats,         setStats]         = useState(null);
+  const [recentCheckins, setRecentCheckins] = useState([]);
+  const [recentRSVP,    setRecentRSVP]    = useState([]);
+  const [events,        setEvents]        = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     Promise.all([getGlobalStats(), listEvents()])
       .then(([statsRes, eventsRes]) => {
         setStats(statsRes.data.stats);
+        setRecentCheckins(statsRes.data.recent_checkins || []);
+        setRecentRSVP(statsRes.data.recent_rsvp || []);
         setEvents(eventsRes.data.events?.slice(0, 5) || []);
       })
       .catch(() => setError('Could not load dashboard. Check your connection.'))
@@ -62,6 +155,14 @@ export default function DashboardPage() {
   }, []);
 
   const attendanceRate = stats?.attendance_rate ?? 0;
+  const rsvpTotal = (stats?.rsvp_attending ?? 0) + (stats?.rsvp_declined ?? 0);
+  const rsvpPending = Math.max(0, (stats?.total_invitations ?? 0) - rsvpTotal);
+
+  const rsvpSegments = [
+    { label: 'Attending', value: stats?.rsvp_attending ?? 0, color: '#22c55e' },
+    { label: 'Declined',  value: stats?.rsvp_declined  ?? 0, color: '#ef4444' },
+    { label: 'Pending',   value: rsvpPending,                  color: 'rgba(255,255,255,0.12)' },
+  ];
 
   return (
     <div className="dashboard-page page-enter">
@@ -97,7 +198,7 @@ export default function DashboardPage() {
             <StatCard icon={<MdEvent size={22}/>}          label="Total Events"      value={stats?.total_events}      color="#d4af37" />
             <StatCard icon={<MdPeople size={22}/>}         label="Total Invitations" value={stats?.total_invitations}  color="#60a5fa" />
             <StatCard icon={<MdCheckCircle size={22}/>}    label="Checked In"        value={stats?.checked_in}         color="#22c55e" />
-            <StatCard icon={<MdHourglassEmpty size={22}/>} label="Pending"           value={stats?.pending}            color="#f59e0b" />
+            <StatCard icon={<MdHourglassEmpty size={22}/>} label="Pending Entry"     value={stats?.pending}            color="#f59e0b" />
             <StatCard icon={<MdThumbUp size={22}/>}        label="RSVP Attending"    value={stats?.rsvp_attending}     color="#34d399" />
             <StatCard icon={<MdThumbDown size={22}/>}      label="RSVP Declined"     value={stats?.rsvp_declined}      color="#f87171" />
             <StatCard
@@ -109,13 +210,65 @@ export default function DashboardPage() {
             />
           </div>
 
+          {/* ── Charts row ── */}
+          <div className="dash-charts-row">
+
+            {/* RSVP donut */}
+            <div className="dash-chart-card">
+              <h3 className="dash-chart-title">RSVP Status</h3>
+              <div className="dash-chart-inner">
+                <DonutChart segments={rsvpSegments} size={136} thick={18} />
+                <div className="dash-chart-legend">
+                  {rsvpSegments.map(s => (
+                    <div key={s.label} className="dash-legend-row">
+                      <span className="dash-legend-dot" style={{ background: s.color }} />
+                      <span className="dash-legend-label">{s.label}</span>
+                      <span className="dash-legend-val">{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Attendance progress */}
+            <div className="dash-chart-card">
+              <h3 className="dash-chart-title">Attendance</h3>
+              <div className="dash-progress-list">
+                <ProgressBar
+                  label="Checked In"
+                  value={stats?.checked_in ?? 0}
+                  max={stats?.total_invitations ?? 1}
+                  color="#22c55e"
+                />
+                <ProgressBar
+                  label="RSVP Confirmed"
+                  value={stats?.rsvp_attending ?? 0}
+                  max={stats?.total_invitations ?? 1}
+                  color="#d4af37"
+                />
+                <ProgressBar
+                  label="RSVP Declined"
+                  value={stats?.rsvp_declined ?? 0}
+                  max={stats?.total_invitations ?? 1}
+                  color="#ef4444"
+                />
+                <ProgressBar
+                  label="Attendance Rate"
+                  value={attendanceRate}
+                  max={100}
+                  color="#a78bfa"
+                />
+              </div>
+            </div>
+
+          </div>
+
           {/* ── Recent events ── */}
           <div className="dash-section">
             <div className="dash-section-head">
               <h2>Recent Events</h2>
               <Link to="/events" className="dash-see-all">See all <MdArrowForward size={14}/></Link>
             </div>
-
             {events.length === 0 ? (
               <div className="dash-empty">
                 <MdEvent size={40} />
@@ -142,6 +295,67 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* ── Recent activity row ── */}
+          <div className="dash-activity-row">
+
+            {/* Recent RSVP */}
+            <div className="dash-section dash-activity-card">
+              <div className="dash-section-head">
+                <h2>Recent RSVPs</h2>
+                <Link to="/history" className="dash-see-all">See all <MdArrowForward size={14}/></Link>
+              </div>
+              {recentRSVP.length === 0 ? (
+                <div className="dash-empty" style={{ padding: '1.5rem 0' }}>
+                  <p>No RSVP responses yet</p>
+                </div>
+              ) : (
+                <ul className="dash-activity-list">
+                  {recentRSVP.map((r, i) => (
+                    <li key={i} className="dash-activity-item">
+                      <span className={`dash-rsvp-dot dash-rsvp-dot--${r.response}`} />
+                      <div className="dash-activity-body">
+                        <strong>{r.guest_name}</strong>
+                        <span className={`dash-rsvp-badge dash-rsvp-badge--${r.response}`}>
+                          {r.response === 'attending' ? '✓ Attending' : '✗ Declined'}
+                        </span>
+                      </div>
+                      <span className="dash-activity-time">{formatTime(r.created_at)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Recent check-ins */}
+            <div className="dash-section dash-activity-card">
+              <div className="dash-section-head">
+                <h2>Recent Check-ins</h2>
+                <Link to="/history" className="dash-see-all">
+                  <MdHistory size={14}/> History
+                </Link>
+              </div>
+              {recentCheckins.length === 0 ? (
+                <div className="dash-empty" style={{ padding: '1.5rem 0' }}>
+                  <p>No check-ins yet</p>
+                </div>
+              ) : (
+                <ul className="dash-activity-list">
+                  {recentCheckins.map((c, i) => (
+                    <li key={i} className="dash-activity-item">
+                      <MdCheckCircle size={16} style={{ color: '#22c55e', flexShrink: 0 }} />
+                      <div className="dash-activity-body">
+                        <strong>{c.guest_name}</strong>
+                        <span className="dash-activity-code">{c.code}</span>
+                      </div>
+                      <span className="dash-activity-time">{formatTime(c.used_at)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
           </div>
 
           {/* ── Quick actions ── */}

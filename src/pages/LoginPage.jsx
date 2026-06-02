@@ -20,7 +20,8 @@ export default function LoginPage() {
       const { data } = await login(email.trim(), password);
       if (data.success) {
         localStorage.setItem('wqr_token', data.token);
-        navigate('/', { replace: true });
+        // Gate staff land on verify; admins land on dashboard
+        navigate(data.role === 'gate_staff' ? '/verify' : '/', { replace: true });
       } else {
         setError(data.message || 'Login failed.');
       }
