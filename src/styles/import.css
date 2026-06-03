@@ -1,0 +1,371 @@
+/* ── Import Page ──────────────────────────────────────────────────────── */
+
+.import-page {
+  min-height: calc(100vh - 66px);
+  padding: 3rem 1.5rem 5rem;
+}
+
+.import-container {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.import-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.import-ornament {
+  display: block;
+  font-size: 0.66rem;
+  letter-spacing: 0.45em;
+  color: var(--gold);
+  margin-bottom: 0.5rem;
+  opacity: 0.85;
+}
+
+.import-header h1 {
+  font-size: 2.2rem;
+  font-weight: 400;
+  color: var(--white);
+  margin-bottom: 0.3rem;
+}
+
+.import-header p { font-size: 0.84rem; color: var(--text-muted); }
+
+/* ── Event selector ──────────────────────────────────────────────────── */
+
+.import-event-select {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.import-event-select label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.import-required { color: #ef4444; margin-left: 2px; }
+
+.import-event-select select {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.65rem 0.9rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 8px;
+  color: var(--white);
+  font-family: var(--font-main);
+  font-size: 0.88rem;
+}
+
+.import-event-select select:focus {
+  outline: none;
+  border-color: rgba(212, 175, 55, 0.50);
+}
+
+.import-event-select select option { background: #1e1e1e; }
+
+/* ── Drop zone ───────────────────────────────────────────────────────── */
+
+.import-dropzone {
+  border: 2px dashed rgba(212, 175, 55, 0.28);
+  border-radius: var(--radius-md);
+  padding: 4rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.25s, background 0.25s;
+  background: rgba(212, 175, 55, 0.03);
+  margin-bottom: 1.5rem;
+}
+
+.import-dropzone:hover,
+.import-dropzone--over {
+  border-color: rgba(212, 175, 55, 0.65);
+  background: rgba(212, 175, 55, 0.07);
+}
+
+.import-drop-icon {
+  font-size: 3.5rem;
+  color: var(--gold);
+  opacity: 0.60;
+  margin-bottom: 0.85rem;
+}
+
+.import-drop-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+
+.import-drop-sub {
+  font-size: 0.80rem;
+  color: var(--text-faint);
+}
+
+/* ── Error ───────────────────────────────────────────────────────────── */
+
+.import-error {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: var(--error-dim);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  color: #fca5a5;
+  font-size: 0.84rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.import-retry {
+  background: none;
+  border: 1px solid rgba(239, 68, 68, 0.40);
+  color: #fca5a5;
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 0.2s;
+}
+.import-retry:hover { background: rgba(239, 68, 68, 0.14); }
+
+/* ── Preview ─────────────────────────────────────────────────────────── */
+
+.import-preview {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.import-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.import-preview-head h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--white);
+  font-family: var(--font-main);
+  margin-bottom: 0.2rem;
+}
+
+.import-preview-head p {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+.import-preview-actions {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.import-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(26, 18, 0, 0.25);
+  border-top-color: #1a1200;
+  border-radius: 50%;
+  animation: spin 0.78s linear infinite;
+  flex-shrink: 0;
+}
+
+.import-table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.import-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.20);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.import-table td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.import-table tr:last-child td { border-bottom: none; }
+.import-table tr:hover td { background: rgba(212, 175, 55, 0.03); }
+
+.import-row-num {
+  color: var(--text-faint);
+  font-size: 0.76rem;
+  width: 40px;
+}
+
+.import-phone { color: var(--text-muted); font-size: 0.80rem; }
+
+.import-missing {
+  font-size: 0.72rem;
+  color: #f87171;
+  margin-left: 0.4rem;
+}
+
+.import-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 5px;
+  color: #ef4444;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.import-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.20);
+  transform: scale(1.08);
+}
+
+/* ── Result ──────────────────────────────────────────────────────────── */
+
+.import-result {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.import-result-success {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: #4ade80;
+}
+
+.import-result-success svg { flex-shrink: 0; }
+
+.import-result-success h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--white);
+  font-family: var(--font-main);
+  margin-bottom: 0.2rem;
+}
+
+.import-result-success p {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.import-result-errors {
+  background: var(--error-dim);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  color: #fca5a5;
+  font-size: 0.82rem;
+}
+
+.import-result-errors ul {
+  margin-top: 0.4rem;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.import-result-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+/* ── Instructions ────────────────────────────────────────────────────── */
+
+.import-instructions {
+  background: var(--glass-bg);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.import-instructions h3 {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-family: var(--font-main);
+  margin-bottom: 0.85rem;
+}
+
+.import-instructions ol {
+  padding-left: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+}
+
+.import-note {
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .import-page { padding: 2rem 1rem 4rem; }
+  .import-event-select { flex-direction: column; align-items: flex-start; }
+  .import-dropzone { padding: 2.5rem 1.25rem; }
+  .import-preview-head { flex-direction: column; align-items: flex-start; }
+  .import-result-actions { flex-direction: column; }
+}

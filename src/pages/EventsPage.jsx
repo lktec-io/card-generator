@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   MdAdd, MdEvent, MdClose, MdCalendarToday,
   MdLocationOn, MdPeople, MdCheckCircle, MdArrowForward, MdDelete,
+  MdGridView, MdViewList,
 } from 'react-icons/md';
 import { listEvents, createEvent, deleteEvent } from '../utils/api';
 import '../styles/events.css';
@@ -38,6 +39,9 @@ export default function EventsPage() {
   const [events,     setEvents]     = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [showForm,   setShowForm]   = useState(false);
+  const [viewMode,   setViewMode]   = useState(() => localStorage.getItem('eventsView') || 'grid');
+
+  const switchView = (v) => { setViewMode(v); localStorage.setItem('eventsView', v); };
   const [form,       setForm]       = useState(EMPTY_FORM);
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState('');
@@ -97,9 +101,19 @@ export default function EventsPage() {
             <h1>Events</h1>
             <p>Manage weddings, parties, conferences & more</p>
           </div>
-          <button className="btn-gold" onClick={() => { setShowForm(true); setFormError(''); }}>
-            <MdAdd size={18} /> Create Event
-          </button>
+          <div className="events-header-right">
+            <div className="view-toggle">
+              <button className={`view-toggle-btn${viewMode === 'list' ? ' active' : ''}`} onClick={() => switchView('list')} title="List view">
+                <MdViewList size={18} />
+              </button>
+              <button className={`view-toggle-btn${viewMode === 'grid' ? ' active' : ''}`} onClick={() => switchView('grid')} title="Grid view">
+                <MdGridView size={18} />
+              </button>
+            </div>
+            <button className="btn-gold" onClick={() => { setShowForm(true); setFormError(''); }}>
+              <MdAdd size={18} /> Create Event
+            </button>
+          </div>
         </div>
 
         {/* ── Create form ── */}
@@ -173,54 +187,56 @@ export default function EventsPage() {
               <MdAdd size={16} /> Create Event
             </button>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
+          /* ── GRID VIEW ── */
           <div className="events-grid">
             {events.map(ev => (
               <div key={ev.id} className="event-card" onClick={() => navigate(`/events/${ev.id}`)}>
                 <div className="event-card-accent" style={{ background: TYPE_COLORS[ev.event_type] || '#94a3b8' }} />
                 <div className="event-card-body">
                   <div className="event-card-top">
-                    <span className="event-card-type" style={{ color: TYPE_COLORS[ev.event_type] || '#94a3b8' }}>
-                      {ev.event_type}
-                    </span>
-                    <button
-                      className="event-delete-btn"
-                      onClick={(e) => { e.stopPropagation(); setDeleteId(ev.id); }}
-                      title="Delete event"
-                    >
-                      <MdDelete size={15} />
-                    </button>
+                    <span className="event-card-type" style={{ color: TYPE_COLORS[ev.event_type] || '#94a3b8' }}>{ev.event_type}</span>
+                    <button className="event-delete-btn" onClick={e => { e.stopPropagation(); setDeleteId(ev.id); }} title="Delete"><MdDelete size={15} /></button>
                   </div>
                   <h3 className="event-card-name">{ev.event_name}</h3>
                   <div className="event-card-meta">
-                    {ev.event_date && (
-                      <span><MdCalendarToday size={13} /> {formatDate(ev.event_date)}</span>
-                    )}
-                    {ev.venue && (
-                      <span><MdLocationOn size={13} /> {ev.venue}</span>
-                    )}
+                    {ev.event_date && <span><MdCalendarToday size={13} /> {formatDate(ev.event_date)}</span>}
+                    {ev.venue      && <span><MdLocationOn size={13} /> {ev.venue}</span>}
                   </div>
                   <div className="event-card-stats">
-                    <div className="ev-stat">
-                      <MdPeople size={15} />
-                      <strong>{ev.total_invitations ?? 0}</strong>
-                      <span>Invited</span>
-                    </div>
-                    <div className="ev-stat ev-stat--green">
-                      <MdCheckCircle size={15} />
-                      <strong>{ev.checked_in ?? 0}</strong>
-                      <span>Checked In</span>
-                    </div>
-                    <div className="ev-stat ev-stat--gold">
-                      <MdPeople size={15} />
-                      <strong>{ev.rsvp_attending ?? 0}</strong>
-                      <span>RSVP Yes</span>
-                    </div>
+                    <div className="ev-stat"><MdPeople size={15}/><strong>{ev.total_invitations ?? 0}</strong><span>Invited</span></div>
+                    <div className="ev-stat ev-stat--green"><MdCheckCircle size={15}/><strong>{ev.checked_in ?? 0}</strong><span>In</span></div>
+                    <div className="ev-stat ev-stat--gold"><MdPeople size={15}/><strong>{ev.rsvp_attending ?? 0}</strong><span>RSVP</span></div>
                   </div>
                 </div>
-                <div className="event-card-footer">
-                  <span>View Details</span>
-                  <MdArrowForward size={15} />
+                <div className="event-card-footer"><span>View Details</span><MdArrowForward size={15} /></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* ── LIST VIEW ── */
+          <div className="events-list-view">
+            {events.map(ev => (
+              <div key={ev.id} className="events-list-row" onClick={() => navigate(`/events/${ev.id}`)}>
+                <div className="events-list-accent" style={{ background: TYPE_COLORS[ev.event_type] || '#94a3b8' }} />
+                <div className="events-list-main">
+                  <div className="events-list-name-row">
+                    <span className="events-list-type" style={{ color: TYPE_COLORS[ev.event_type] || '#94a3b8' }}>{ev.event_type}</span>
+                    <h3 className="events-list-name">{ev.event_name}</h3>
+                  </div>
+                  <div className="events-list-meta">
+                    {ev.event_date && <span><MdCalendarToday size={13} /> {formatDate(ev.event_date)}</span>}
+                    {ev.venue      && <span><MdLocationOn size={13} /> {ev.venue}</span>}
+                  </div>
+                </div>
+                <div className="events-list-stats">
+                  <span className="ev-stat"><MdPeople size={14}/><strong>{ev.total_invitations ?? 0}</strong></span>
+                  <span className="ev-stat ev-stat--green"><MdCheckCircle size={14}/><strong>{ev.checked_in ?? 0}</strong></span>
+                  <span className="ev-stat ev-stat--gold"><MdPeople size={14}/><strong>{ev.rsvp_attending ?? 0}</strong></span>
+                </div>
+                <div className="events-list-actions">
+                  <button className="event-delete-btn" onClick={e => { e.stopPropagation(); setDeleteId(ev.id); }} title="Delete"><MdDelete size={15} /></button>
+                  <MdArrowForward size={16} className="events-list-arrow" />
                 </div>
               </div>
             ))}

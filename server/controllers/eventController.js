@@ -65,10 +65,13 @@ async function getEvent(req, res) {
     if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
 
     const [invitations] = await pool.execute(
-      `SELECT id, code, guest_name, status, image_url, created_at, used_at
-         FROM invitations
-        WHERE event_id = ?
-        ORDER BY created_at DESC`,
+      `SELECT i.id, i.code, i.invitation_uuid, i.guest_name, i.status,
+              i.image_url, i.created_at, i.used_at,
+              r.response AS rsvp_response
+         FROM invitations i
+         LEFT JOIN rsvp_responses r ON r.invitation_id = i.id
+        WHERE i.event_id = ?
+        ORDER BY i.created_at DESC`,
       [id]
     );
 

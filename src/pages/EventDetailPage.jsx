@@ -1,18 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   MdArrowBack, MdCalendarToday, MdLocationOn, MdPalette,
   MdMap, MdPeople, MdCheckCircle, MdHourglassEmpty,
   MdThumbUp, MdThumbDown, MdDownload, MdShare, MdDelete,
-  MdQrCodeScanner, MdEdit, MdSave, MdClose,
+  MdQrCodeScanner, MdEdit, MdSave, MdClose, MdContentCopy,
+  MdOpenInNew, MdVisibility, MdGridView, MdViewList, MdAddPhotoAlternate,
 } from 'react-icons/md';
-import { getEvent, updateEvent, deleteInvitation, getAuthHeaders, API_BASE } from '../utils/api';
+import { getEvent, updateEvent, deleteInvitation } from '../utils/api';
+import { useToast } from '../context/ToastContext';
 import '../styles/events.css';
 
 const EVENT_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
   'Graduation', 'Conference', 'Church Event', 'Corporate Event',
 ];
+
+const TYPE_COLORS = {
+  'Wedding': '#d4af37', 'Birthday': '#a78bfa', 'Kitchen Party': '#fb923c',
+  'Sendoff': '#34d399', 'Graduation': '#60a5fa', 'Conference': '#f87171',
+  'Church Event': '#fbbf24', 'Corporate Event': '#94a3b8',
+};
 
 function formatDate(raw) {
   if (!raw) return '—';
@@ -34,9 +42,17 @@ function StatusBadge({ status }) {
   );
 }
 
+function inviteLink(inv) {
+  const base = window.location.origin;
+  return inv.invitation_uuid
+    ? `${base}/invite/${inv.invitation_uuid}`
+    : `${base}/invite/${inv.code}`;
+}
+
 export default function EventDetailPage() {
-  const { id }    = useParams();
-  const navigate  = useNavigate();
+  const { id }     = useParams();
+  const navigate   = useNavigate();
+  const { showToast } = useToast();
 
   const [data,     setData]     = useState(null);
   const [loading,  setLoading]  = useState(true);
@@ -45,6 +61,8 @@ export default function EventDetailPage() {
   const [form,     setForm]     = useState({});
   const [saving,   setSaving]   = useState(false);
   const [delInvId, setDelInvId] = useState(null);
+  const [delInv,   setDelInv]   = useState(null);  // full inv object for modal
+  const [invView,  setInvView]  = useState(() => localStorage.getItem('invView') || 'list');
 
   const load = () => {
     setLoading(true);
@@ -56,18 +74,95 @@ export default function EventDetailPage() {
 
   useEffect(load, [id]);
 
+  const switchInvView = (v) => {
+    setInvView(v);
+    localStorage.setItem('invView', v);
+  };
+
+  /* ── Save event edits ── */
   const handleSave = async () => {
     setSaving(true);
     try {
       await updateEvent(id, form);
       setEditing(false);
       load();
+      showToast('Event updated.', 'success');
     } catch {
-      alert('Failed to update event.');
+      showToast('Failed to update event.', 'error');
     } finally {
       setSaving(false);
     }
   };
+
+  /* ── Blob download — direct file, not new tab ── */
+  const handleDownload = async (inv) => {
+    if (!inv.image_url) { showToast('No card image available.', 'info'); return; }
+    try {
+      const res  = await fetch(inv.image_url);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${inv.code}-${(inv.guest_name || '').replace(/\s+/g, '-')}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(inv.image_url, '_blank');
+    }
+  };
+
+  /* ── Native share → WhatsApp fallback ── */
+  const handleShare = async (inv) => {
+    const url       = inviteLink(inv);
+    const eventName = data?.event?.event_name || 'tukio letu';
+    const message   = [
+      `Habari ${inv.guest_name},`,
+      ``,
+      `Tunafurahi kukualika kwenye ${eventName}.`,
+      ``,
+      `Tafadhali bofya link hapa kuthibitisha mahudhurio yako:`,
+      ``,
+      url,
+      ``,
+      `Asante.`,
+    ].join('\n');
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Mwaliko wa ${inv.guest_name}`, text: message, url });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  /* ── Copy invite link ── */
+  const handleCopyLink = (inv) => {
+    const url = inviteLink(inv);
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('Link copied successfully!', 'success'))
+      .catch(() => showToast('Failed to copy.', 'error'));
+  };
+
+  /* ── Open guest view ── */
+  const handleOpen = (inv) => window.open(inviteLink(inv), '_blank');
+
+  /* ── Admin preview (with banner) ── */
+  const handlePreview = (inv) => {
+    const base = window.location.origin;
+    const url  = inv.invitation_uuid
+      ? `${base}/display/${inv.invitation_uuid}`
+      : inviteLink(inv);
+    window.open(url, '_blank');
+  };
+
+  /* ── Delete invitation ── */
+  const openDelModal  = (inv) => { setDelInvId(inv.id); setDelInv(inv); };
+  const closeDelModal = () => { setDelInvId(null); setDelInv(null); };
 
   const handleDeleteInv = async () => {
     try {
@@ -76,35 +171,39 @@ export default function EventDetailPage() {
         ...prev,
         invitations: prev.invitations.filter(i => i.id !== delInvId),
       }));
+      showToast('Invitation deleted.', 'success');
     } catch {
-      alert('Failed to delete invitation.');
+      showToast('Failed to delete invitation.', 'error');
     } finally {
-      setDelInvId(null);
+      closeDelModal();
     }
   };
 
-  const handleDownload = (inv) => {
-    if (!inv.image_url) return;
-    const a = document.createElement('a');
-    a.href = inv.image_url;
-    a.download = `${inv.code} - ${inv.guest_name}.jpg`;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
+  /* ── Action buttons shared between list and grid ── */
+  const ActionButtons = ({ inv }) => (
+    <div className="row-actions">
+      <button className="btn-action btn-download" onClick={() => handleDownload(inv)} disabled={!inv.image_url} title="Download card">
+        <MdDownload size={14} />
+      </button>
+      <button className="btn-action btn-share"   onClick={() => handleShare(inv)}   title="Share">
+        <MdShare size={14} />
+      </button>
+      <button className="btn-action btn-copy"    onClick={() => handleCopyLink(inv)} title="Copy invite link">
+        <MdContentCopy size={14} />
+      </button>
+      <button className="btn-action btn-open"    onClick={() => handleOpen(inv)}    title="Open guest view">
+        <MdOpenInNew size={14} />
+      </button>
+      <button className="btn-action btn-preview" onClick={() => handlePreview(inv)} title="Admin preview">
+        <MdVisibility size={14} />
+      </button>
+      <button className="btn-action btn-delete"  onClick={() => openDelModal(inv)}  title="Delete">
+        <MdDelete size={14} />
+      </button>
+    </div>
+  );
 
-  const handleShare = (inv) => {
-    const inviteUrl = `${window.location.origin}/invite/${inv.code}`;
-    const lines = [
-      `🎉 Invitation: ${data?.event?.event_name}`,
-      `👤 Guest: ${inv.guest_name}`,
-      `🔖 Code: ${inv.code}`,
-      `🔗 ${inviteUrl}`,
-    ];
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
-  };
-
+  /* ── Loading / error states ── */
   if (loading) return (
     <div className="events-page page-enter">
       <div className="events-container">
@@ -122,10 +221,10 @@ export default function EventDetailPage() {
     </div>
   );
 
-  const ev   = data?.event;
-  const invs = data?.invitations || [];
-  const stats = data?.stats  || {};
-  const rsvp  = data?.rsvp   || {};
+  const ev    = data?.event;
+  const invs  = data?.invitations || [];
+  const stats = data?.stats || {};
+  const rsvp  = data?.rsvp  || {};
 
   return (
     <div className="events-page page-enter">
@@ -177,7 +276,7 @@ export default function EventDetailPage() {
           <div className="ev-mini-stat ev-mini--red"><MdThumbDown size={18}/><span>{rsvp.declined ?? 0}</span><label>RSVP No</label></div>
         </div>
 
-        {/* ── Event info / edit ── */}
+        {/* ── Event info ── */}
         <div className="ev-info-grid">
           <div className="ev-info-card">
             <h3>Event Details</h3>
@@ -215,6 +314,7 @@ export default function EventDetailPage() {
                       </a>
                     </div>
                   )}
+                  {!ev?.event_date && !ev?.venue && <p className="ev-info-empty">No details added</p>}
                 </>
               )}
             </div>
@@ -241,7 +341,7 @@ export default function EventDetailPage() {
               <div className="dress-code-display">
                 {ev?.dress_code_main && (
                   <div className="dress-color-row">
-                    <span className="dress-swatch" style={{ background: ev.dress_code_main.toLowerCase() === 'royal blue' ? '#4169e1' : 'var(--gold)' }} />
+                    <span className="dress-swatch" />
                     <span>{ev.dress_code_main}</span>
                   </div>
                 )}
@@ -260,26 +360,51 @@ export default function EventDetailPage() {
           </div>
         </div>
 
-        {/* ── Invitations table ── */}
+        {/* ── Invitations section ── */}
         <div className="ev-inv-section">
           <div className="ev-inv-head">
             <h2>Invitations ({invs.length})</h2>
-            <button className="btn-gold" onClick={() => navigate('/create')}>
-              <MdQrCodeScanner size={15} /> Add Invitations
-            </button>
+            <div className="ev-inv-toolbar">
+              {/* View toggle */}
+              <div className="view-toggle">
+                <button
+                  className={`view-toggle-btn${invView === 'list' ? ' active' : ''}`}
+                  onClick={() => switchInvView('list')}
+                  title="List view"
+                >
+                  <MdViewList size={18} />
+                </button>
+                <button
+                  className={`view-toggle-btn${invView === 'grid' ? ' active' : ''}`}
+                  onClick={() => switchInvView('grid')}
+                  title="Grid view"
+                >
+                  <MdGridView size={18} />
+                </button>
+              </div>
+              <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
+                <MdAddPhotoAlternate size={15} /> Add Invitations
+              </button>
+            </div>
           </div>
 
           {invs.length === 0 ? (
-            <div className="events-empty" style={{ padding: '2rem' }}>
-              <p>No invitations for this event yet.</p>
+            <div className="events-empty" style={{ padding: '3rem 1rem' }}>
+              <MdPeople size={48} style={{ opacity: 0.25 }} />
+              <h3>No Invitations Yet</h3>
+              <p>Add invitations to start tracking guests.</p>
+              <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
+                <MdAddPhotoAlternate size={15} /> Create First Invitation
+              </button>
             </div>
-          ) : (
+          ) : invView === 'list' ? (
+            /* ── LIST VIEW ── */
             <div className="table-scroll">
               <table className="inv-table">
                 <thead>
                   <tr>
                     <th>Card</th><th>Code</th><th>Guest Name</th>
-                    <th>Status</th><th>Created</th><th>Checked In</th><th></th>
+                    <th>RSVP</th><th>Status</th><th>Created</th><th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -291,36 +416,73 @@ export default function EventDetailPage() {
                           : <span className="no-thumb">—</span>}
                       </td>
                       <td><span className="code-cell">{inv.code}</span></td>
-                      <td>{inv.guest_name}</td>
+                      <td><strong>{inv.guest_name}</strong></td>
+                      <td>
+                        {inv.rsvp_response ? (
+                          <span className={`rsvp-mini rsvp-mini--${inv.rsvp_response}`}>
+                            {inv.rsvp_response === 'attending' ? '✓ Yes' : '✗ No'}
+                          </span>
+                        ) : <span className="rsvp-mini rsvp-mini--none">—</span>}
+                      </td>
                       <td><StatusBadge status={inv.status} /></td>
                       <td className="date-cell">{formatDateTime(inv.created_at)}</td>
-                      <td className="date-cell">{formatDateTime(inv.used_at)}</td>
-                      <td>
-                        <div className="row-actions">
-                          <button className="btn-action btn-download" onClick={() => handleDownload(inv)} disabled={!inv.image_url} title="Download"><MdDownload size={14}/></button>
-                          <button className="btn-action btn-share"    onClick={() => handleShare(inv)}    title="Share via WhatsApp"><MdShare size={14}/></button>
-                          <button className="btn-action btn-delete"   onClick={() => setDelInvId(inv.id)} title="Delete"><MdDelete size={14}/></button>
-                        </div>
-                      </td>
+                      <td><ActionButtons inv={inv} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+          ) : (
+            /* ── GRID VIEW ── */
+            <div className="inv-grid">
+              {invs.map(inv => (
+                <div key={inv.id} className="inv-grid-card">
+                  {/* Card image */}
+                  <div className="inv-grid-img">
+                    {inv.image_url
+                      ? <img src={inv.image_url} alt={inv.code} />
+                      : <div className="inv-grid-no-img"><MdAddPhotoAlternate size={28} /></div>
+                    }
+                  </div>
+                  {/* Info */}
+                  <div className="inv-grid-body">
+                    <p className="inv-grid-name">{inv.guest_name}</p>
+                    <div className="inv-grid-meta">
+                      <span className="code-cell">{inv.code}</span>
+                      <StatusBadge status={inv.status} />
+                      {inv.rsvp_response && (
+                        <span className={`rsvp-mini rsvp-mini--${inv.rsvp_response}`}>
+                          {inv.rsvp_response === 'attending' ? '✓ RSVP Yes' : '✗ RSVP No'}
+                        </span>
+                      )}
+                    </div>
+                    <ActionButtons inv={inv} />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
       </div>
 
-      {/* Delete invitation modal */}
-      {delInvId && (
-        <div className="modal-overlay" onClick={() => setDelInvId(null)}>
+      {/* ── Delete invitation modal ── */}
+      {delInvId && delInv && (
+        <div className="modal-overlay" onClick={closeDelModal}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon modal-icon-danger">
+              <MdDelete size={26} />
+            </div>
             <h3 className="modal-title">Delete Invitation?</h3>
-            <p className="modal-message">This cannot be undone.</p>
+            <p className="modal-message">
+              Remove <strong>{delInv.guest_name}</strong> ({delInv.code})?
+              <br />This action cannot be undone.
+            </p>
             <div className="modal-actions">
-              <button className="modal-btn-cancel" onClick={() => setDelInvId(null)}>Cancel</button>
-              <button className="modal-btn-confirm modal-btn-danger" onClick={handleDeleteInv}>Delete</button>
+              <button className="modal-btn-cancel" onClick={closeDelModal}>Cancel</button>
+              <button className="modal-btn-confirm modal-btn-danger" onClick={handleDeleteInv}>
+                Delete
+              </button>
             </div>
           </div>
         </div>

@@ -8,7 +8,7 @@ const { requireAdmin } = require('../middleware/authMiddleware');
 
 const {
   generateCard, verifyCode, getStats,
-  deleteInvitation, deleteAllInvitations, reserveCode, verifyManual,
+  deleteInvitation, deleteAllInvitations, reserveCode, verifyManual, bulkImport,
 } = require('../controllers/invitationController');
 
 const { getDashboard }           = require('../controllers/adminController');
@@ -22,6 +22,7 @@ router.get('/', (_req, res) => res.json({ status: 'ok', service: 'Nardio Events 
 
 // ── Public (no auth) ────────────────────────────────────────────────────────
 router.post('/reserve',       reserveCode);
+router.post('/import',        requireAdmin, bulkImport);
 router.post('/generate',      upload.single('image'), generateCard);
 router.post('/verify',        verifyCode);
 router.post('/verify/manual', verifyManual);

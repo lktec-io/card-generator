@@ -354,4 +354,48 @@ async function verifyManual(req, res) {
   }
 }
 
-module.exports = { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode, verifyManual };
+// ── bulkImport ────────────────────────────────────────────────────────────────
+// POST /import  — create multiple invitations from uploaded guest list
+
+async function bulkImport(req, res) {
+  const guests  = req.body.guests;
+  const eventId = req.body.event_id ? parseInt(req.body.event_id, 10) : null;
+
+  if (!Array.isArray(guests) || guests.length === 0) {
+    return res.status(400).json({ success: false, message: 'Guest list is required.' });
+  }
+  if (guests.length > 500) {
+    return res.status(400).json({ success: false, message: 'Maximum 500 guests per import.' });
+  }
+
+  const created = [];
+  const errors  = [];
+
+  for (const g of guests) {
+    const name = (g.guest_name || '').trim();
+    if (!name) { errors.push({ input: g, error: 'Name is required' }); continue; }
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const code = await getNextCode(connection);
+      const uuid = crypto.randomUUID();
+      await connection.execute(
+        `INSERT INTO invitations (code, guest_name, status, event_id, invitation_uuid) VALUES (?, ?, 'unused', ?, ?)`,
+        [code, name, eventId, uuid]
+      );
+      await connection.commit();
+      created.push({ code, guest_name: name, invitation_uuid: uuid });
+    } catch (err) {
+      await connection.rollback();
+      errors.push({ input: g, error: err.message });
+    } finally {
+      connection.release();
+    }
+  }
+
+  console.log(`[bulkImport] Created ${created.length}, errors ${errors.length}`);
+  return res.status(201).json({ success: true, created, errors });
+}
+
+module.exports = { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode, verifyManual, bulkImport };

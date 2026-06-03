@@ -1,3 +1,238 @@
+/* ── View Toggle ─────────────────────────────────────────────────────── */
+
+.view-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.view-toggle-btn.active {
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--gold);
+}
+
+.view-toggle-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-muted);
+}
+
+/* ── Events header right (toggle + button) ───────────────────────────── */
+
+.events-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+/* ── Events list view ─────────────────────────────────────────────────── */
+
+.events-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.events-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--glass-bg);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s, background 0.2s;
+}
+
+.events-list-row:hover {
+  border-color: rgba(212, 175, 55, 0.22);
+  background: rgba(212, 175, 55, 0.04);
+  transform: translateX(3px);
+}
+
+.events-list-accent {
+  width: 4px;
+  min-height: 70px;
+  flex-shrink: 0;
+}
+
+.events-list-main {
+  flex: 1;
+  padding: 0.85rem 1rem;
+  min-width: 0;
+}
+
+.events-list-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.events-list-type {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.events-list-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--white);
+  font-family: var(--font-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.events-list-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.events-list-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.76rem;
+  color: var(--text-faint);
+}
+
+.events-list-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  flex-shrink: 0;
+}
+
+.events-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.75rem;
+  flex-shrink: 0;
+}
+
+.events-list-arrow {
+  color: var(--text-faint);
+  transition: transform 0.2s, color 0.2s;
+}
+.events-list-row:hover .events-list-arrow { transform: translateX(3px); color: var(--gold); }
+
+/* ── Invitation grid view ─────────────────────────────────────────────── */
+
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.inv-grid-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: transform 0.22s, border-color 0.22s, box-shadow 0.22s;
+}
+
+.inv-grid-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(212, 175, 55, 0.22);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.30);
+}
+
+.inv-grid-img {
+  width: 100%;
+  aspect-ratio: 3/4;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.inv-grid-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.inv-grid-no-img {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
+.inv-grid-body {
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inv-grid-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inv-grid-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+/* ── Toolbar row inside invitations section ──────────────────────────── */
+
+.ev-inv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+/* ── RSVP mini badge ─────────────────────────────────────────────────── */
+
+.rsvp-mini {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rsvp-mini--attending { background: rgba(34,197,94,0.14);  color: #4ade80; }
+.rsvp-mini--declined  { background: rgba(239,68,68,0.12);  color: #fca5a5; }
+.rsvp-mini--none      { color: var(--text-faint); background: none; }
+
 /* ── Events Pages (EventsPage, EventDetailPage, VerificationHistoryPage) ── */
 
 .events-page {
@@ -618,6 +853,48 @@
 
 .modal-btn-danger { background: #ef4444 !important; color: #fff !important; }
 .modal-btn-danger:hover { background: #dc2626 !important; }
+
+/* ── Action buttons (shared with admin) ─────────────────────────────── */
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-action:disabled { opacity: 0.28; cursor: default; }
+
+.btn-download { background: rgba(59,130,246,0.10); color: #60a5fa; border-color: rgba(59,130,246,0.22); }
+.btn-download:hover:not(:disabled) { background: rgba(59,130,246,0.22); transform: scale(1.08); }
+
+.btn-share { background: rgba(34,197,94,0.10); color: #4ade80; border-color: rgba(34,197,94,0.22); }
+.btn-share:hover:not(:disabled) { background: rgba(34,197,94,0.22); transform: scale(1.08); }
+
+.btn-copy { background: rgba(251,191,36,0.10); color: #fbbf24; border-color: rgba(251,191,36,0.22); }
+.btn-copy:hover { background: rgba(251,191,36,0.22); transform: scale(1.08); }
+
+.btn-open { background: rgba(167,139,250,0.10); color: #a78bfa; border-color: rgba(167,139,250,0.22); }
+.btn-open:hover { background: rgba(167,139,250,0.22); transform: scale(1.08); }
+
+.btn-preview { background: rgba(212,175,55,0.10); color: #d4af37; border-color: rgba(212,175,55,0.22); }
+.btn-preview:hover { background: rgba(212,175,55,0.22); transform: scale(1.08); }
+
+.btn-delete { background: rgba(239,68,68,0.10); color: #ef4444; border-color: rgba(239,68,68,0.22); }
+.btn-delete:hover:not(:disabled) { background: rgba(239,68,68,0.22); transform: scale(1.08); }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
 

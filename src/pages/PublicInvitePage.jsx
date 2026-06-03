@@ -37,9 +37,10 @@ export default function PublicInvitePage({ isPreview = false }) {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [qrUrl,      setQrUrl]      = useState('');
-  const [rsvpState,  setRsvpState]  = useState(null); // null | 'attending' | 'declined' | 'already'
-  const [rsvping,    setRsvping]    = useState(false);
-  const [rsvpMsg,    setRsvpMsg]    = useState('');
+  const [rsvpState,   setRsvpState]   = useState(null);
+  const [rsvping,     setRsvping]     = useState(false);
+  const [rsvpMsg,     setRsvpMsg]     = useState('');
+  const [showModal,   setShowModal]   = useState(false);
 
   useEffect(() => {
     getPublicInvite(uuid)
@@ -61,6 +62,39 @@ export default function PublicInvitePage({ isPreview = false }) {
       .finally(() => setLoading(false));
   }, [uuid]);
 
+  const playSound = (type) => {
+    try {
+      const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+      const gain = ctx.createGain();
+      gain.connect(ctx.destination);
+
+      if (type === 'attending') {
+        // Warm C-major arpeggio
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          osc.connect(gain);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.13);
+          gain.gain.setValueAtTime(0.22, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.60);
+          osc.start(ctx.currentTime + i * 0.13);
+          osc.stop(ctx.currentTime + 0.60);
+        });
+      } else {
+        // Soft single descend for decline
+        const osc = ctx.createOscillator();
+        osc.connect(gain);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(330, ctx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.40);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.40);
+      }
+    } catch (_) { /* audio not supported */ }
+  };
+
   const handleRSVP = async (response) => {
     if (rsvpState || rsvping) return;
     setRsvping(true);
@@ -68,6 +102,10 @@ export default function PublicInvitePage({ isPreview = false }) {
       const { data: r } = await submitRSVP(uuid, response);
       setRsvpState(response);
       setRsvpMsg(r.message);
+      playSound(response);
+      setShowModal(true);
+      // Auto-close modal after 5 s
+      setTimeout(() => setShowModal(false), 5000);
     } catch (err) {
       const res = err.response?.data;
       if (res?.already_responded) {
@@ -301,6 +339,36 @@ export default function PublicInvitePage({ isPreview = false }) {
 
         <p className="invite-footer">Powered by Nardio Events</p>
       </div>
+
+      {/* ── RSVP Success Modal ── */}
+      {showModal && rsvpState && (
+        <div className="rsvp-modal-overlay" onClick={() => setShowModal(false)}>
+          <div
+            className={`rsvp-modal rsvp-modal--${rsvpState}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="rsvp-modal-icon">
+              {rsvpState === 'attending'
+                ? <MdCheckCircle size={48} />
+                : <MdCancel size={48} />}
+            </div>
+            <h2 className="rsvp-modal-title">
+              {rsvpState === 'attending' ? 'Umekubalika! 🎉' : 'Jibu Limepokelewa'}
+            </h2>
+            <p className="rsvp-modal-msg">
+              {rsvpMsg || (rsvpState === 'attending'
+                ? 'Asante kwa kuthibitisha mahudhurio yako.'
+                : 'Asante kwa kutujulisha.')}
+            </p>
+            {rsvpState === 'attending' && (
+              <p className="rsvp-modal-sub">Tutafurahi kukuona kwenye tukio.</p>
+            )}
+            <button className="rsvp-modal-btn" onClick={() => setShowModal(false)}>
+              Sawa, Asante
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

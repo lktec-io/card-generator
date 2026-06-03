@@ -62,7 +62,9 @@ export const getPublicInvite = (uuid)       => api.get(`/invite/${uuid}`);
 export const submitRSVP      = (uuid, resp) => api.post(`/rsvp/${uuid}`, { response: resp });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
-export const deleteInvitation     = (id) => api.delete(`/invitations/${id}`);
-export const deleteAllInvitations = ()   => api.delete('/invitations');
+export const deleteInvitation     = (id)           => api.delete(`/invitations/${id}`);
+export const deleteAllInvitations = ()             => api.delete('/invitations');
+export const bulkImport           = (guests, eventId) =>
+  api.post('/import', { guests, event_id: eventId });
 
 export default api;

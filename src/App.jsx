@@ -9,25 +9,27 @@ import EventsPage               from './pages/EventsPage';
 import EventDetailPage          from './pages/EventDetailPage';
 import VerificationHistoryPage  from './pages/VerificationHistoryPage';
 import PublicInvitePage         from './pages/PublicInvitePage';
-import { isLoggedIn, isAdmin } from './utils/auth';
+import ImportPage               from './pages/ImportPage';
+import { ToastProvider }        from './context/ToastContext';
+import { isLoggedIn, isAdmin }  from './utils/auth';
 import './styles/global.css';
 import './App.css';
 
-// Any logged-in user
 function ProtectedRoute({ children }) {
   return isLoggedIn() ? children : <Navigate to="/login" replace />;
 }
 
-// Admin-only: gate staff gets redirected to /verify
 function AdminRoute({ children }) {
-  if (!isLoggedIn())  return <Navigate to="/login"  replace />;
-  if (!isAdmin())     return <Navigate to="/verify" replace />;
+  if (!isLoggedIn()) return <Navigate to="/login"  replace />;
+  if (!isAdmin())    return <Navigate to="/verify" replace />;
   return children;
 }
 
 function AppShell() {
   const { pathname } = useLocation();
-  const noNav = pathname === '/login' || pathname.startsWith('/invite/') || pathname.startsWith('/display/');
+  const noNav = pathname === '/login'
+    || pathname.startsWith('/invite/')
+    || pathname.startsWith('/display/');
 
   return (
     <>
@@ -35,7 +37,7 @@ function AppShell() {
       {!noNav && <Navbar />}
       <main>
         <Routes>
-          {/* Public — no auth */}
+          {/* Public */}
           <Route path="/login"         element={<LoginPage />} />
           <Route path="/invite/:uuid"  element={<PublicInvitePage />} />
           <Route path="/display/:uuid" element={<AdminRoute><PublicInvitePage isPreview /></AdminRoute>} />
@@ -44,12 +46,13 @@ function AppShell() {
           <Route path="/verify" element={<ProtectedRoute><VerifyPage /></ProtectedRoute>} />
 
           {/* Admin only */}
-          <Route path="/"           element={<AdminRoute><DashboardPage /></AdminRoute>} />
-          <Route path="/events"     element={<AdminRoute><EventsPage /></AdminRoute>} />
-          <Route path="/events/:id" element={<AdminRoute><EventDetailPage /></AdminRoute>} />
-          <Route path="/create"     element={<AdminRoute><CreatePage /></AdminRoute>} />
-          <Route path="/history"    element={<AdminRoute><VerificationHistoryPage /></AdminRoute>} />
-          <Route path="/admin"      element={<AdminRoute><AdminPage /></AdminRoute>} />
+          <Route path="/"            element={<AdminRoute><DashboardPage /></AdminRoute>} />
+          <Route path="/events"      element={<AdminRoute><EventsPage /></AdminRoute>} />
+          <Route path="/events/:id"  element={<AdminRoute><EventDetailPage /></AdminRoute>} />
+          <Route path="/create"      element={<AdminRoute><CreatePage /></AdminRoute>} />
+          <Route path="/import"      element={<AdminRoute><ImportPage /></AdminRoute>} />
+          <Route path="/history"     element={<AdminRoute><VerificationHistoryPage /></AdminRoute>} />
+          <Route path="/admin"       element={<AdminRoute><AdminPage /></AdminRoute>} />
         </Routes>
       </main>
     </>
@@ -57,5 +60,9 @@ function AppShell() {
 }
 
 export default function App() {
-  return <AppShell />;
+  return (
+    <ToastProvider>
+      <AppShell />
+    </ToastProvider>
+  );
 }

@@ -482,6 +482,110 @@
   text-align: center;
 }
 
+/* ── RSVP Success Modal ───────────────────────────────────────────────── */
+
+.rsvp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.70);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: rsvpOverlayIn 0.25s ease forwards;
+}
+
+@keyframes rsvpOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.rsvp-modal {
+  width: 100%;
+  max-width: 360px;
+  border-radius: 24px;
+  padding: 2.5rem 2rem 2rem;
+  text-align: center;
+  animation: rsvpModalPop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes rsvpModalPop {
+  from { transform: scale(0.72) translateY(20px); opacity: 0; }
+  to   { transform: scale(1)    translateY(0);    opacity: 1; }
+}
+
+.rsvp-modal--attending {
+  background: #0d2e16;
+  border: 1.5px solid rgba(34, 197, 94, 0.40);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.65), 0 0 60px rgba(34, 197, 94, 0.18);
+}
+
+.rsvp-modal--declined {
+  background: #1e1212;
+  border: 1.5px solid rgba(239, 68, 68, 0.35);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.65);
+}
+
+.rsvp-modal-icon {
+  margin: 0 auto 1.1rem;
+}
+
+.rsvp-modal--attending .rsvp-modal-icon { color: #4ade80; }
+.rsvp-modal--declined  .rsvp-modal-icon { color: #fca5a5; }
+
+.rsvp-modal-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 2rem;
+  font-weight: 400;
+  color: #fff;
+  margin-bottom: 0.6rem;
+  line-height: 1.2;
+}
+
+.rsvp-modal-msg {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.6;
+  margin-bottom: 0.4rem;
+}
+
+.rsvp-modal-sub {
+  font-size: 0.80rem;
+  color: rgba(255, 255, 255, 0.42);
+  margin-bottom: 1.5rem;
+}
+
+.rsvp-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1rem;
+  padding: 0.75rem 2rem;
+  border-radius: 12px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: filter 0.2s, transform 0.2s;
+}
+
+.rsvp-modal--attending .rsvp-modal-btn {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff;
+}
+
+.rsvp-modal--declined .rsvp-modal-btn {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  color: #fca5a5;
+}
+
+.rsvp-modal-btn:hover { filter: brightness(1.10); transform: translateY(-1px); }
+
 /* ── Responsive ───────────────────────────────────────────────────────── */
 
 @media (max-width: 500px) {
