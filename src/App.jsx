@@ -9,7 +9,7 @@ import EventsPage               from './pages/EventsPage';
 import EventDetailPage          from './pages/EventDetailPage';
 import VerificationHistoryPage  from './pages/VerificationHistoryPage';
 import PublicInvitePage         from './pages/PublicInvitePage';
-import { isLoggedIn, isAdmin }  from './utils/auth';
+import { isLoggedIn, isAdmin } from './utils/auth';
 import './styles/global.css';
 import './App.css';
 
@@ -27,7 +27,7 @@ function AdminRoute({ children }) {
 
 function AppShell() {
   const { pathname } = useLocation();
-  const noNav = pathname === '/login' || pathname.startsWith('/invite/');
+  const noNav = pathname === '/login' || pathname.startsWith('/invite/') || pathname.startsWith('/display/');
 
   return (
     <>
@@ -36,8 +36,9 @@ function AppShell() {
       <main>
         <Routes>
           {/* Public — no auth */}
-          <Route path="/login"        element={<LoginPage />} />
-          <Route path="/invite/:code" element={<PublicInvitePage />} />
+          <Route path="/login"         element={<LoginPage />} />
+          <Route path="/invite/:uuid"  element={<PublicInvitePage />} />
+          <Route path="/display/:uuid" element={<AdminRoute><PublicInvitePage isPreview /></AdminRoute>} />
 
           {/* Any authenticated user */}
           <Route path="/verify" element={<ProtectedRoute><VerifyPage /></ProtectedRoute>} />

@@ -1,5 +1,6 @@
-const path = require('path');
-const fs   = require('fs');
+const path   = require('path');
+const fs     = require('fs');
+const crypto = require('crypto');
 
 const pool                        = require('../config/db');
 const { uploadBuffer }            = require('../config/cloudinary');
@@ -38,10 +39,11 @@ async function generateCard(req, res) {
     const code = await getNextCode(connection);
 
     // 2 — Insert the row immediately so the code is locked in DB
+    const uuid = crypto.randomUUID();
     await connection.execute(
-      `INSERT INTO invitations (code, guest_name, status)
-       VALUES (?, ?, 'unused')`,
-      [code, guestName]
+      `INSERT INTO invitations (code, guest_name, status, invitation_uuid)
+       VALUES (?, ?, 'unused', ?)`,
+      [code, guestName, uuid]
     );
 
     // 3 — Upload original card to Cloudinary
@@ -82,12 +84,13 @@ async function generateCard(req, res) {
     console.log(`[generateCard] Created: ${code} for "${guestName}"`);
 
     return res.status(201).json({
-      success:    true,
-      message:    'Card generated successfully.',
+      success:         true,
+      message:         'Card generated successfully.',
       code,
-      guest_name: guestName,
-      image_url:  finalUpload.secure_url,
-      local_url:  `/generated/${code}.png`,
+      invitation_uuid: uuid,
+      guest_name:      guestName,
+      image_url:       finalUpload.secure_url,
+      local_url:       `/generated/${code}.png`,
     });
 
   } catch (err) {
@@ -224,13 +227,14 @@ async function reserveCode(req, res) {
   try {
     await connection.beginTransaction();
     const code = await getNextCode(connection);
+    const uuid = crypto.randomUUID();
     await connection.execute(
-      `INSERT INTO invitations (code, guest_name, status, event_id) VALUES (?, ?, 'unused', ?)`,
-      [code, guestName, eventId]
+      `INSERT INTO invitations (code, guest_name, status, event_id, invitation_uuid) VALUES (?, ?, 'unused', ?, ?)`,
+      [code, guestName, eventId, uuid]
     );
     await connection.commit();
-    console.log(`[reserveCode] Reserved: ${code} for "${guestName}"${eventId ? ` event=${eventId}` : ''}`);
-    return res.status(201).json({ success: true, code, guest_name: guestName, event_id: eventId });
+    console.log(`[reserveCode] Reserved: ${code} (${uuid}) for "${guestName}"${eventId ? ` event=${eventId}` : ''}`);
+    return res.status(201).json({ success: true, code, invitation_uuid: uuid, guest_name: guestName, event_id: eventId });
   } catch (err) {
     await connection.rollback();
     console.error('[reserveCode]', err);

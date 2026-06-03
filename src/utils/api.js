@@ -57,9 +57,9 @@ export const deleteEvent = (id)       => api.delete(`/events/${id}`);
 // ── Verification history ──────────────────────────────────────────────────────
 export const getVerificationLogs = () => api.get('/verification-logs');
 
-// ── Public invite & RSVP (no auth needed) ────────────────────────────────────
-export const getPublicInvite = (code)       => api.get(`/invite/${code}`);
-export const submitRSVP      = (code, resp) => api.post(`/rsvp/${code}`, { response: resp });
+// ── Public invite & RSVP (no auth, UUID-based) ───────────────────────────────
+export const getPublicInvite = (uuid)       => api.get(`/invite/${uuid}`);
+export const submitRSVP      = (uuid, resp) => api.post(`/rsvp/${uuid}`, { response: resp });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const deleteInvitation     = (id) => api.delete(`/invitations/${id}`);

@@ -1,59 +1,28 @@
 const pool = require('../config/db');
 
-// POST /rsvp/:code
-async function submitRSVP(req, res) {
-  const code     = (req.params.code || '').trim().toUpperCase();
-  const response = (req.body.response || '').trim();
-
-  if (!['attending', 'declined'].includes(response)) {
-    return res.status(400).json({ success: false, message: 'Response must be "attending" or "declined".' });
-  }
-
-  try {
-    const [[inv]] = await pool.execute(
-      'SELECT id, event_id, guest_name FROM invitations WHERE code = ? LIMIT 1',
-      [code]
-    );
-    if (!inv) {
-      return res.status(404).json({ success: false, message: 'Invitation not found.' });
-    }
-
-    await pool.execute(
-      `INSERT INTO rsvp_responses (event_id, invitation_id, response)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE response = VALUES(response), created_at = NOW()`,
-      [inv.event_id, inv.id, response]
-    );
-
-    console.log(`[submitRSVP] ${code} → ${response}`);
-
-    res.json({
-      success:    true,
-      response,
-      guest_name: inv.guest_name,
-      message:    response === 'attending'
-        ? 'Thank you! We look forward to seeing you.'
-        : 'Thank you for letting us know.',
-    });
-  } catch (err) {
-    console.error('[submitRSVP]', err);
-    res.status(500).json({ success: false, message: 'Failed to submit RSVP.' });
-  }
-}
-
-// GET /invite/:code  — public invitation data (no auth)
+// GET /invite/:uuid  — public invitation page data (no auth)
 async function getPublicInvite(req, res) {
-  const code = (req.params.code || '').trim().toUpperCase();
+  const uuid = (req.params.uuid || '').trim();
+
+  if (!uuid) {
+    return res.status(400).json({ success: false, message: 'Invalid invitation link.' });
+  }
 
   try {
     const [[inv]] = await pool.execute(
-      `SELECT i.id, i.code, i.guest_name, i.image_url, i.event_id,
-              r.response AS rsvp_response
-         FROM invitations i
-         LEFT JOIN rsvp_responses r ON r.invitation_id = i.id
-        WHERE i.code = ?
-        LIMIT 1`,
-      [code]
+      `SELECT
+         i.id,
+         i.code,
+         i.guest_name,
+         i.image_url,
+         i.event_id,
+         i.invitation_uuid,
+         r.response AS rsvp_response
+       FROM invitations i
+       LEFT JOIN rsvp_responses r ON r.invitation_id = i.id
+       WHERE i.invitation_uuid = ?
+       LIMIT 1`,
+      [uuid]
     );
 
     if (!inv) {
@@ -70,6 +39,62 @@ async function getPublicInvite(req, res) {
   } catch (err) {
     console.error('[getPublicInvite]', err);
     res.status(500).json({ success: false, message: 'Failed to load invitation.' });
+  }
+}
+
+// POST /rsvp/:uuid  — guest submits RSVP (one response only, no changes)
+async function submitRSVP(req, res) {
+  const uuid     = (req.params.uuid || '').trim();
+  const response = (req.body.response || '').trim();
+
+  if (!uuid) {
+    return res.status(400).json({ success: false, message: 'Invalid invitation link.' });
+  }
+
+  if (!['attending', 'declined'].includes(response)) {
+    return res.status(400).json({ success: false, message: 'Response must be "attending" or "declined".' });
+  }
+
+  try {
+    const [[inv]] = await pool.execute(
+      'SELECT id, event_id, guest_name FROM invitations WHERE invitation_uuid = ? LIMIT 1',
+      [uuid]
+    );
+
+    if (!inv) {
+      return res.status(404).json({ success: false, message: 'Invitation not found.' });
+    }
+
+    // Strict one-response rule — check before inserting
+    const [[existing]] = await pool.execute(
+      'SELECT id, response FROM rsvp_responses WHERE invitation_id = ? LIMIT 1',
+      [inv.id]
+    );
+
+    if (existing) {
+      return res.status(409).json({
+        success:          false,
+        already_responded: true,
+        response:          existing.response,
+        message:           'Tayari umeshajibu mwaliko huu.',
+      });
+    }
+
+    await pool.execute(
+      `INSERT INTO rsvp_responses (event_id, invitation_id, response) VALUES (?, ?, ?)`,
+      [inv.event_id || null, inv.id, response]
+    );
+
+    console.log(`[submitRSVP] ${inv.guest_name} (${uuid.slice(0, 8)}…) → ${response}`);
+
+    const message = response === 'attending'
+      ? 'Asante! Tunafurahi kukuona.'
+      : 'Asante kwa kutujulisha.';
+
+    res.json({ success: true, response, guest_name: inv.guest_name, message });
+  } catch (err) {
+    console.error('[submitRSVP]', err);
+    res.status(500).json({ success: false, message: 'Imeshindwa kuhifadhi jibu lako.' });
   }
 }
 

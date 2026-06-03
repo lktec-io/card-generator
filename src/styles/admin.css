@@ -78,7 +78,7 @@
 
 .admin-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 1.25rem;
   margin-bottom: 2.5rem;
 }
@@ -464,6 +464,18 @@
 .btn-open:hover {
   background: rgba(167, 139, 250, 0.20);
   border-color: rgba(167, 139, 250, 0.45);
+  transform: scale(1.08);
+}
+
+.btn-preview {
+  background: rgba(212, 175, 55, 0.10);
+  color: #d4af37;
+  border-color: rgba(212, 175, 55, 0.22);
+}
+
+.btn-preview:hover {
+  background: rgba(212, 175, 55, 0.20);
+  border-color: rgba(212, 175, 55, 0.45);
   transform: scale(1.08);
 }
 

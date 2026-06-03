@@ -27,9 +27,9 @@ router.post('/verify',        verifyCode);
 router.post('/verify/manual', verifyManual);
 router.get( '/stats',         getStats);
 
-// Public invite page + RSVP (guests access without accounts)
-router.get( '/invite/:code', getPublicInvite);
-router.post('/rsvp/:code',   submitRSVP);
+// Public invite page + RSVP — UUID-based (no auth, guests access directly)
+router.get( '/invite/:uuid', getPublicInvite);
+router.post('/rsvp/:uuid',   submitRSVP);
 
 // ── Protected (admin JWT required) ─────────────────────────────────────────
 router.get('/admin/dashboard',   requireAdmin, getDashboard);

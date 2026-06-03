@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
-import { MdRefresh, MdDelete, MdDeleteSweep, MdWarning, MdDownload, MdShare, MdContentCopy, MdOpenInNew } from 'react-icons/md';
+import { MdRefresh, MdDelete, MdDeleteSweep, MdWarning, MdDownload, MdShare, MdContentCopy, MdOpenInNew, MdVisibility } from 'react-icons/md';
 import { API_BASE, getAuthHeaders } from '../utils/api';
 import '../styles/admin.css';
+
+function inviteUrl(inv) {
+  const base = window.location.origin;
+  return inv.invitation_uuid
+    ? `${base}/invite/${inv.invitation_uuid}`
+    : `${base}/invite/${inv.code}`;
+}
 
 function StatusBadge({ status }) {
   return (
@@ -79,29 +86,42 @@ export default function AdminPage() {
     document.body.removeChild(a);
   };
 
-  /* ── WhatsApp share ── */
+  /* ── WhatsApp share (Swahili template) ── */
   const handleShare = (inv) => {
-    const inviteUrl = `${window.location.origin}/invite/${inv.code}`;
+    const link      = inviteUrl(inv);
+    const eventName = inv.event_name || 'tukio letu';
     const lines = [
-      '🎊 *Event Invitation*',
-      `👤 Guest: ${inv.guest_name}`,
-      `🔖 Code: ${inv.code}`,
-      `🔗 ${inviteUrl}`,
+      `Habari ${inv.guest_name},`,
+      ``,
+      `Tunafurahi kukualika kwenye ${eventName}.`,
+      ``,
+      `Tafadhali bofya link kuthibitisha mahudhurio yako:`,
+      ``,
+      link,
+      ``,
+      `Asante.`,
     ];
-    if (inv.image_url) lines.push(`🖼️ Card: ${inv.image_url}`);
     window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
   };
 
-  /* ── Copy invitation link ── */
+  /* ── Copy invitation link (UUID-based) ── */
   const handleCopyLink = (inv) => {
-    const url = `${window.location.origin}/invite/${inv.code}`;
-    navigator.clipboard.writeText(url).then(() => setCopiedCode(inv.code));
+    navigator.clipboard.writeText(inviteUrl(inv)).then(() => setCopiedCode(inv.code));
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  /* ── Open public invitation page ── */
+  /* ── Open guest view ── */
   const handleOpenInvite = (inv) => {
-    window.open(`/invite/${inv.code}`, '_blank');
+    window.open(inviteUrl(inv), '_blank');
+  };
+
+  /* ── Admin preview (with banner) ── */
+  const handlePreview = (inv) => {
+    const base = window.location.origin;
+    const url  = inv.invitation_uuid
+      ? `${base}/display/${inv.invitation_uuid}`
+      : inviteUrl(inv);
+    window.open(url, '_blank');
   };
 
   /* ── Single delete ── */
@@ -177,15 +197,27 @@ export default function AdminPage() {
           <div className="admin-stats-grid">
             <div className="admin-stat-card accent">
               <p className="stat-value">{data.stats.total ?? '—'}</p>
-              <p className="stat-label">Total Generated</p>
+              <p className="stat-label">Total</p>
             </div>
             <div className="admin-stat-card">
               <p className="stat-value">{data.stats.used ?? '—'}</p>
-              <p className="stat-label">Used</p>
+              <p className="stat-label">Checked In</p>
             </div>
             <div className="admin-stat-card">
               <p className="stat-value">{data.stats.unused ?? '—'}</p>
-              <p className="stat-label">Unused</p>
+              <p className="stat-label">Pending Entry</p>
+            </div>
+            <div className="admin-stat-card">
+              <p className="stat-value" style={{ color: '#4ade80' }}>{data.stats.rsvp_attending ?? '—'}</p>
+              <p className="stat-label">RSVP Yes</p>
+            </div>
+            <div className="admin-stat-card">
+              <p className="stat-value" style={{ color: '#fca5a5' }}>{data.stats.rsvp_declined ?? '—'}</p>
+              <p className="stat-label">RSVP No</p>
+            </div>
+            <div className="admin-stat-card">
+              <p className="stat-value" style={{ color: '#fbbf24' }}>{data.stats.rsvp_pending ?? '—'}</p>
+              <p className="stat-label">No Response</p>
             </div>
           </div>
         )}
@@ -275,9 +307,16 @@ export default function AdminPage() {
                           <button
                             className="btn-action btn-open"
                             onClick={() => handleOpenInvite(inv)}
-                            title="Open invitation page"
+                            title="Open guest view"
                           >
                             <MdOpenInNew size={14} />
+                          </button>
+                          <button
+                            className="btn-action btn-preview"
+                            onClick={() => handlePreview(inv)}
+                            title="Admin preview"
+                          >
+                            <MdVisibility size={14} />
                           </button>
                           <button
                             className="btn-action btn-delete"
