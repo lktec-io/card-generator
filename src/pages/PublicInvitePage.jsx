@@ -7,7 +7,7 @@ import {
 import { GiDiamondRing } from 'react-icons/gi';
 import QRCode from 'qrcode';
 import { getPublicInvite, submitRSVP } from '../utils/api';
-import CelebrationEffect from '../components/CelebrationEffect';
+import { celebrateRSVP } from '../utils/confettiCelebration';
 import '../styles/public-invite.css';
 
 function formatDate(raw) {
@@ -25,11 +25,10 @@ export default function PublicInvitePage({ isPreview = false }) {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [qrUrl,      setQrUrl]      = useState('');
-  const [rsvpState,    setRsvpState]    = useState(null);
-  const [rsvping,      setRsvping]      = useState(false);
-  const [rsvpMsg,      setRsvpMsg]      = useState('');
-  const [showModal,    setShowModal]    = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
+  const [rsvpState,  setRsvpState]  = useState(null);
+  const [rsvping,    setRsvping]    = useState(false);
+  const [rsvpMsg,    setRsvpMsg]    = useState('');
+  const [showModal,  setShowModal]  = useState(false);
 
   useEffect(() => {
     getPublicInvite(uuid)
@@ -91,11 +90,11 @@ export default function PublicInvitePage({ isPreview = false }) {
       const { data: r } = await submitRSVP(uuid, response);
       setRsvpState(response);
       setRsvpMsg(r.message);
+      // Sound + confetti fire immediately, in parallel — don't await confetti
       playSound(response);
+      if (response === 'attending') celebrateRSVP();
       setShowModal(true);
-      if (response === 'attending') setShowConfetti(true);
-      // Auto-close modal after 5 s
-      setTimeout(() => setShowModal(false), 5000);
+      setTimeout(() => setShowModal(false), 6000);
     } catch (err) {
       const res = err.response?.data;
       if (res?.already_responded) {
@@ -345,11 +344,6 @@ export default function PublicInvitePage({ isPreview = false }) {
 
         <p className="invite-footer">Powered by Nardio Events</p>
       </div>
-
-      {/* ── Celebration petals (attending only) ── */}
-      {showConfetti && (
-        <CelebrationEffect onDone={() => setShowConfetti(false)} />
-      )}
 
       {/* ── RSVP Success Modal ── */}
       {showModal && rsvpState && (
