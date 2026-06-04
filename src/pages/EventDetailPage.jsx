@@ -6,8 +6,9 @@ import {
   MdThumbUp, MdThumbDown, MdDownload, MdShare, MdDelete,
   MdQrCodeScanner, MdEdit, MdSave, MdClose, MdContentCopy,
   MdOpenInNew, MdVisibility, MdGridView, MdViewList, MdAddPhotoAlternate,
+  MdWarning,
 } from 'react-icons/md';
-import { getEvent, updateEvent, deleteInvitation, getVoiceMessages } from '../utils/api';
+import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
 import '../styles/events.css';
@@ -64,8 +65,10 @@ export default function EventDetailPage() {
   const [saving,        setSaving]        = useState(false);
   const [delInvId,      setDelInvId]      = useState(null);
   const [delInv,        setDelInv]        = useState(null);
-  const [voiceMsgs,     setVoiceMsgs]     = useState([]);
-  const [loadingVoice,  setLoadingVoice]  = useState(false);  // full inv object for modal
+  const [voiceMsgs,      setVoiceMsgs]      = useState([]);
+  const [loadingVoice,   setLoadingVoice]   = useState(false);
+  const [deletingVmId,   setDeletingVmId]   = useState(null);  // id being deleted
+  const [deleteVmModal,  setDeleteVmModal]  = useState(null);  // vm object | null  // full inv object for modal
   const [invView,  setInvView]  = useState(() => localStorage.getItem('invView') || 'list');
 
   // Provide color defaults so the pickers always save a value, even for old events
@@ -92,6 +95,22 @@ export default function EventDetailPage() {
       .then(({ data: d }) => setVoiceMsgs(d.messages || []))
       .catch(() => {})
       .finally(() => setLoadingVoice(false));
+  };
+
+  const confirmDeleteVm = async () => {
+    const vm = deleteVmModal;
+    if (!vm) return;
+    setDeleteVmModal(null);
+    setDeletingVmId(vm.id);
+    try {
+      await deleteVoiceMessage(vm.id);
+      setVoiceMsgs(prev => prev.filter(m => m.id !== vm.id));
+      showToast('Ujumbe umefutwa.', 'success');
+    } catch {
+      showToast('Imeshindwa kufuta ujumbe.', 'error');
+    } finally {
+      setDeletingVmId(null);
+    }
   };
 
   useEffect(() => { load(); loadVoice(); }, [id]);
@@ -567,6 +586,7 @@ export default function EventDetailPage() {
                     <th>Msimbo</th>
                     <th>Saa Ilitumwa</th>
                     <th>Ujumbe</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -576,6 +596,20 @@ export default function EventDetailPage() {
                       <td><span className="code-cell">{vm.invitation_code}</span></td>
                       <td className="date-cell">{formatDateTime(vm.created_at)}</td>
                       <td><VoicePlayerMini url={vm.voice_message_url} /></td>
+                      <td>
+                        <button
+                          className="btn-action btn-delete"
+                          onClick={() => setDeleteVmModal(vm)}
+                          disabled={deletingVmId === vm.id}
+                          title="Futa Ujumbe"
+                          aria-label="Delete voice message"
+                        >
+                          {deletingVmId === vm.id
+                            ? <span style={{ width: 14, height: 14, border: '2px solid rgba(239,68,68,0.25)', borderTopColor: '#ef4444', borderRadius: '50%', display: 'inline-block', animation: 'spin .78s linear infinite' }} />
+                            : <MdDelete size={14} />
+                          }
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -602,6 +636,30 @@ export default function EventDetailPage() {
               <button className="modal-btn-cancel" onClick={closeDelModal}>Cancel</button>
               <button className="modal-btn-confirm modal-btn-danger" onClick={handleDeleteInv}>
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete voice message modal ── */}
+      {deleteVmModal && (
+        <div className="modal-overlay" onClick={() => setDeleteVmModal(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon modal-icon-danger">
+              <MdWarning size={26} />
+            </div>
+            <h3 className="modal-title">Futa ujumbe huu wa sauti?</h3>
+            <p className="modal-message">
+              <strong>{deleteVmModal.guest_name}</strong> ({deleteVmModal.invitation_code})<br />
+              Faili itafutwa kutoka kwa Cloudinary. Kitendo hiki hakiwezi kurejeshwa.
+            </p>
+            <div className="modal-actions">
+              <button className="modal-btn-cancel" onClick={() => setDeleteVmModal(null)}>
+                Ghairi
+              </button>
+              <button className="modal-btn-confirm modal-btn-danger" onClick={confirmDeleteVm}>
+                Futa
               </button>
             </div>
           </div>

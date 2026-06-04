@@ -28,7 +28,7 @@ const {
 const { getDashboard }           = require('../controllers/adminController');
 const { listEvents, createEvent, getEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
 const { submitRSVP, getPublicInvite } = require('../controllers/rsvpController');
-const { sendVoiceMessage, getVoiceMessages } = require('../controllers/voiceMessageController');
+const { sendVoiceMessage, getVoiceMessages, deleteVoiceMessage } = require('../controllers/voiceMessageController');
 const { listTemplates, listAllTemplates, toggleTemplate } = require('../controllers/templateController');
 const { getGlobalStats }         = require('../controllers/statsController');
 const { getVerificationHistory } = require('../controllers/verificationLogController');
@@ -72,6 +72,7 @@ router.get(   '/events/:id',                   requireAdmin, getEvent);
 router.put(   '/events/:id',                   requireAdmin, updateEvent);
 router.delete('/events/:id',                   requireAdmin, deleteEvent);
 router.get(   '/events/:id/voice-messages',    requireAdmin, getVoiceMessages);
+router.delete('/voice-messages/:id',           requireAdmin, deleteVoiceMessage);
 
 // ── Static — generated card images ─────────────────────────────────────────
 router.get('/generated/:filename', (req, res) => {

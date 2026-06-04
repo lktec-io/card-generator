@@ -76,7 +76,8 @@ export const sendVoiceMessage = (uuid, audioBlob) => {
   });
 };
 
-export const getVoiceMessages = (eventId) => api.get(`/events/${eventId}/voice-messages`);
+export const getVoiceMessages    = (eventId) => api.get(`/events/${eventId}/voice-messages`);
+export const deleteVoiceMessage  = (id)      => api.delete(`/voice-messages/${id}`);
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const deleteInvitation     = (id)           => api.delete(`/invitations/${id}`);
