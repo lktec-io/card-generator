@@ -1,0 +1,278 @@
+/* ── Voice Recorder ───────────────────────────────────────────────────── */
+
+.voice-recorder {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+
+.vr-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.vr-header-icon {
+  color: #d4af37;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.vr-header-title { flex: 1; }
+
+.vr-optional {
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* ── Error ───────────────────────────────────────────────────────────── */
+
+.vr-error {
+  font-size: 0.78rem;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.10);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+
+.vr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.7rem 1.4rem;
+  border-radius: 12px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: filter 0.2s, transform 0.15s;
+  width: 100%;
+}
+
+.vr-btn:active { transform: scale(0.97); }
+
+.vr-btn--start {
+  background: rgba(212, 175, 55, 0.14);
+  border: 1.5px solid rgba(212, 175, 55, 0.32);
+  color: #d4af37;
+}
+.vr-btn--start:hover { filter: brightness(1.12); }
+
+.vr-btn--stop {
+  background: rgba(239, 68, 68, 0.14);
+  border: 1.5px solid rgba(239, 68, 68, 0.30);
+  color: #fca5a5;
+  min-width: unset;
+  width: auto;
+  padding: 0.5rem 1rem;
+  font-size: 0.80rem;
+}
+
+/* ── Recording row ───────────────────────────────────────────────────── */
+
+.vr-recording-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.vr-pulse-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+  animation: vrPulse 1s ease-in-out infinite;
+}
+
+@keyframes vrPulse {
+  0%, 100% { transform: scale(1);    opacity: 1;   }
+  50%       { transform: scale(1.45); opacity: 0.6; }
+}
+
+.vr-recording-label {
+  font-size: 0.80rem;
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.vr-timer {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #d4af37;
+}
+
+.vr-max {
+  font-size: 0.70rem;
+  color: rgba(255, 255, 255, 0.30);
+}
+
+/* Push stop button to right */
+.vr-recording-row .vr-btn--stop { margin-left: auto; }
+
+/* ── Recorded state ──────────────────────────────────────────────────── */
+
+.vr-recorded {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.vr-recorded-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.vr-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 9px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.2s, transform 0.15s;
+  flex: 1;
+  justify-content: center;
+}
+
+.vr-action-btn:active { transform: scale(0.96); }
+
+.vr-action-btn--delete {
+  background: rgba(239, 68, 68, 0.10);
+  border-color: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+}
+.vr-action-btn--delete:hover { background: rgba(239, 68, 68, 0.20); }
+
+.vr-action-btn--rerecord {
+  background: rgba(212, 175, 55, 0.10);
+  border-color: rgba(212, 175, 55, 0.22);
+  color: #d4af37;
+}
+.vr-action-btn--rerecord:hover { background: rgba(212, 175, 55, 0.20); }
+
+.vr-hint {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.32);
+  text-align: center;
+}
+
+/* ── Custom Audio Player ─────────────────────────────────────────────── */
+
+.vr-player {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  padding: 0.65rem 0.9rem;
+}
+
+.vr-play-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4af37, #b8942a);
+  border: none;
+  color: #1a1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: filter 0.2s, transform 0.15s;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.28);
+}
+.vr-play-btn:hover  { filter: brightness(1.10); }
+.vr-play-btn:active { transform: scale(0.92); }
+
+.vr-progress {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 99px;
+  position: relative;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.vr-progress-fill {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: #d4af37;
+  border-radius: 99px;
+  transition: width 0.1s linear;
+}
+
+.vr-progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  background: #d4af37;
+  border: 2px solid #1a1200;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: left 0.1s linear;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.30);
+}
+
+.vr-time {
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Admin compact voice player ─────────────────────────────────────── */
+
+.voice-play-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  color: #d4af37;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.2s, transform 0.15s;
+  flex-shrink: 0;
+}
+
+.voice-play-btn:hover  { background: rgba(212, 175, 55, 0.24); }
+.voice-play-btn:active { transform: scale(0.90); }
+
+.voice-play-btn--playing {
+  background: rgba(212, 175, 55, 0.25);
+  border-color: rgba(212, 175, 55, 0.55);
+}

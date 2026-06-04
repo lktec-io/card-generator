@@ -9,7 +9,9 @@ import {
 } from 'react-icons/md';
 import { getEvent, updateEvent, deleteInvitation } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import VoicePlayerMini from '../components/VoicePlayerMini';
 import '../styles/events.css';
+import '../styles/voice-recorder.css';
 
 const EVENT_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
@@ -471,7 +473,7 @@ export default function EventDetailPage() {
                 <thead>
                   <tr>
                     <th>Card</th><th>Code</th><th>Guest Name</th><th>Phone</th>
-                    <th>RSVP</th><th>Status</th><th>Created</th><th>Actions</th>
+                    <th>RSVP</th><th>Voice</th><th>Status</th><th>Created</th><th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -492,6 +494,7 @@ export default function EventDetailPage() {
                           </span>
                         ) : <span className="rsvp-mini rsvp-mini--none">—</span>}
                       </td>
+                      <td><VoicePlayerMini url={inv.rsvp_voice_url} /></td>
                       <td><StatusBadge status={inv.status} /></td>
                       <td className="date-cell">{formatDateTime(inv.created_at)}</td>
                       <td><ActionButtons inv={inv} /></td>

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { MdRefresh, MdDelete, MdDeleteSweep, MdWarning, MdDownload, MdShare, MdContentCopy, MdOpenInNew, MdVisibility } from 'react-icons/md';
 import { API_BASE, getAuthHeaders } from '../utils/api';
+import VoicePlayerMini from '../components/VoicePlayerMini';
 import '../styles/admin.css';
+import '../styles/voice-recorder.css';
 
 function inviteUrl(inv) {
   const base = window.location.origin;
@@ -267,6 +269,8 @@ export default function AdminPage() {
                     <th>Code</th>
                     <th>Guest Name</th>
                     <th>Phone</th>
+                    <th>RSVP</th>
+                    <th>Voice</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th>Scanned At</th>
@@ -288,6 +292,14 @@ export default function AdminPage() {
                       <td><span className="code-cell">{inv.code}</span></td>
                       <td>{inv.guest_name}</td>
                       <td className="date-cell">{inv.phone_number || '—'}</td>
+                      <td>
+                        {inv.rsvp_response ? (
+                          <span className={`rsvp-mini rsvp-mini--${inv.rsvp_response}`}>
+                            {inv.rsvp_response === 'attending' ? '✓ Yes' : '✗ No'}
+                          </span>
+                        ) : <span className="rsvp-mini rsvp-mini--none">—</span>}
+                      </td>
+                      <td><VoicePlayerMini url={inv.rsvp_voice_url} /></td>
                       <td><StatusBadge status={inv.status} /></td>
                       <td className="date-cell">{formatDate(inv.created_at)}</td>
                       <td className="date-cell">{formatDate(inv.used_at)}</td>

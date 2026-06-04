@@ -91,7 +91,8 @@ async function getEvent(req, res) {
     const [invitations] = await pool.execute(
       `SELECT i.id, i.code, i.invitation_uuid, i.guest_name, i.phone_number,
               i.status, i.image_url, i.created_at, i.used_at,
-              r.response AS rsvp_response
+              r.response          AS rsvp_response,
+              r.voice_message_url AS rsvp_voice_url
          FROM invitations i
          LEFT JOIN rsvp_responses r ON r.invitation_id = i.id
         WHERE i.event_id = ?

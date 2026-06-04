@@ -58,8 +58,18 @@ export const deleteEvent = (id)       => api.delete(`/events/${id}`);
 export const getVerificationLogs = () => api.get('/verification-logs');
 
 // ── Public invite & RSVP (no auth, UUID-based) ───────────────────────────────
-export const getPublicInvite = (uuid)       => api.get(`/invite/${uuid}`);
-export const submitRSVP      = (uuid, resp) => api.post(`/rsvp/${uuid}`, { response: resp });
+export const getPublicInvite = (uuid)                      => api.get(`/invite/${uuid}`);
+export const submitRSVP      = (uuid, resp, voiceUrl = null) =>
+  api.post(`/rsvp/${uuid}`, { response: resp, voice_message_url: voiceUrl });
+
+export const uploadVoice = (uuid, audioBlob) => {
+  const ext  = audioBlob.type?.includes('mp4') ? 'm4a' : 'webm';
+  const form = new FormData();
+  form.append('audio', audioBlob, `voice.${ext}`);
+  return api.post(`/voice-upload/${uuid}`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const deleteInvitation     = (id)           => api.delete(`/invitations/${id}`);

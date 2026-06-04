@@ -28,7 +28,8 @@ async function getDashboard(req, res) {
          i.created_at,
          i.used_at,
          e.event_name,
-         r.response AS rsvp_response
+         r.response          AS rsvp_response,
+         r.voice_message_url AS rsvp_voice_url
        FROM invitations i
        LEFT JOIN events          e ON e.id = i.event_id
        LEFT JOIN rsvp_responses  r ON r.invitation_id = i.id
