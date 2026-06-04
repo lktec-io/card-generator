@@ -113,31 +113,40 @@ export default function EventDetailPage() {
     }
   };
 
-  /* ── Native share → WhatsApp fallback ── */
+  /* ── Native share → WhatsApp fallback (fixed: no duplicate URL) ── */
   const handleShare = async (inv) => {
-    const url       = inviteLink(inv);
-    const eventName = data?.event?.event_name || 'tukio letu';
-    const message   = [
+    const url   = inviteLink(inv);
+    const ev    = data?.event;
+    const name  = ev?.event_name || 'tukio letu';
+    const date  = ev?.event_date ? new Date(ev.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+    const time  = ev?.event_time  || null;
+    const venue = ev?.venue       || null;
+
+    const lines = [
       `Habari ${inv.guest_name},`,
       ``,
-      `Tunafurahi kukualika kwenye ${eventName}.`,
+      `Umealikwa kuhudhuria:`,
       ``,
-      `Tafadhali bofya link hapa kuthibitisha mahudhurio yako:`,
-      ``,
-      url,
-      ``,
-      `Asante.`,
-    ].join('\n');
+      `${name}`,
+    ];
+    if (date)  lines.push(``, `📅 Tarehe:`, date);
+    if (time)  lines.push(``, `🕒 Wakati:`, time);
+    if (venue) lines.push(``, `📍 Mahali:`, venue);
+    lines.push(``, `Tafadhali thibitisha mahudhurio yako kupitia link:`, ``, url, ``, `Asante.`);
+
+    const fullMessage = lines.join('\n');
 
     if (navigator.share) {
       try {
-        await navigator.share({ title: `Mwaliko wa ${inv.guest_name}`, text: message, url });
+        // Pass text WITHOUT url to avoid duplicate — url param appended separately by browser
+        const textOnly = lines.filter(l => l !== url).join('\n');
+        await navigator.share({ title: `Mwaliko — ${name}`, text: textOnly, url });
         return;
       } catch (e) {
         if (e.name === 'AbortError') return;
       }
     }
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(fullMessage)}`, '_blank');
   };
 
   /* ── Copy invite link ── */
@@ -285,13 +294,17 @@ export default function EventDetailPage() {
                 <>
                   <div className="ev-info-edit-row">
                     <label>Type</label>
-                    <select value={form.event_type || ''} onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}>
+                    <select value={form.event_type || 'Wedding'} onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}>
                       {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div className="ev-info-edit-row">
                     <label>Date</label>
                     <input type="date" value={(form.event_date || '').split('T')[0]} onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} />
+                  </div>
+                  <div className="ev-info-edit-row">
+                    <label>Time</label>
+                    <input value={form.event_time || ''} onChange={e => setForm(f => ({ ...f, event_time: e.target.value }))} placeholder="e.g. 5:00 PM" />
                   </div>
                   <div className="ev-info-edit-row">
                     <label>Venue</label>
@@ -301,17 +314,30 @@ export default function EventDetailPage() {
                     <label>Maps Link</label>
                     <input value={form.maps_link || ''} onChange={e => setForm(f => ({ ...f, maps_link: e.target.value }))} placeholder="Google Maps URL" />
                   </div>
+                  <div className="ev-info-edit-row">
+                    <label>Contact Name</label>
+                    <input value={form.contact_name || ''} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Event Coordinator" />
+                  </div>
+                  <div className="ev-info-edit-row">
+                    <label>Contact Phone</label>
+                    <input type="tel" value={form.contact_phone || ''} onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))} placeholder="+255754123456" />
+                  </div>
                 </>
               ) : (
                 <>
                   {ev?.event_date && <div className="ev-info-row"><MdCalendarToday size={15}/><span>{formatDate(ev.event_date)}</span></div>}
+                  {ev?.event_time && <div className="ev-info-row"><span style={{width:15,textAlign:'center'}}>🕒</span><span>{ev.event_time}</span></div>}
                   {ev?.venue      && <div className="ev-info-row"><MdLocationOn size={15}/><span>{ev.venue}</span></div>}
                   {ev?.maps_link  && (
                     <div className="ev-info-row">
                       <MdMap size={15}/>
-                      <a href={ev.maps_link} target="_blank" rel="noreferrer" className="ev-maps-link">
-                        Open Directions
-                      </a>
+                      <a href={ev.maps_link} target="_blank" rel="noreferrer" className="ev-maps-link">Open Directions</a>
+                    </div>
+                  )}
+                  {ev?.contact_phone && (
+                    <div className="ev-info-row">
+                      <span style={{width:15,textAlign:'center'}}>📞</span>
+                      <a href={`tel:${ev.contact_phone}`} className="ev-maps-link">{ev.contact_name || ev.contact_phone}</a>
                     </div>
                   )}
                   {!ev?.event_date && !ev?.venue && <p className="ev-info-empty">No details added</p>}
@@ -325,12 +351,28 @@ export default function EventDetailPage() {
             {editing ? (
               <div className="ev-info-rows">
                 <div className="ev-info-edit-row">
-                  <label>Main Color</label>
-                  <input value={form.dress_code_main || ''} onChange={e => setForm(f => ({ ...f, dress_code_main: e.target.value }))} placeholder="e.g. Royal Blue" />
+                  <label>Primary Color</label>
+                  <div className="color-picker-wrap">
+                    <input type="color" value={form.dress_code_main || '#d4af37'} onChange={e => setForm(f => ({ ...f, dress_code_main: e.target.value }))} />
+                    <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
+                    <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
+                  </div>
                 </div>
                 <div className="ev-info-edit-row">
-                  <label>Secondary</label>
-                  <input value={form.dress_code_secondary || ''} onChange={e => setForm(f => ({ ...f, dress_code_secondary: e.target.value }))} placeholder="e.g. Gold" />
+                  <label>Secondary Color</label>
+                  <div className="color-picker-wrap">
+                    <input type="color" value={form.dress_code_secondary || '#1a1a2e'} onChange={e => setForm(f => ({ ...f, dress_code_secondary: e.target.value }))} />
+                    <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
+                    <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
+                  </div>
+                </div>
+                <div className="ev-info-edit-row">
+                  <label>Accent Color</label>
+                  <div className="color-picker-wrap">
+                    <input type="color" value={form.dress_code_accent || '#ffffff'} onChange={e => setForm(f => ({ ...f, dress_code_accent: e.target.value }))} />
+                    <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
+                    <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
+                  </div>
                 </div>
                 <div className="ev-info-edit-row">
                   <label>Notes</label>
@@ -339,18 +381,26 @@ export default function EventDetailPage() {
               </div>
             ) : (
               <div className="dress-code-display">
-                {ev?.dress_code_main && (
-                  <div className="dress-color-row">
-                    <span className="dress-swatch" />
-                    <span>{ev.dress_code_main}</span>
-                  </div>
-                )}
-                {ev?.dress_code_secondary && (
-                  <div className="dress-color-row">
-                    <span className="dress-swatch dress-swatch--secondary" />
-                    <span>{ev.dress_code_secondary}</span>
-                  </div>
-                )}
+                <div className="dress-swatches-row">
+                  {ev?.dress_code_main && (
+                    <div className="dress-swatch-chip">
+                      <span className="dress-swatch-circle" style={{ background: ev.dress_code_main }} />
+                      <span>Primary</span>
+                    </div>
+                  )}
+                  {ev?.dress_code_secondary && (
+                    <div className="dress-swatch-chip">
+                      <span className="dress-swatch-circle" style={{ background: ev.dress_code_secondary }} />
+                      <span>Secondary</span>
+                    </div>
+                  )}
+                  {ev?.dress_code_accent && (
+                    <div className="dress-swatch-chip">
+                      <span className="dress-swatch-circle" style={{ background: ev.dress_code_accent, border: '2px solid rgba(255,255,255,0.3)' }} />
+                      <span>Accent</span>
+                    </div>
+                  )}
+                </div>
                 {ev?.dress_code_notes && <p className="dress-notes">{ev.dress_code_notes}</p>}
                 {!ev?.dress_code_main && !ev?.dress_code_notes && (
                   <p className="ev-info-empty">No dress code specified</p>
@@ -403,7 +453,7 @@ export default function EventDetailPage() {
               <table className="inv-table">
                 <thead>
                   <tr>
-                    <th>Card</th><th>Code</th><th>Guest Name</th>
+                    <th>Card</th><th>Code</th><th>Guest Name</th><th>Phone</th>
                     <th>RSVP</th><th>Status</th><th>Created</th><th>Actions</th>
                   </tr>
                 </thead>
@@ -417,6 +467,7 @@ export default function EventDetailPage() {
                       </td>
                       <td><span className="code-cell">{inv.code}</span></td>
                       <td><strong>{inv.guest_name}</strong></td>
+                      <td className="date-cell">{inv.phone_number || '—'}</td>
                       <td>
                         {inv.rsvp_response ? (
                           <span className={`rsvp-mini rsvp-mini--${inv.rsvp_response}`}>

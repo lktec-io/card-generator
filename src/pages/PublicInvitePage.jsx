@@ -16,19 +16,6 @@ function formatDate(raw) {
   });
 }
 
-// Dress code swatch color lookup (common color names → CSS)
-const SWATCH_COLORS = {
-  'royal blue': '#4169e1', 'blue': '#3b82f6', 'red': '#ef4444',
-  'green': '#22c55e', 'gold': '#d4af37', 'silver': '#94a3b8',
-  'white': '#f8fafc', 'black': '#1e1e1e', 'pink': '#f472b6',
-  'purple': '#a78bfa', 'orange': '#fb923c', 'yellow': '#fbbf24',
-  'maroon': '#7f1d1d', 'navy': '#1e3a5f', 'cream': '#fefce8',
-};
-
-function swatchColor(name) {
-  if (!name) return '#94a3b8';
-  return SWATCH_COLORS[name.toLowerCase()] || '#94a3b8';
-}
 
 export default function PublicInvitePage({ isPreview = false }) {
   const { uuid } = useParams();
@@ -140,7 +127,7 @@ export default function PublicInvitePage({ isPreview = false }) {
 
   const inv   = data?.invitation;
   const event = data?.event;
-  const hasDresscode = event?.dress_code_main || event?.dress_code_notes;
+  const hasDresscode = event?.dress_code_main || event?.dress_code_secondary || event?.dress_code_accent || event?.dress_code_notes;
 
   return (
     <div className="invite-page">
@@ -185,7 +172,7 @@ export default function PublicInvitePage({ isPreview = false }) {
         </section>
 
         {/* ── SECTION 3: Event details ── */}
-        {event && (event.event_date || event.venue || event.maps_link) && (
+        {event && (event.event_date || event.event_time || event.venue || event.maps_link || event.contact_phone) && (
           <section className="invite-section invite-section--details">
             <h3 className="invite-section-title">Maelezo ya Tukio</h3>
             <div className="invite-details">
@@ -193,6 +180,12 @@ export default function PublicInvitePage({ isPreview = false }) {
                 <div className="invite-detail-row">
                   <MdCalendarToday className="invite-detail-icon" />
                   <span>{formatDate(event.event_date)}</span>
+                </div>
+              )}
+              {event.event_time && (
+                <div className="invite-detail-row">
+                  <span className="invite-detail-icon" style={{ fontSize: '1rem' }}>🕒</span>
+                  <span>{event.event_time}</span>
                 </div>
               )}
               {event.venue && (
@@ -204,14 +197,20 @@ export default function PublicInvitePage({ isPreview = false }) {
               {event.maps_link && (
                 <div className="invite-detail-row">
                   <MdMap className="invite-detail-icon" />
-                  <a
-                    href={event.maps_link}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="invite-maps-btn"
-                  >
+                  <a href={event.maps_link} target="_blank" rel="noreferrer" className="invite-maps-btn">
                     📍 Fungua Ramani
                   </a>
+                </div>
+              )}
+              {event.contact_phone && (
+                <div className="invite-detail-row">
+                  <span className="invite-detail-icon" style={{ fontSize: '1rem' }}>📞</span>
+                  <div className="invite-contact">
+                    <span className="invite-contact-label">Msaada</span>
+                    <a href={`tel:${event.contact_phone}`} className="invite-maps-btn">
+                      {event.contact_name ? `${event.contact_name} — ` : ''}{event.contact_phone}
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
@@ -224,35 +223,39 @@ export default function PublicInvitePage({ isPreview = false }) {
             <h3 className="invite-section-title">
               <MdPalette size={16} /> Mavazi ya Sherehe
             </h3>
-            <div className="invite-dress-display">
+            {/* Real color swatches */}
+            <div className="invite-color-swatches">
               {event.dress_code_main && (
-                <div className="invite-dress-row">
+                <div className="invite-color-chip">
                   <span
-                    className="invite-dress-swatch"
-                    style={{ background: swatchColor(event.dress_code_main) }}
+                    className="invite-color-circle"
+                    style={{ background: event.dress_code_main }}
                   />
-                  <div>
-                    <span className="invite-dress-key">Rangi Kuu</span>
-                    <span className="invite-dress-val">{event.dress_code_main}</span>
-                  </div>
+                  <span>Primary</span>
                 </div>
               )}
               {event.dress_code_secondary && (
-                <div className="invite-dress-row">
+                <div className="invite-color-chip">
                   <span
-                    className="invite-dress-swatch"
-                    style={{ background: swatchColor(event.dress_code_secondary) }}
+                    className="invite-color-circle"
+                    style={{ background: event.dress_code_secondary }}
                   />
-                  <div>
-                    <span className="invite-dress-key">Rangi ya Pili</span>
-                    <span className="invite-dress-val">{event.dress_code_secondary}</span>
-                  </div>
+                  <span>Secondary</span>
                 </div>
               )}
-              {event.dress_code_notes && (
-                <p className="invite-dress-notes">{event.dress_code_notes}</p>
+              {event.dress_code_accent && (
+                <div className="invite-color-chip">
+                  <span
+                    className="invite-color-circle"
+                    style={{ background: event.dress_code_accent, border: '2px solid rgba(255,255,255,0.25)' }}
+                  />
+                  <span>Accent</span>
+                </div>
               )}
             </div>
+            {event.dress_code_notes && (
+              <p className="invite-dress-notes">{event.dress_code_notes}</p>
+            )}
           </section>
         )}
 

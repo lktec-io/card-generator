@@ -20,6 +20,7 @@ export default function CardGenerator({ eventId = null }) {
   const [uploadedImage, setUploadedImage] = useState(null);
   const [dragOver,      setDragOver]      = useState(false);
   const [guestName,     setGuestName]     = useState('');
+  const [phoneNumber,   setPhoneNumber]   = useState('');
   const [invitation,    setInvitation]    = useState(null);
   const [loading,       setLoading]       = useState(false);
   const [downloading,   setDownloading]   = useState(false);
@@ -105,7 +106,7 @@ export default function CardGenerator({ eventId = null }) {
 
     try {
       setProgress(30);
-      const { data } = await reserveCard(name, eventId);
+      const { data } = await reserveCard(name, phoneNumber.trim() || null, eventId);
 
       setProgress(65);
       // Encode only the code (e.g. "CN-016") — minimal payload = fewest modules = easiest scan.
@@ -173,6 +174,7 @@ export default function CardGenerator({ eventId = null }) {
   const handleReset = () => {
     setUploadedImage(null);
     setGuestName('');
+    setPhoneNumber('');
     setInvitation(null);
     setError('');
     setProgress(0);
@@ -236,6 +238,18 @@ export default function CardGenerator({ eventId = null }) {
                 onChange={(e) => setGuestName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !loading && guestName.trim() && handleGenerate()}
                 maxLength={100}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="phoneNumber">Phone Number</label>
+              <input
+                id="phoneNumber"
+                type="tel"
+                placeholder="e.g. +255712345678"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                maxLength={30}
               />
             </div>
 

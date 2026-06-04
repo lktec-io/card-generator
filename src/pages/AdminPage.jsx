@@ -86,22 +86,36 @@ export default function AdminPage() {
     document.body.removeChild(a);
   };
 
-  /* ── WhatsApp share (Swahili template) ── */
-  const handleShare = (inv) => {
+  /* ── Share (native → WhatsApp fallback) with improved Swahili template ── */
+  const handleShare = async (inv) => {
     const link      = inviteUrl(inv);
     const eventName = inv.event_name || 'tukio letu';
     const lines = [
       `Habari ${inv.guest_name},`,
       ``,
-      `Tunafurahi kukualika kwenye ${eventName}.`,
+      `Umealikwa kuhudhuria:`,
       ``,
-      `Tafadhali bofya link kuthibitisha mahudhurio yako:`,
+      eventName,
+      ``,
+      `Tafadhali thibitisha mahudhurio yako kupitia link:`,
       ``,
       link,
       ``,
       `Asante.`,
     ];
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+    const fullMessage = lines.join('\n');
+
+    if (navigator.share) {
+      try {
+        // Remove URL from text to avoid duplication when browser appends url param
+        const textOnly = lines.filter(l => l !== link).join('\n');
+        await navigator.share({ title: `Mwaliko — ${eventName}`, text: textOnly, url: link });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(fullMessage)}`, '_blank');
   };
 
   /* ── Copy invitation link (UUID-based) ── */
@@ -257,6 +271,7 @@ export default function AdminPage() {
                     <th>Card</th>
                     <th>Code</th>
                     <th>Guest Name</th>
+                    <th>Phone</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th>Scanned At</th>
@@ -277,6 +292,7 @@ export default function AdminPage() {
                       </td>
                       <td><span className="code-cell">{inv.code}</span></td>
                       <td>{inv.guest_name}</td>
+                      <td className="date-cell">{inv.phone_number || '—'}</td>
                       <td><StatusBadge status={inv.status} /></td>
                       <td className="date-cell">{formatDate(inv.created_at)}</td>
                       <td className="date-cell">{formatDate(inv.used_at)}</td>

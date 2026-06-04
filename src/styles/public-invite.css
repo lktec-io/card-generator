@@ -207,6 +207,20 @@
   font-size: 1.1rem;
 }
 
+.invite-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.invite-contact-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
 .invite-maps-btn {
   display: inline-flex;
   align-items: center;
@@ -229,47 +243,37 @@
   transform: translateY(-1px);
 }
 
-/* ── Dress code ───────────────────────────────────────────────────────── */
+/* ── Dress code color swatches ───────────────────────────────────────── */
 
-.invite-dress-display {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.invite-dress-row {
+.invite-color-swatches {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1.25rem;
+  margin-bottom: 0.85rem;
+  justify-content: center;
 }
 
-.invite-dress-swatch {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.15);
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.30);
-}
-
-.invite-dress-row div {
+.invite-color-chip {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  align-items: center;
+  gap: 0.45rem;
 }
 
-.invite-dress-key {
+.invite-color-circle {
+  display: block;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.40);
+}
+
+.invite-color-chip span:last-child {
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.40);
-}
-
-.invite-dress-val {
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.88);
-  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .invite-dress-notes {

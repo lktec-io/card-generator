@@ -22,6 +22,7 @@ async function getDashboard(req, res) {
          i.code,
          i.invitation_uuid,
          i.guest_name,
+         i.phone_number,
          i.status,
          i.image_url,
          i.created_at,

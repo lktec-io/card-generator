@@ -30,9 +30,10 @@ function formatDate(raw) {
 }
 
 const EMPTY_FORM = {
-  event_name: '', event_type: 'Wedding', event_date: '',
-  venue: '', dress_code_main: '', dress_code_secondary: '',
-  dress_code_notes: '', maps_link: '',
+  event_name: '', event_type: 'Wedding', event_date: '', event_time: '',
+  venue: '', maps_link: '', contact_name: '', contact_phone: '',
+  dress_code_main: '#d4af37', dress_code_secondary: '#1a1a2e', dress_code_accent: '#ffffff',
+  dress_code_notes: '',
 };
 
 export default function EventsPage() {
@@ -141,28 +142,60 @@ export default function EventsPage() {
                   <label>Date</label>
                   <input name="event_date" type="date" value={form.event_date} onChange={handleChange} />
                 </div>
+                <div className="ef-field">
+                  <label>Time</label>
+                  <input name="event_time" type="text" value={form.event_time} onChange={handleChange} placeholder="e.g. 5:00 PM" />
+                </div>
+              </div>
+              <div className="ef-row">
                 <div className="ef-field ef-field--wide">
                   <label>Venue</label>
                   <input name="venue" value={form.venue} onChange={handleChange} placeholder="Venue name or address" />
                 </div>
+                <div className="ef-field ef-field--full">
+                  <label>Google Maps Link</label>
+                  <input name="maps_link" value={form.maps_link} onChange={handleChange} placeholder="https://maps.google.com/..." />
+                </div>
               </div>
               <div className="ef-row">
                 <div className="ef-field">
-                  <label>Dress Code — Main Color</label>
-                  <input name="dress_code_main" value={form.dress_code_main} onChange={handleChange} placeholder="e.g. Royal Blue" />
+                  <label>Contact Name</label>
+                  <input name="contact_name" value={form.contact_name} onChange={handleChange} placeholder="e.g. Event Coordinator" />
                 </div>
                 <div className="ef-field">
-                  <label>Dress Code — Secondary</label>
-                  <input name="dress_code_secondary" value={form.dress_code_secondary} onChange={handleChange} placeholder="e.g. Gold" />
+                  <label>Contact Phone</label>
+                  <input name="contact_phone" type="tel" value={form.contact_phone} onChange={handleChange} placeholder="e.g. +255754123456" />
+                </div>
+              </div>
+              <div className="ef-row">
+                <div className="ef-field">
+                  <label>Primary Color</label>
+                  <div className="color-picker-wrap">
+                    <input type="color" name="dress_code_main" value={form.dress_code_main || '#d4af37'} onChange={handleChange} />
+                    <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
+                    <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
+                  </div>
+                </div>
+                <div className="ef-field">
+                  <label>Secondary Color</label>
+                  <div className="color-picker-wrap">
+                    <input type="color" name="dress_code_secondary" value={form.dress_code_secondary || '#1a1a2e'} onChange={handleChange} />
+                    <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
+                    <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
+                  </div>
+                </div>
+                <div className="ef-field">
+                  <label>Accent Color</label>
+                  <div className="color-picker-wrap">
+                    <input type="color" name="dress_code_accent" value={form.dress_code_accent || '#ffffff'} onChange={handleChange} />
+                    <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
+                    <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
+                  </div>
                 </div>
               </div>
               <div className="ef-field ef-field--full">
                 <label>Dress Code Notes</label>
                 <textarea name="dress_code_notes" value={form.dress_code_notes} onChange={handleChange} rows={2} placeholder="e.g. Ladies: Royal Blue gowns. Gentlemen: Black suit." />
-              </div>
-              <div className="ef-field ef-field--full">
-                <label>Google Maps Link</label>
-                <input name="maps_link" value={form.maps_link} onChange={handleChange} placeholder="https://maps.google.com/..." />
               </div>
               {formError && <p className="ef-error">{formError}</p>}
               <div className="ef-actions">

@@ -37,8 +37,8 @@ export const login = (email, password) =>
 export const generateCard = (formData) =>
   api.post('/generate', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
-export const reserveCard  = (guestName, eventId = null) =>
-  api.post('/reserve', { guest_name: guestName, event_id: eventId });
+export const reserveCard  = (guestName, phoneNumber = null, eventId = null) =>
+  api.post('/reserve', { guest_name: guestName, phone_number: phoneNumber, event_id: eventId });
 
 export const verifyCode   = (code) => api.post('/verify',        { code });
 export const verifyManual = (code) => api.post('/verify/manual', { invitation_code: code });

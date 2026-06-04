@@ -213,8 +213,9 @@ async function getStats(req, res) {
 // Frontend renders the card with html2canvas and downloads directly.
 
 async function reserveCode(req, res) {
-  const guestName = (req.body.guest_name || '').trim();
-  const eventId   = req.body.event_id ? parseInt(req.body.event_id, 10) : null;
+  const guestName   = (req.body.guest_name   || '').trim();
+  const phoneNumber = (req.body.phone_number || '').trim() || null;
+  const eventId     = req.body.event_id ? parseInt(req.body.event_id, 10) : null;
 
   if (!guestName) {
     return res.status(400).json({ success: false, message: 'Guest name is required.' });
@@ -229,12 +230,12 @@ async function reserveCode(req, res) {
     const code = await getNextCode(connection);
     const uuid = crypto.randomUUID();
     await connection.execute(
-      `INSERT INTO invitations (code, guest_name, status, event_id, invitation_uuid) VALUES (?, ?, 'unused', ?, ?)`,
-      [code, guestName, eventId, uuid]
+      `INSERT INTO invitations (code, guest_name, phone_number, status, event_id, invitation_uuid) VALUES (?, ?, ?, 'unused', ?, ?)`,
+      [code, guestName, phoneNumber, eventId, uuid]
     );
     await connection.commit();
     console.log(`[reserveCode] Reserved: ${code} (${uuid}) for "${guestName}"${eventId ? ` event=${eventId}` : ''}`);
-    return res.status(201).json({ success: true, code, invitation_uuid: uuid, guest_name: guestName, event_id: eventId });
+    return res.status(201).json({ success: true, code, invitation_uuid: uuid, guest_name: guestName, phone_number: phoneNumber, event_id: eventId });
   } catch (err) {
     await connection.rollback();
     console.error('[reserveCode]', err);
@@ -372,7 +373,8 @@ async function bulkImport(req, res) {
   const errors  = [];
 
   for (const g of guests) {
-    const name = (g.guest_name || '').trim();
+    const name  = (g.guest_name   || '').trim();
+    const phone = (g.phone_number || '').trim() || null;
     if (!name) { errors.push({ input: g, error: 'Name is required' }); continue; }
 
     const connection = await pool.getConnection();
@@ -381,11 +383,11 @@ async function bulkImport(req, res) {
       const code = await getNextCode(connection);
       const uuid = crypto.randomUUID();
       await connection.execute(
-        `INSERT INTO invitations (code, guest_name, status, event_id, invitation_uuid) VALUES (?, ?, 'unused', ?, ?)`,
-        [code, name, eventId, uuid]
+        `INSERT INTO invitations (code, guest_name, phone_number, status, event_id, invitation_uuid) VALUES (?, ?, ?, 'unused', ?, ?)`,
+        [code, name, phone, eventId, uuid]
       );
       await connection.commit();
-      created.push({ code, guest_name: name, invitation_uuid: uuid });
+      created.push({ code, guest_name: name, phone_number: phone, invitation_uuid: uuid });
     } catch (err) {
       await connection.rollback();
       errors.push({ input: g, error: err.message });

@@ -854,6 +854,77 @@
 .modal-btn-danger { background: #ef4444 !important; color: #fff !important; }
 .modal-btn-danger:hover { background: #dc2626 !important; }
 
+/* ── Color picker ────────────────────────────────────────────────────── */
+
+.color-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.color-picker-wrap input[type="color"] {
+  width: 44px;
+  height: 36px;
+  padding: 2px;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.color-picker-wrap input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.color-picker-wrap input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.30);
+}
+
+.color-hex {
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+/* ── Dress code swatch chips (view mode) ─────────────────────────────── */
+
+.dress-swatches-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.65rem;
+}
+
+.dress-swatch-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.dress-swatch-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: block;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.dress-swatch-chip span:last-child {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
 /* ── Action buttons (shared with admin) ─────────────────────────────── */
 
 .row-actions {

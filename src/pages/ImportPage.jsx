@@ -29,14 +29,14 @@ function parseCSV(text) {
 
   const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[\s_]+/g, '_'));
   const nameIdx  = headers.findIndex(h => h.includes('name') || h.includes('jina') || h.includes('guest'));
-  const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('simu') || h.includes('tel'));
+  const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('simu') || h.includes('tel') || h.includes('namba'));
 
   const rows = lines.slice(1)
     .map((line, i) => {
-      const cols = parseCSVLine(line);
-      const guest_name = nameIdx  >= 0 ? (cols[nameIdx]  || '').trim() : '';
-      const phone      = phoneIdx >= 0 ? (cols[phoneIdx] || '').trim() : '';
-      return { _row: i + 2, guest_name, phone };
+      const cols        = parseCSVLine(line);
+      const guest_name  = nameIdx  >= 0 ? (cols[nameIdx]  || '').trim() : '';
+      const phone_number = phoneIdx >= 0 ? (cols[phoneIdx] || '').trim() : '';
+      return { _row: i + 2, guest_name, phone_number };
     })
     .filter(r => r.guest_name);
 
@@ -253,7 +253,7 @@ export default function ImportPage() {
                         <strong>{row.guest_name}</strong>
                         {!row.guest_name && <span className="import-missing">Missing name</span>}
                       </td>
-                      <td className="import-phone">{row.phone || '—'}</td>
+                      <td className="import-phone">{row.phone_number || '—'}</td>
                       <td>
                         <button
                           className="import-remove-btn"
