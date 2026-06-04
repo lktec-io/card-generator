@@ -123,56 +123,43 @@ export default function EventDetailPage() {
     }
   };
 
-  /* ── Native share → WhatsApp fallback (fixed: no duplicate URL) ── */
+  /* ── Native share → WhatsApp fallback ── */
   const handleShare = async (inv) => {
     const url   = inviteLink(inv);
     const ev    = data?.event;
     const name  = ev?.event_name || 'tukio letu';
     const date  = ev?.event_date ? new Date(ev.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
-    const time  = ev?.event_time  || null;
-    const venue = ev?.venue       || null;
+    const time  = ev?.event_time || null;
+    const venue = ev?.venue      || null;
 
-    const lines = [
+    const TYPE_EMOJI = {
+      'Wedding': '💍', 'Kitchen Party': '🍽️', 'Birthday': '🎂',
+      'Sendoff': '✈️', 'Graduation': '🎓', 'Conference': '💼',
+      'Church Event': '⛪', 'Corporate Event': '🏢',
+    };
+    const emoji = TYPE_EMOJI[ev?.event_type || ''] || '🎉';
+
+    // Build compact details line (no empty lines between date/time/venue)
+    const details = [
+      date  ? `📅 ${date}`  : null,
+      time  ? `🕒 ${time}`  : null,
+      venue ? `📍 ${venue}` : null,
+    ].filter(Boolean).join('\n');
+
+    const fullMessage = [
       `Habari ${inv.guest_name},`,
-      ``,
-      `Kwa furaha kubwa tunakukaribisha kushiriki nasi katika hafla yetu ya:`,
-      ``,
-      `🎉 ${name}`,
-    ];
-    if (date)  lines.push(``, `📅 Tarehe: ${date}`);
-    if (time)  lines.push(`🕒 Saa: ${time}`);
-    if (venue) lines.push(`📍 Ukumbi: ${venue}`);
-    // Dress code colors
-    const main      = ev?.dress_code_main;
-    const secondary = ev?.dress_code_secondary;
-    const accent    = ev?.dress_code_accent;
-    const notes     = ev?.dress_code_notes;
-
-    if (main || secondary || accent || notes) {
-      lines.push(``, `🎨 Mavazi ya Sherehe:`);
-      if (main)      lines.push(`   Rangi Kuu: ${main}`);
-      if (secondary) lines.push(`   Rangi ya Pili: ${secondary}`);
-      if (accent)    lines.push(`   Rangi ya Tatu: ${accent}`);
-      if (notes)     lines.push(`   ${notes}`);
-    }
-
-    lines.push(
-      ``,
-      `Tafadhali fungua kiungo kilicho hapa chini kuona mwaliko wako rasmi, QR Code ya kuingilia na kuthibitisha mahudhurio yako.`,
-      ``,
+      `Tunafurahi kukualika kuhudhuria:`,
+      `${emoji} ${name}`,
+      details ? `\n${details}` : '',
+      `\nFungua link hapa chini kuona mwaliko wako rasmi, QR Code ya kuingilia na kuthibitisha uwepo wako:`,
       url,
-      ``,
-      `Asante sana kwa kuwa sehemu ya siku yetu muhimu.`,
-      ``,
       `Karibu sana.`,
-    );
-
-    const fullMessage = lines.join('\n');
+    ].filter(Boolean).join('\n');
 
     if (navigator.share) {
       try {
-        // Pass text WITHOUT url to avoid duplicate — url param appended separately by browser
-        const textOnly = lines.filter(l => l !== url).join('\n');
+        // Strip URL from text to prevent duplication (browser appends url param separately)
+        const textOnly = fullMessage.replace(url, '').trimEnd();
         await navigator.share({ title: `Mwaliko — ${name}`, text: textOnly, url });
         return;
       } catch (e) {

@@ -129,7 +129,15 @@ export default function PublicInvitePage({ isPreview = false }) {
 
   const inv   = data?.invitation;
   const event = data?.event;
-  const hasDresscode = event?.dress_code_main || event?.dress_code_secondary || event?.dress_code_accent || event?.dress_code_notes;
+  // Only show dress code section when at least one value is explicitly set in the DB.
+  // Default color values stored by the form (#d4af37 etc.) still count as "set".
+  // If the event was never edited and all fields are null → hide the section.
+  const hasDresscode = !!(
+    event?.dress_code_main     ||
+    event?.dress_code_secondary ||
+    event?.dress_code_accent   ||
+    event?.dress_code_notes
+  );
 
   return (
     <div className="invite-page">
