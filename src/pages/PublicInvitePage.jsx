@@ -361,20 +361,13 @@ export default function PublicInvitePage({ isPreview = false }) {
             {rsvpState === 'attending' ? (
               <>
                 <h2 className="rsvp-modal-title">🎉 Asante!</h2>
-                <p className="rsvp-modal-msg">
-                  Mahudhurio yako yamethibitishwa kwa mafanikio.
-                </p>
-                <p className="rsvp-modal-sub">
-                  Tunafurahi kuwa utakuwa sehemu ya tukio hili muhimu.
-                  <br />Karibu sana.
-                </p>
+                <p className="rsvp-modal-msg">Mahudhurio yamethibitishwa.</p>
+                <p className="rsvp-modal-sub">Tunakutarajia.</p>
               </>
             ) : (
               <>
-                <h2 className="rsvp-modal-title">Jibu Limepokelewa</h2>
-                <p className="rsvp-modal-msg">
-                  {rsvpMsg || 'Asante kwa kutujulisha.'}
-                </p>
+                <h2 className="rsvp-modal-title">Asante!</h2>
+                <p className="rsvp-modal-msg">Jibu lako limepokelewa.</p>
               </>
             )}
 

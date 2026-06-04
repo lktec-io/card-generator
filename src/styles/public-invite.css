@@ -491,15 +491,16 @@
 .rsvp-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.70);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  z-index: 9999;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  /* Below confetti (99999) — user sees petals fly in front of the popup */
+  z-index: 9980;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  animation: rsvpOverlayIn 0.25s ease forwards;
+  animation: rsvpOverlayIn 0.30s ease forwards;
 }
 
 @keyframes rsvpOverlayIn {
@@ -509,16 +510,19 @@
 
 .rsvp-modal {
   width: 100%;
-  max-width: 360px;
+  max-width: 340px;
   border-radius: 24px;
-  padding: 2.5rem 2rem 2rem;
+  padding: 2.5rem 1.75rem 2rem;
   text-align: center;
-  animation: rsvpModalPop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  /* Sits above the backdrop but still below confetti */
+  position: relative;
+  z-index: 9990;
+  animation: rsvpModalPop 0.50s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes rsvpModalPop {
-  from { transform: scale(0.72) translateY(20px); opacity: 0; }
-  to   { transform: scale(1)    translateY(0);    opacity: 1; }
+  from { transform: scale(0.86); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
 }
 
 .rsvp-modal--attending {
