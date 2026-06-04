@@ -16,6 +16,62 @@
     opacity 0.3s ease;
 }
 
+/* ── Kill mobile tap flash + all default focus rings ─────────────────── */
+
+/* 1. Remove blue tap highlight on Android / iOS */
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 2. Remove default browser outline on focus for mouse/touch users */
+*:focus {
+  outline: none;
+}
+
+/* 3. Re-add a clean, brand-consistent focus ring for KEYBOARD users only.
+      :focus-visible only fires when navigating with a keyboard or equivalent.
+      This preserves accessibility without the ugly blue rectangle. */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgba(212, 175, 55, 0.65);
+  outline-offset: 3px;
+  border-radius: 5px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  /* Input focus is handled per-component with a gold border — no outline needed */
+  outline: none;
+}
+
+/* 4. Ensure nothing ever shows a blue glow or highlight */
+a,
+button,
+input,
+textarea,
+select,
+[role="button"],
+[tabindex],
+[role="tab"],
+[role="menuitem"],
+[role="option"] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;    /* iOS: suppress callout on long-press */
+  -webkit-user-select: none;      /* iOS: suppress text selection on interactive elems */
+  user-select: none;
+}
+
+/* Allow text selection in actual text inputs and textareas */
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* ── Design tokens ────────────────────────────────────────────────────── */
 
 :root {
@@ -116,19 +172,16 @@ button {
   cursor: pointer;
   font-family: var(--font-main);
   border: none;
-  outline: none;
   text-decoration: none;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease, opacity 0.3s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease, opacity 0.25s ease;
 }
 
-button:focus         { outline: none; box-shadow: none; }
-button:active        { transform: scale(0.97); }
+button:active { transform: scale(0.97); }
 
 a {
   text-decoration: none;
   color: inherit;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.25s ease;
 }
 
 /* ── Page fade-in ────────────────────────────────────────────────────── */
