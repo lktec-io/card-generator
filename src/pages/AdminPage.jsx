@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { MdRefresh, MdDelete, MdDeleteSweep, MdWarning, MdDownload, MdShare, MdContentCopy, MdOpenInNew, MdVisibility } from 'react-icons/md';
+import { MdRefresh, MdDelete, MdDeleteSweep, MdDownload, MdShare, MdContentCopy, MdOpenInNew, MdVisibility } from 'react-icons/md';
 import { API_BASE, getAuthHeaders } from '../utils/api';
 import VoicePlayerMini from '../components/VoicePlayerMini';
+import ConfirmModal from '../components/ConfirmModal';
 import '../styles/admin.css';
 import '../styles/voice-recorder.css';
 
@@ -29,25 +30,6 @@ function formatDate(raw) {
 }
 
 /* ── Reusable confirm modal ─────────────────────────────────────────── */
-function ConfirmModal({ title, message, onConfirm, onCancel, confirmLabel = 'Delete', danger = true }) {
-  return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <div className={`modal-icon ${danger ? 'modal-icon-danger' : ''}`}>
-          <MdWarning size={28} />
-        </div>
-        <h3 className="modal-title">{title}</h3>
-        <p className="modal-message">{message}</p>
-        <div className="modal-actions">
-          <button className="modal-btn-cancel" onClick={onCancel}>Cancel</button>
-          <button className={`modal-btn-confirm ${danger ? 'modal-btn-danger' : ''}`} onClick={onConfirm}>
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function AdminPage() {
   const [data,           setData]           = useState(null);
@@ -359,25 +341,23 @@ export default function AdminPage() {
 
       </div>
 
-      {deleteModal && (
-        <ConfirmModal
-          title="Delete Invitation?"
-          message={`Remove ${deleteModal.guest_name} (${deleteModal.code})? This cannot be undone.`}
-          confirmLabel="Yes, Delete"
-          onConfirm={confirmDelete}
-          onCancel={cancelDeleteModal}
-        />
-      )}
+      <ConfirmModal
+        open={!!deleteModal}
+        title="Delete Invitation?"
+        message={deleteModal ? `Remove ${deleteModal.guest_name} (${deleteModal.code})? This cannot be undone.` : ''}
+        confirmLabel="Yes, Delete"
+        onConfirm={confirmDelete}
+        onCancel={cancelDeleteModal}
+      />
 
-      {deleteAllModal && (
-        <ConfirmModal
-          title="Delete All Invitations?"
-          message="Every invitation record will be permanently removed. This cannot be undone."
-          confirmLabel="Delete All"
-          onConfirm={confirmDeleteAll}
-          onCancel={cancelDeleteAllModal}
-        />
-      )}
+      <ConfirmModal
+        open={deleteAllModal}
+        title="Delete All Invitations?"
+        message="Every invitation record will be permanently removed. This cannot be undone."
+        confirmLabel="Delete All"
+        onConfirm={confirmDeleteAll}
+        onCancel={cancelDeleteAllModal}
+      />
     </div>
   );
 }

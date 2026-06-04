@@ -11,6 +11,7 @@ import {
 import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
+import ConfirmModal from '../components/ConfirmModal';
 import '../styles/events.css';
 import '../styles/voice-recorder.css';
 
@@ -620,51 +621,28 @@ export default function EventDetailPage() {
 
       </div>
 
-      {/* ── Delete invitation modal ── */}
-      {delInvId && delInv && (
-        <div className="modal-overlay" onClick={closeDelModal}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div className="modal-icon modal-icon-danger">
-              <MdDelete size={26} />
-            </div>
-            <h3 className="modal-title">Delete Invitation?</h3>
-            <p className="modal-message">
-              Remove <strong>{delInv.guest_name}</strong> ({delInv.code})?
-              <br />This action cannot be undone.
-            </p>
-            <div className="modal-actions">
-              <button className="modal-btn-cancel" onClick={closeDelModal}>Cancel</button>
-              <button className="modal-btn-confirm modal-btn-danger" onClick={handleDeleteInv}>
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!(delInvId && delInv)}
+        title="Delete Invitation?"
+        message={delInv ? (
+          <>Remove <strong>{delInv.guest_name}</strong> ({delInv.code})? This action cannot be undone.</>
+        ) : ''}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteInv}
+        onCancel={closeDelModal}
+      />
 
-      {/* ── Delete voice message modal ── */}
-      {deleteVmModal && (
-        <div className="modal-overlay" onClick={() => setDeleteVmModal(null)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div className="modal-icon modal-icon-danger">
-              <MdWarning size={26} />
-            </div>
-            <h3 className="modal-title">Futa ujumbe huu wa sauti?</h3>
-            <p className="modal-message">
-              <strong>{deleteVmModal.guest_name}</strong> ({deleteVmModal.invitation_code})<br />
-              Faili itafutwa kutoka kwa Cloudinary. Kitendo hiki hakiwezi kurejeshwa.
-            </p>
-            <div className="modal-actions">
-              <button className="modal-btn-cancel" onClick={() => setDeleteVmModal(null)}>
-                Ghairi
-              </button>
-              <button className="modal-btn-confirm modal-btn-danger" onClick={confirmDeleteVm}>
-                Futa
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!deleteVmModal}
+        title="Futa ujumbe huu wa sauti?"
+        message={deleteVmModal ? (
+          <><strong>{deleteVmModal.guest_name}</strong> ({deleteVmModal.invitation_code})<br />Faili itafutwa kutoka kwa Cloudinary. Kitendo hiki hakiwezi kurejeshwa.</>
+        ) : ''}
+        confirmLabel="Futa"
+        cancelLabel="Ghairi"
+        onConfirm={confirmDeleteVm}
+        onCancel={() => setDeleteVmModal(null)}
+      />
     </div>
   );
 }

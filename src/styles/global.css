@@ -1,3 +1,6 @@
+/* Global modal import — must be first so component-level styles can override */
+@import './modal.css';
+
 /* ── Reset ────────────────────────────────────────────────────────────── */
 
 *, *::before, *::after {

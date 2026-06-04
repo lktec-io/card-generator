@@ -7,6 +7,7 @@ import {
 } from 'react-icons/md';
 import { listEvents, createEvent, deleteEvent } from '../utils/api';
 import TemplateGallery from '../components/TemplateGallery';
+import ConfirmModal from '../components/ConfirmModal';
 import '../styles/events.css';
 import '../styles/template-gallery.css';
 
@@ -296,21 +297,14 @@ export default function EventsPage() {
           </div>
         )}
 
-        {/* ── Delete confirm ── */}
-        {deleteId && (
-          <div className="modal-overlay" onClick={() => setDeleteId(null)}>
-            <div className="modal-box" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-title">Delete Event?</h3>
-              <p className="modal-message">All invitations for this event will be unlinked. This cannot be undone.</p>
-              <div className="modal-actions">
-                <button className="modal-btn-cancel" onClick={() => setDeleteId(null)}>Cancel</button>
-                <button className="modal-btn-confirm modal-btn-danger" onClick={() => handleDelete(deleteId)}>
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmModal
+          open={!!deleteId}
+          title="Delete Event?"
+          message="All invitations for this event will be unlinked. This cannot be undone."
+          confirmLabel="Delete"
+          onConfirm={() => handleDelete(deleteId)}
+          onCancel={() => setDeleteId(null)}
+        />
       </div>
     </div>
   );
