@@ -7,7 +7,7 @@ import {
   MdQrCodeScanner, MdEdit, MdSave, MdClose, MdContentCopy,
   MdOpenInNew, MdVisibility, MdGridView, MdViewList, MdAddPhotoAlternate,
 } from 'react-icons/md';
-import { getEvent, updateEvent, deleteInvitation } from '../utils/api';
+import { getEvent, updateEvent, deleteInvitation, getVoiceMessages } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
 import '../styles/events.css';
@@ -56,14 +56,16 @@ export default function EventDetailPage() {
   const navigate   = useNavigate();
   const { showToast } = useToast();
 
-  const [data,     setData]     = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState('');
-  const [editing,  setEditing]  = useState(false);
-  const [form,     setForm]     = useState({});
-  const [saving,   setSaving]   = useState(false);
-  const [delInvId, setDelInvId] = useState(null);
-  const [delInv,   setDelInv]   = useState(null);  // full inv object for modal
+  const [data,          setData]          = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState('');
+  const [editing,       setEditing]       = useState(false);
+  const [form,          setForm]          = useState({});
+  const [saving,        setSaving]        = useState(false);
+  const [delInvId,      setDelInvId]      = useState(null);
+  const [delInv,        setDelInv]        = useState(null);
+  const [voiceMsgs,     setVoiceMsgs]     = useState([]);
+  const [loadingVoice,  setLoadingVoice]  = useState(false);  // full inv object for modal
   const [invView,  setInvView]  = useState(() => localStorage.getItem('invView') || 'list');
 
   // Provide color defaults so the pickers always save a value, even for old events
@@ -84,7 +86,15 @@ export default function EventDetailPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [id]);
+  const loadVoice = () => {
+    setLoadingVoice(true);
+    getVoiceMessages(id)
+      .then(({ data: d }) => setVoiceMsgs(d.messages || []))
+      .catch(() => {})
+      .finally(() => setLoadingVoice(false));
+  };
+
+  useEffect(() => { load(); loadVoice(); }, [id]);
 
   const switchInvView = (v) => {
     setInvView(v);
@@ -531,6 +541,45 @@ export default function EventDetailPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Voice Messages section ── */}
+        <div className="ev-inv-section" style={{ marginTop: '1.5rem' }}>
+          <div className="ev-inv-head">
+            <h2>Ujumbe wa Sauti ({voiceMsgs.length})</h2>
+            <button className="btn-outline" onClick={loadVoice} disabled={loadingVoice} style={{ fontSize: '0.78rem', padding: '0.45rem 0.9rem' }}>
+              {loadingVoice ? 'Loading…' : 'Refresh'}
+            </button>
+          </div>
+
+          {voiceMsgs.length === 0 ? (
+            <p className="ev-info-empty" style={{ padding: '1.5rem 0', textAlign: 'center' }}>
+              Hakuna ujumbe wa sauti bado.
+            </p>
+          ) : (
+            <div className="table-scroll">
+              <table className="inv-table">
+                <thead>
+                  <tr>
+                    <th>Jina</th>
+                    <th>Msimbo</th>
+                    <th>Saa Ilitumwa</th>
+                    <th>Ujumbe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {voiceMsgs.map(vm => (
+                    <tr key={vm.id}>
+                      <td><strong>{vm.guest_name}</strong></td>
+                      <td><span className="code-cell">{vm.invitation_code}</span></td>
+                      <td className="date-cell">{formatDateTime(vm.created_at)}</td>
+                      <td><VoicePlayerMini url={vm.voice_message_url} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

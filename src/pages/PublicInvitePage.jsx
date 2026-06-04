@@ -6,7 +6,7 @@ import {
 } from 'react-icons/md';
 import { GiDiamondRing } from 'react-icons/gi';
 import QRCode from 'qrcode';
-import { getPublicInvite, submitRSVP, uploadVoice } from '../utils/api';
+import { getPublicInvite, submitRSVP } from '../utils/api';
 import { celebrateRSVP } from '../utils/confettiCelebration';
 import VoiceRecorder from '../components/VoiceRecorder';
 import '../styles/public-invite.css';
@@ -31,8 +31,6 @@ export default function PublicInvitePage({ isPreview = false }) {
   const [rsvping,    setRsvping]    = useState(false);
   const [rsvpMsg,    setRsvpMsg]    = useState('');
   const [showModal,  setShowModal]  = useState(false);
-  const [audioBlob,  setAudioBlob]  = useState(null);
-  const [uploading,  setUploading]  = useState(false);
 
   useEffect(() => {
     getPublicInvite(uuid)
@@ -90,24 +88,8 @@ export default function PublicInvitePage({ isPreview = false }) {
   const handleRSVP = async (response) => {
     if (rsvpState || rsvping) return;
     setRsvping(true);
-    let voiceUrl = null;
-
-    // Step 1: upload voice recording if one was made
-    if (audioBlob) {
-      setUploading(true);
-      try {
-        const { data: up } = await uploadVoice(uuid, audioBlob);
-        voiceUrl = up.voice_message_url;
-      } catch (err) {
-        console.warn('[uploadVoice] failed, submitting RSVP without voice:', err.message);
-      } finally {
-        setUploading(false);
-      }
-    }
-
-    // Step 2: submit RSVP with optional voice URL
     try {
-      const { data: r } = await submitRSVP(uuid, response, voiceUrl);
+      const { data: r } = await submitRSVP(uuid, response);
       setRsvpState(response);
       setRsvpMsg(r.message);
       playSound(response);
@@ -301,28 +283,15 @@ export default function PublicInvitePage({ isPreview = false }) {
           </div>
         </section>
 
-        {/* ── SECTION 6: RSVP ── */}
+        {/* ── SECTION 6: Voice Message (standalone, above RSVP) ── */}
+        <section className="invite-section">
+          <VoiceRecorder uuid={uuid} />
+        </section>
+
+        {/* ── SECTION 7: RSVP ── */}
         <section className="invite-section invite-section--rsvp">
           <h3 className="invite-rsvp-title">Je, Utahudhuria?</h3>
           <p className="invite-rsvp-sub">Tafadhali thibitisha mahudhurio yako</p>
-
-          {/* Voice recorder — visible before RSVP is submitted */}
-          {!rsvpState && (
-            <div className="invite-voice-wrap">
-              <VoiceRecorder
-                onAudioReady={(blob) => setAudioBlob(blob)}
-                onClear={() => setAudioBlob(null)}
-              />
-            </div>
-          )}
-
-          {/* Upload progress indicator */}
-          {uploading && (
-            <div className="invite-upload-progress">
-              <div className="invite-upload-spinner" />
-              <span>Inapakia ujumbe wa sauti…</span>
-            </div>
-          )}
 
           {(rsvpState === 'attending' || rsvpState === 'declined') ? (
             /* Already responded — immutable */

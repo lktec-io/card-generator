@@ -7,12 +7,11 @@ const upload        = require('../middleware/upload');
 const verifyToken   = require('../middleware/authMiddleware');
 const { requireAdmin } = require('../middleware/authMiddleware');
 
-// Separate multer for audio uploads (guests, no auth required)
+// Audio upload multer — accepts audio/* and video/webm (Chrome records audio as video/webm)
 const audioUpload = multer({
   storage: multer.memoryStorage(),
   limits:  { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter(_req, file, cb) {
-    // Accept audio/* and video/webm (Chrome records audio as video/webm)
     if (file.mimetype.startsWith('audio/') || file.mimetype.startsWith('video/')) {
       cb(null, true);
     } else {
@@ -28,7 +27,8 @@ const {
 
 const { getDashboard }           = require('../controllers/adminController');
 const { listEvents, createEvent, getEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
-const { submitRSVP, getPublicInvite, uploadVoice } = require('../controllers/rsvpController');
+const { submitRSVP, getPublicInvite } = require('../controllers/rsvpController');
+const { sendVoiceMessage, getVoiceMessages } = require('../controllers/voiceMessageController');
 const { getGlobalStats }         = require('../controllers/statsController');
 const { getVerificationHistory } = require('../controllers/verificationLogController');
 
@@ -46,7 +46,9 @@ router.get( '/stats',         getStats);
 // Public invite page + RSVP — UUID-based
 router.get( '/invite/:uuid',       getPublicInvite);
 router.post('/rsvp/:uuid',         submitRSVP);
-router.post('/voice-upload/:uuid', audioUpload.single('audio'), uploadVoice);
+
+// Public voice message — guest sends standalone voice (no auth, max 10 MB)
+router.post('/voice-message/:uuid', audioUpload.single('audio'), sendVoiceMessage);
 
 // ── Protected (admin JWT required) ─────────────────────────────────────────
 router.get('/admin/dashboard',   requireAdmin, getDashboard);
@@ -58,11 +60,12 @@ router.delete('/invitations',     requireAdmin, deleteAllInvitations);
 router.delete('/invitations/:id', requireAdmin, deleteInvitation);
 
 // Events CRUD — all admin-only
-router.get(   '/events',     requireAdmin, listEvents);
-router.post(  '/events',     requireAdmin, createEvent);
-router.get(   '/events/:id', requireAdmin, getEvent);
-router.put(   '/events/:id', requireAdmin, updateEvent);
-router.delete('/events/:id', requireAdmin, deleteEvent);
+router.get(   '/events',                       requireAdmin, listEvents);
+router.post(  '/events',                       requireAdmin, createEvent);
+router.get(   '/events/:id',                   requireAdmin, getEvent);
+router.put(   '/events/:id',                   requireAdmin, updateEvent);
+router.delete('/events/:id',                   requireAdmin, deleteEvent);
+router.get(   '/events/:id/voice-messages',    requireAdmin, getVoiceMessages);
 
 // ── Static — generated card images ─────────────────────────────────────────
 router.get('/generated/:filename', (req, res) => {
