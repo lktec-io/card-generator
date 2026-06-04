@@ -4,7 +4,7 @@ import { GiDiamondRing } from 'react-icons/gi';
 import {
   MdDashboard, MdQrCodeScanner, MdAdminPanelSettings,
   MdMenu, MdClose, MdAddPhotoAlternate, MdLogout,
-  MdEvent, MdHistory, MdShield, MdUploadFile,
+  MdEvent, MdHistory, MdShield, MdUploadFile, MdPhotoLibrary,
 } from 'react-icons/md';
 import { isAdmin, getRole } from '../utils/auth';
 import '../styles/components.css';
@@ -16,7 +16,8 @@ const ADMIN_LINKS = [
   { to: '/import',  end: false, icon: <MdUploadFile size={16} />,         label: 'Import'       },
   { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />,      label: 'Verify'       },
   { to: '/history', end: false, icon: <MdHistory size={16} />,            label: 'History'      },
-  { to: '/admin',   end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'        },
+  { to: '/templates', end: false, icon: <MdPhotoLibrary size={16} />,      label: 'Templates'    },
+  { to: '/admin',     end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'        },
 ];
 
 const STAFF_LINKS = [

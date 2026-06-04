@@ -10,6 +10,7 @@ import EventDetailPage          from './pages/EventDetailPage';
 import VerificationHistoryPage  from './pages/VerificationHistoryPage';
 import PublicInvitePage         from './pages/PublicInvitePage';
 import ImportPage               from './pages/ImportPage';
+import TemplatesPage            from './pages/TemplatesPage';
 import { ToastProvider }        from './context/ToastContext';
 import { isLoggedIn, isAdmin }  from './utils/auth';
 import './styles/global.css';
@@ -53,6 +54,7 @@ function AppShell() {
           <Route path="/import"      element={<AdminRoute><ImportPage /></AdminRoute>} />
           <Route path="/history"     element={<AdminRoute><VerificationHistoryPage /></AdminRoute>} />
           <Route path="/admin"       element={<AdminRoute><AdminPage /></AdminRoute>} />
+          <Route path="/templates"   element={<AdminRoute><TemplatesPage /></AdminRoute>} />
         </Routes>
       </main>
     </>

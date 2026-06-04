@@ -21,7 +21,13 @@ async function getPublicInvite(req, res) {
 
     let event = null;
     if (inv.event_id) {
-      const [[ev]] = await pool.execute('SELECT * FROM events WHERE id = ?', [inv.event_id]);
+      const [[ev]] = await pool.execute(
+        `SELECT e.*, t.slug AS template_slug, t.name AS template_name
+           FROM events e
+           LEFT JOIN templates t ON t.id = e.template_id
+          WHERE e.id = ?`,
+        [inv.event_id]
+      );
       event = ev || null;
     }
 

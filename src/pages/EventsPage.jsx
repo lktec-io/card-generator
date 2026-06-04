@@ -6,7 +6,9 @@ import {
   MdGridView, MdViewList,
 } from 'react-icons/md';
 import { listEvents, createEvent, deleteEvent } from '../utils/api';
+import TemplateGallery from '../components/TemplateGallery';
 import '../styles/events.css';
+import '../styles/template-gallery.css';
 
 const EVENT_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
@@ -33,7 +35,7 @@ const EMPTY_FORM = {
   event_name: '', event_type: 'Wedding', event_date: '', event_time: '',
   venue: '', maps_link: '', contact_name: '', contact_phone: '',
   dress_code_main: '#d4af37', dress_code_secondary: '#1a1a2e', dress_code_accent: '#ffffff',
-  dress_code_notes: '',
+  dress_code_notes: '', template_id: null,
 };
 
 export default function EventsPage() {
@@ -197,6 +199,24 @@ export default function EventsPage() {
                 <label>Dress Code Notes</label>
                 <textarea name="dress_code_notes" value={form.dress_code_notes} onChange={handleChange} rows={2} placeholder="e.g. Ladies: Royal Blue gowns. Gentlemen: Black suit." />
               </div>
+
+              {/* Template selection */}
+              <div className="ef-field ef-field--full">
+                <label>
+                  Invitation Template
+                  {form.template_id ? (
+                    <span style={{ marginLeft: '0.5rem', color: 'var(--gold)', fontSize: '0.75em' }}>✓ Selected</span>
+                  ) : (
+                    <span style={{ marginLeft: '0.5rem', color: 'rgba(255,255,255,0.30)', fontSize: '0.75em' }}>(Optional — guests see dynamic template)</span>
+                  )}
+                </label>
+                <TemplateGallery
+                  selectedId={form.template_id}
+                  onChange={(tmpl) => setForm(f => ({ ...f, template_id: tmpl.id }))}
+                  event={form}
+                />
+              </div>
+
               {formError && <p className="ef-error">{formError}</p>}
               <div className="ef-actions">
                 <button type="button" className="btn-outline" onClick={() => setShowForm(false)}>Cancel</button>

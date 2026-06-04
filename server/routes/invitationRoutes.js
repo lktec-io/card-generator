@@ -29,11 +29,17 @@ const { getDashboard }           = require('../controllers/adminController');
 const { listEvents, createEvent, getEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
 const { submitRSVP, getPublicInvite } = require('../controllers/rsvpController');
 const { sendVoiceMessage, getVoiceMessages } = require('../controllers/voiceMessageController');
+const { listTemplates, listAllTemplates, toggleTemplate } = require('../controllers/templateController');
 const { getGlobalStats }         = require('../controllers/statsController');
 const { getVerificationHistory } = require('../controllers/verificationLogController');
 
 // ── API status ─────────────────────────────────────────────────────────────
 router.get('/', (_req, res) => res.json({ status: 'ok', service: 'Nardio Events API v2' }));
+
+// ── Templates (active list is public, admin ops require auth) ──────────────
+router.get('/templates',         listTemplates);
+router.get('/templates/all',     requireAdmin, listAllTemplates);
+router.patch('/templates/:id/toggle', requireAdmin, toggleTemplate);
 
 // ── Public (no auth) ────────────────────────────────────────────────────────
 router.post('/reserve',       reserveCode);

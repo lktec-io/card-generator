@@ -24,11 +24,14 @@ async function listEvents(req, res) {
     const [events] = await pool.execute(`
       SELECT
         e.*,
+        t.slug  AS template_slug,
+        t.name  AS template_name,
         COUNT(DISTINCT i.id)                       AS total_invitations,
         COALESCE(SUM(i.status = 'used'),        0) AS checked_in,
         COALESCE(SUM(r.response = 'attending'), 0) AS rsvp_attending,
         COALESCE(SUM(r.response = 'declined'),  0) AS rsvp_declined
       FROM events e
+      LEFT JOIN templates      t ON t.id = e.template_id
       LEFT JOIN invitations    i ON i.event_id = e.id
       LEFT JOIN rsvp_responses r ON r.event_id = e.id
       GROUP BY e.id
@@ -46,7 +49,7 @@ async function createEvent(req, res) {
   const {
     event_name, event_type, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
-    maps_link, contact_name, contact_phone,
+    maps_link, contact_name, contact_phone, template_id,
   } = req.body;
 
   if (!sanitize(event_name)) {
@@ -56,18 +59,21 @@ async function createEvent(req, res) {
   const safeType = VALID_TYPES.includes(event_type) ? event_type : 'Wedding';
 
   try {
+    const safeTemplateId = template_id ? parseInt(template_id, 10) || null : null;
+
     const [result] = await pool.execute(
       `INSERT INTO events
          (event_name, event_type, event_date, event_time, venue,
           dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
-          maps_link, contact_name, contact_phone)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          maps_link, contact_name, contact_phone, template_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sanitize(event_name), safeType,
         formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
+        safeTemplateId,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [result.insertId]);
@@ -131,7 +137,7 @@ async function updateEvent(req, res) {
   const {
     event_name, event_type, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
-    maps_link, contact_name, contact_phone,
+    maps_link, contact_name, contact_phone, template_id,
   } = req.body;
 
   if (!sanitize(event_name)) {
@@ -142,11 +148,14 @@ async function updateEvent(req, res) {
   const safeType = VALID_TYPES.includes(event_type) ? event_type : 'Wedding';
 
   try {
+    const safeTemplateId = template_id ? parseInt(template_id, 10) || null : null;
+
     await pool.execute(
       `UPDATE events SET
          event_name = ?, event_type = ?, event_date = ?, event_time = ?, venue = ?,
          dress_code_main = ?, dress_code_secondary = ?, dress_code_accent = ?,
-         dress_code_notes = ?, maps_link = ?, contact_name = ?, contact_phone = ?
+         dress_code_notes = ?, maps_link = ?, contact_name = ?, contact_phone = ?,
+         template_id = ?
        WHERE id = ?`,
       [
         sanitize(event_name), safeType,
@@ -154,7 +163,7 @@ async function updateEvent(req, res) {
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
-        id,
+        safeTemplateId, id,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [id]);

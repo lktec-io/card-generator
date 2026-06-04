@@ -1,0 +1,205 @@
+/* ── Template Gallery ─────────────────────────────────────────────────── */
+
+.tg-root {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Controls ────────────────────────────────────────────────────────── */
+
+.tg-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tg-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  color: var(--text-muted);
+}
+
+.tg-search input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--white);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.84rem;
+}
+.tg-search input::placeholder { color: rgba(255,255,255,0.25); }
+.tg-search input:focus { outline: none; }
+
+.tg-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tg-cat-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tg-cat-btn:hover {
+  background: rgba(212, 175, 55, 0.10);
+  border-color: rgba(212, 175, 55, 0.25);
+  color: var(--gold);
+}
+
+.tg-cat-btn.active {
+  background: rgba(212, 175, 55, 0.16);
+  border-color: rgba(212, 175, 55, 0.45);
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* ── Grid ────────────────────────────────────────────────────────────── */
+
+.tg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.85rem;
+}
+
+/* ── Card ────────────────────────────────────────────────────────────── */
+
+.tg-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.22s ease, border-color 0.22s, box-shadow 0.22s;
+}
+
+.tg-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(212, 175, 55, 0.30);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.tg-card--selected {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.30), 0 12px 32px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Selected checkmark */
+.tg-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--gold);
+  color: #1a1200;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.30);
+}
+
+/* Preview area */
+.tg-card-preview {
+  width: 100%;
+  aspect-ratio: 9/16;
+  overflow: hidden;
+  background: #0d0d1a;
+  position: relative;
+}
+
+/* Scale wrapper — renders the template at 1em=4px equivalent, then scales up to fill */
+.tg-preview-scale-wrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.tg-preview-scale-inner {
+  width: 480px;           /* template's natural max-width */
+  transform-origin: top center;
+  transform: scale(0.29); /* scale down to ~140px wide */
+  flex-shrink: 0;
+}
+
+/* Card info */
+.tg-card-info {
+  padding: 0.55rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.tg-card-name {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tg-card-cat {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+}
+
+.tg-card-premium {
+  font-size: 0.62rem;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* ── States ──────────────────────────────────────────────────────────── */
+
+.tg-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  padding: 2rem 0;
+}
+
+.tg-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(212,175,55,0.18);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.78s linear infinite;
+}
+
+.tg-empty {
+  color: var(--text-faint);
+  font-size: 0.84rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .tg-grid { grid-template-columns: repeat(2, 1fr); }
+}

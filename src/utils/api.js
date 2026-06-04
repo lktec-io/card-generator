@@ -47,6 +47,11 @@ export const getStats             = () => api.get('/stats');
 export const getGlobalStats       = () => api.get('/stats/global');
 export const getAdminDashboard    = () => api.get('/admin/dashboard');
 
+// ── Templates ─────────────────────────────────────────────────────────────────
+export const listTemplates    = ()   => api.get('/templates');
+export const listAllTemplates = ()   => api.get('/templates/all');
+export const toggleTemplate   = (id) => api.patch(`/templates/${id}/toggle`);
+
 // ── Events ────────────────────────────────────────────────────────────────────
 export const listEvents  = ()         => api.get('/events');
 export const createEvent = (data)     => api.post('/events', data);

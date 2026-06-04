@@ -1,0 +1,464 @@
+/* ════════════════════════════════════════════════════════════════
+   NARDIO EVENTS — INVITATION TEMPLATE STYLES
+   All templates share this base; each template adds its own layer.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Base ────────────────────────────────────────────────────────────── */
+
+.tpl {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  border-radius: 20px;
+  overflow: hidden;
+  font-family: 'Poppins', sans-serif;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.65);
+}
+
+/* Mini mode used for gallery thumbnails */
+.tpl--mini {
+  font-size: 0.22em;  /* scale everything down proportionally */
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.40);
+}
+
+/* ── Shared detail rows ──────────────────────────────────────────────── */
+
+.tpl-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
+  margin: 0.8em 0;
+  font-size: 0.80em;
+}
+
+.tpl-details--center { align-items: center; }
+
+.tpl-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.45;
+}
+
+.tpl-detail-icon { flex-shrink: 0; }
+
+.tpl-details--light .tpl-detail-row  { color: rgba(255, 255, 255, 0.80); }
+.tpl-details--warm  .tpl-detail-row  { color: rgba(255, 240, 210, 0.80); }
+.tpl-details--corporate .tpl-detail-row { color: rgba(200, 225, 255, 0.75); }
+
+/* ── Shared QR section ───────────────────────────────────────────────── */
+
+.tpl-qr-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: 1em;
+}
+
+.tpl-qr-box {
+  background: #ffffff;
+  padding: 8px;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.30);
+  display: inline-block;
+}
+
+.tpl-qr-box img {
+  width: 6em;
+  height: 6em;
+  display: block;
+}
+
+.tpl-qr-box--dark  { background: #f0f0f0; }
+.tpl-qr-box--glow  { box-shadow: 0 0 20px var(--tpl-secondary, #ec4899); }
+.tpl-qr-box--warm  { background: #fff9f0; }
+.tpl-qr-box--blue  { background: #f0f8ff; }
+
+.tpl-cn {
+  font-family: 'Courier New', monospace;
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--tpl-secondary, #d4af37);
+}
+
+.tpl-cn--light { color: rgba(255,255,255,0.70); }
+.tpl-cn--warm  { color: #f59e0b; }
+.tpl-cn--blue  { color: #38bdf8; }
+
+/* Mini QR placeholder */
+.tpl-mini-qr-placeholder {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.8em;
+}
+
+.tpl-mini-qr-square {
+  width: 4em;
+  height: 4em;
+  background: rgba(255,255,255,0.10);
+  border: 2px solid rgba(255,255,255,0.20);
+  border-radius: 4px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TEMPLATE 1: WEDDING GOLD
+   ════════════════════════════════════════════════════════════ */
+
+.tpl-wedding {
+  background: #0d0d1a;
+  min-height: 28em;
+}
+
+.tpl-wg-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at top,    rgba(212,175,55,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at bottom, rgba(100,70,0,0.20)   0%, transparent 55%);
+}
+
+.tpl-wg-vignette {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 60%, rgba(0,0,0,0.45) 100%);
+}
+
+.tpl-wg-inner {
+  position: relative;
+  padding: 2.5em 2em 2em;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2em;
+}
+
+.tpl-wg-ornament-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  width: 100%;
+}
+
+.tpl-wg-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--tpl-secondary, #d4af37), transparent);
+  opacity: 0.55;
+}
+
+.tpl-wg-diamond {
+  color: var(--tpl-secondary, #d4af37);
+  font-size: 0.55em;
+  opacity: 0.80;
+}
+
+.tpl-wg-label {
+  font-size: 0.58em;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  color: var(--tpl-secondary, #d4af37);
+  opacity: 0.80;
+  margin: 0.3em 0;
+}
+
+.tpl-wg-name {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 2.2em;
+  font-weight: 400;
+  color: var(--tpl-secondary, #d4af37);
+  line-height: 1.15;
+  text-shadow: 0 0 30px rgba(212,175,55,0.35);
+}
+
+.tpl-wg-event {
+  font-size: 0.75em;
+  color: rgba(255,255,255,0.70);
+  margin: 0.1em 0;
+  letter-spacing: 0.06em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TEMPLATE 2: GRADUATION PREMIUM
+   ════════════════════════════════════════════════════════════ */
+
+.tpl-graduation { background: #0a1628; min-height: 28em; }
+
+.tpl-gr-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%,   rgba(29,53,87,0.90)  0%, transparent 70%),
+    linear-gradient(180deg, #0a1628 0%, #071020 100%);
+}
+
+.tpl-gr-inner {
+  position: relative;
+  padding: 2em 2em 2em;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.tpl-gr-seal {
+  width: 3.5em;
+  height: 3.5em;
+  border-radius: 50%;
+  background: rgba(212,175,55,0.12);
+  border: 2px solid rgba(212,175,55,0.40);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.3em;
+}
+
+.tpl-gr-seal-icon { font-size: 1.6em; }
+
+.tpl-gr-title {
+  font-size: 0.55em;
+  font-weight: 700;
+  letter-spacing: 0.30em;
+  color: var(--tpl-secondary, #d4af37);
+  opacity: 0.85;
+}
+
+.tpl-gr-name {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 2.1em;
+  font-weight: 500;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.tpl-gr-event {
+  font-size: 0.78em;
+  color: var(--tpl-secondary, #d4af37);
+  letter-spacing: 0.05em;
+}
+
+.tpl-gr-divider {
+  width: 4em;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--tpl-secondary, #d4af37), transparent);
+  margin: 0.5em 0;
+  opacity: 0.65;
+}
+
+.tpl-gr-footer {
+  font-size: 0.65em;
+  color: rgba(255,255,255,0.38);
+  font-style: italic;
+  margin-top: 0.5em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TEMPLATE 3: BIRTHDAY MODERN
+   ════════════════════════════════════════════════════════════ */
+
+.tpl-birthday { background: #1a0a2e; min-height: 28em; }
+
+.tpl-bd-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(124,58,237,0.45) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, rgba(236,72,153,0.30) 0%, transparent 60%);
+}
+
+.tpl-bd-inner {
+  position: relative;
+  padding: 2.5em 2em 2em;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.tpl-bd-eyebrow {
+  font-size: 0.60em;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  color: var(--tpl-secondary, #ec4899);
+  text-transform: uppercase;
+}
+
+.tpl-bd-name {
+  font-family: 'Poppins', sans-serif;
+  font-size: 2.3em;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.15;
+  text-shadow: 0 0 30px rgba(236,72,153,0.40);
+}
+
+.tpl-bd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 30px;
+  padding: 0.3em 0.9em;
+  font-size: 0.72em;
+  color: rgba(255,255,255,0.75);
+  margin: 0.2em 0;
+}
+
+.tpl-bd-divider {
+  width: 3em;
+  height: 3px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--tpl-primary, #7c3aed), var(--tpl-secondary, #ec4899));
+  margin: 0.4em 0;
+}
+
+.tpl-bd-footer {
+  font-size: 0.62em;
+  color: rgba(255,255,255,0.40);
+  margin-top: 0.4em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TEMPLATE 4: SENDOFF JOURNEY
+   ════════════════════════════════════════════════════════════ */
+
+.tpl-sendoff { background: #1c0f00; min-height: 28em; }
+
+.tpl-sf-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%,    rgba(245,158,11,0.25) 0%, transparent 65%),
+    linear-gradient(180deg, #1c0f00 0%, #0d0800 100%);
+}
+
+.tpl-sf-inner {
+  position: relative;
+  padding: 2.5em 2em 2em;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.tpl-sf-eyebrow {
+  font-size: 0.60em;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  color: var(--tpl-secondary, #f59e0b);
+  text-transform: uppercase;
+}
+
+.tpl-sf-name {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 2.2em;
+  font-weight: 500;
+  color: #fff8e1;
+  line-height: 1.2;
+}
+
+.tpl-sf-event {
+  font-size: 0.78em;
+  color: rgba(245,200,100,0.75);
+  letter-spacing: 0.06em;
+}
+
+.tpl-sf-horizon {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--tpl-secondary, #f59e0b), transparent);
+  margin: 0.5em 0;
+  opacity: 0.50;
+}
+
+.tpl-sf-footer {
+  font-size: 0.62em;
+  color: rgba(245,200,100,0.40);
+  font-style: italic;
+  margin-top: 0.4em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TEMPLATE 5: CONFERENCE PRO
+   ════════════════════════════════════════════════════════════ */
+
+.tpl-conference { background: #0f172a; min-height: 28em; }
+
+.tpl-cf-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--tpl-secondary, #38bdf8), var(--tpl-primary, #0f172a) 70%);
+}
+
+.tpl-cf-inner {
+  position: relative;
+  padding: 2.5em 2em 2em;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+}
+
+.tpl-cf-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-bottom: 0.4em;
+}
+
+.tpl-cf-logo-icon { font-size: 0.85em; }
+
+.tpl-cf-logo-text {
+  font-size: 0.55em;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  color: var(--tpl-secondary, #38bdf8);
+  opacity: 0.70;
+}
+
+.tpl-cf-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(56,189,248,0.18);
+  margin: 0.3em 0;
+}
+
+.tpl-cf-label {
+  font-size: 0.55em;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  color: rgba(148,210,240,0.55);
+  margin-top: 0.3em;
+}
+
+.tpl-cf-name {
+  font-family: 'Poppins', sans-serif;
+  font-size: 2em;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.tpl-cf-event {
+  font-size: 0.75em;
+  color: var(--tpl-secondary, #38bdf8);
+  letter-spacing: 0.04em;
+}
+
+.tpl-cf-footer {
+  font-size: 0.60em;
+  color: rgba(148,210,240,0.38);
+  margin-top: 0.3em;
+  font-style: italic;
+}

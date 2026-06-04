@@ -106,6 +106,14 @@
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.60);
 }
 
+/* Template rendering removes inner padding — template handles its own layout */
+.invite-section--template {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
 .invite-section--guest { text-align: center; }
 .invite-section--rsvp  { text-align: center; }
 .invite-section--qr    { text-align: center; }

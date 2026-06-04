@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 import { getPublicInvite, submitRSVP } from '../utils/api';
 import { celebrateRSVP } from '../utils/confettiCelebration';
 import VoiceRecorder from '../components/VoiceRecorder';
+import { getTemplateComponent } from '../templates/index';
 import '../styles/public-invite.css';
 import '../styles/voice-recorder.css';
 
@@ -160,14 +161,31 @@ export default function PublicInvitePage({ isPreview = false }) {
           <span>Nardio Events</span>
         </div>
 
-        {/* ── SECTION 1: Card image ── */}
-        {inv?.image_url && (
+        {/* ── SECTION 1: Invitation card
+              • If event has a template → render dynamic template component
+              • Fallback: show static card image (backward compat for old events)
+        ── */}
+        {event?.template_slug ? (
+          <section className="invite-section invite-section--card invite-section--template">
+            {(() => {
+              const TemplateComponent = getTemplateComponent(event.template_slug);
+              return (
+                <TemplateComponent
+                  guestName={inv?.guest_name}
+                  invitationCode={inv?.code}
+                  event={event}
+                  qrUrl={qrUrl}
+                />
+              );
+            })()}
+          </section>
+        ) : inv?.image_url ? (
           <section className="invite-section invite-section--card">
             <div className="invite-card-img">
               <img src={inv.image_url} alt="Kadi ya Mwaliko" crossOrigin="anonymous" />
             </div>
           </section>
-        )}
+        ) : null}
 
         {/* ── SECTION 2: Guest info ── */}
         <section className="invite-section invite-section--guest">
