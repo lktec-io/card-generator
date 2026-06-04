@@ -105,6 +105,15 @@ export default function AdminPage() {
       ``,
       `Karibu sana.`,
     ];
+
+    // Append dress code if available
+    if (inv.dress_code_main || inv.dress_code_secondary || inv.dress_code_accent) {
+      lines.push(``, `🎨 Mavazi ya Sherehe:`);
+      if (inv.dress_code_main)      lines.push(`   Rangi Kuu: ${inv.dress_code_main}`);
+      if (inv.dress_code_secondary) lines.push(`   Rangi ya Pili: ${inv.dress_code_secondary}`);
+      if (inv.dress_code_accent)    lines.push(`   Rangi ya Tatu: ${inv.dress_code_accent}`);
+      if (inv.dress_code_notes)     lines.push(`   ${inv.dress_code_notes}`);
+    }
     const fullMessage = lines.join('\n');
 
     if (navigator.share) {

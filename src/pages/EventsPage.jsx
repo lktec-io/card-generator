@@ -167,7 +167,7 @@ export default function EventsPage() {
                   <input name="contact_phone" type="tel" value={form.contact_phone} onChange={handleChange} placeholder="e.g. +255754123456" />
                 </div>
               </div>
-              <div className="ef-row">
+              <div className="ef-row ef-row--3">
                 <div className="ef-field">
                   <label>Primary Color</label>
                   <div className="color-picker-wrap">

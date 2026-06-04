@@ -64,10 +64,20 @@ export default function EventDetailPage() {
   const [delInv,   setDelInv]   = useState(null);  // full inv object for modal
   const [invView,  setInvView]  = useState(() => localStorage.getItem('invView') || 'list');
 
+  // Provide color defaults so the pickers always save a value, even for old events
+  function initForm(ev) {
+    return {
+      ...ev,
+      dress_code_main:      ev.dress_code_main      || '#d4af37',
+      dress_code_secondary: ev.dress_code_secondary || '#1a1a2e',
+      dress_code_accent:    ev.dress_code_accent     || '#ffffff',
+    };
+  }
+
   const load = () => {
     setLoading(true);
     getEvent(id)
-      .then(({ data: d }) => { setData(d); setForm(d.event); })
+      .then(({ data: d }) => { setData(d); setForm(initForm(d.event)); })
       .catch(() => setError('Failed to load event.'))
       .finally(() => setLoading(false));
   };
@@ -132,6 +142,20 @@ export default function EventDetailPage() {
     if (date)  lines.push(``, `📅 Tarehe: ${date}`);
     if (time)  lines.push(`🕒 Saa: ${time}`);
     if (venue) lines.push(`📍 Ukumbi: ${venue}`);
+    // Dress code colors
+    const main      = ev?.dress_code_main;
+    const secondary = ev?.dress_code_secondary;
+    const accent    = ev?.dress_code_accent;
+    const notes     = ev?.dress_code_notes;
+
+    if (main || secondary || accent || notes) {
+      lines.push(``, `🎨 Mavazi ya Sherehe:`);
+      if (main)      lines.push(`   Rangi Kuu: ${main}`);
+      if (secondary) lines.push(`   Rangi ya Pili: ${secondary}`);
+      if (accent)    lines.push(`   Rangi ya Tatu: ${accent}`);
+      if (notes)     lines.push(`   ${notes}`);
+    }
+
     lines.push(
       ``,
       `Tafadhali fungua kiungo kilicho hapa chini kuona mwaliko wako rasmi, QR Code ya kuingilia na kuthibitisha mahudhurio yako.`,
@@ -273,7 +297,7 @@ export default function EventDetailPage() {
                 <button className="btn-gold" onClick={handleSave} disabled={saving}>
                   <MdSave size={15} /> {saving ? 'Saving…' : 'Save'}
                 </button>
-                <button className="btn-outline" onClick={() => { setEditing(false); setForm(ev); }}>
+                <button className="btn-outline" onClick={() => { setEditing(false); setForm(initForm(ev)); }}>
                   <MdClose size={15} /> Cancel
                 </button>
               </>
@@ -390,28 +414,25 @@ export default function EventDetailPage() {
               </div>
             ) : (
               <div className="dress-code-display">
-                <div className="dress-swatches-row">
-                  {ev?.dress_code_main && (
-                    <div className="dress-swatch-chip">
-                      <span className="dress-swatch-circle" style={{ background: ev.dress_code_main }} />
-                      <span>Primary</span>
+                {(ev?.dress_code_main || ev?.dress_code_secondary || ev?.dress_code_accent || ev?.dress_code_notes) ? (
+                  <>
+                    <div className="dress-swatches-row">
+                      <div className="dress-swatch-chip">
+                        <span className="dress-swatch-circle" style={{ background: ev.dress_code_main || '#d4af37' }} />
+                        <span>Primary</span>
+                      </div>
+                      <div className="dress-swatch-chip">
+                        <span className="dress-swatch-circle" style={{ background: ev.dress_code_secondary || '#1a1a2e' }} />
+                        <span>Secondary</span>
+                      </div>
+                      <div className="dress-swatch-chip">
+                        <span className="dress-swatch-circle" style={{ background: ev.dress_code_accent || '#ffffff', border: '2px solid rgba(255,255,255,0.22)' }} />
+                        <span>Accent</span>
+                      </div>
                     </div>
-                  )}
-                  {ev?.dress_code_secondary && (
-                    <div className="dress-swatch-chip">
-                      <span className="dress-swatch-circle" style={{ background: ev.dress_code_secondary }} />
-                      <span>Secondary</span>
-                    </div>
-                  )}
-                  {ev?.dress_code_accent && (
-                    <div className="dress-swatch-chip">
-                      <span className="dress-swatch-circle" style={{ background: ev.dress_code_accent, border: '2px solid rgba(255,255,255,0.3)' }} />
-                      <span>Accent</span>
-                    </div>
-                  )}
-                </div>
-                {ev?.dress_code_notes && <p className="dress-notes">{ev.dress_code_notes}</p>}
-                {!ev?.dress_code_main && !ev?.dress_code_notes && (
+                    {ev?.dress_code_notes && <p className="dress-notes">{ev.dress_code_notes}</p>}
+                  </>
+                ) : (
                   <p className="ev-info-empty">No dress code specified</p>
                 )}
               </div>

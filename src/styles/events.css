@@ -360,6 +360,14 @@
   gap: 1rem;
 }
 
+.ef-row--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+@media (max-width: 600px) {
+  .ef-row--3 { grid-template-columns: 1fr; }
+}
+
 .ef-field { display: flex; flex-direction: column; gap: 0.4rem; }
 .ef-field--wide { grid-column: span 1; }
 .ef-field--full { grid-column: 1 / -1; }

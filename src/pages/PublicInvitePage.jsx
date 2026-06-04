@@ -225,35 +225,32 @@ export default function PublicInvitePage({ isPreview = false }) {
             <h3 className="invite-section-title">
               <MdPalette size={16} /> Mavazi ya Sherehe
             </h3>
-            {/* Real color swatches */}
+            {/* All three color swatches — show even if color was inherited from default */}
             <div className="invite-color-swatches">
-              {event.dress_code_main && (
-                <div className="invite-color-chip">
-                  <span
-                    className="invite-color-circle"
-                    style={{ background: event.dress_code_main }}
-                  />
-                  <span>Primary</span>
-                </div>
-              )}
-              {event.dress_code_secondary && (
-                <div className="invite-color-chip">
-                  <span
-                    className="invite-color-circle"
-                    style={{ background: event.dress_code_secondary }}
-                  />
-                  <span>Secondary</span>
-                </div>
-              )}
-              {event.dress_code_accent && (
-                <div className="invite-color-chip">
-                  <span
-                    className="invite-color-circle"
-                    style={{ background: event.dress_code_accent, border: '2px solid rgba(255,255,255,0.25)' }}
-                  />
-                  <span>Accent</span>
-                </div>
-              )}
+              <div className="invite-color-chip">
+                <span
+                  className="invite-color-circle"
+                  style={{ background: event.dress_code_main || '#d4af37' }}
+                />
+                <span>Primary</span>
+              </div>
+              <div className="invite-color-chip">
+                <span
+                  className="invite-color-circle"
+                  style={{ background: event.dress_code_secondary || '#1a1a2e' }}
+                />
+                <span>Secondary</span>
+              </div>
+              <div className="invite-color-chip">
+                <span
+                  className="invite-color-circle"
+                  style={{
+                    background: event.dress_code_accent || '#ffffff',
+                    border: '2px solid rgba(255,255,255,0.22)',
+                  }}
+                />
+                <span>Accent</span>
+              </div>
             </div>
             {event.dress_code_notes && (
               <p className="invite-dress-notes">{event.dress_code_notes}</p>
