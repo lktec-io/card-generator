@@ -106,7 +106,7 @@ export default function EventDetailPage() {
     try {
       await deleteVoiceMessage(vm.id);
       setVoiceMsgs(prev => prev.filter(m => m.id !== vm.id));
-      showToast('Ujumbe umefutwa.', 'success');
+      showToast('Voice message deleted successfully.', 'success');
     } catch {
       showToast('Imeshindwa kufuta ujumbe.', 'error');
     } finally {
@@ -634,12 +634,17 @@ export default function EventDetailPage() {
 
       <ConfirmModal
         open={!!deleteVmModal}
-        title="Futa ujumbe huu wa sauti?"
+        title="Delete Voice Message"
         message={deleteVmModal ? (
-          <><strong>{deleteVmModal.guest_name}</strong> ({deleteVmModal.invitation_code})<br />Faili itafutwa kutoka kwa Cloudinary. Kitendo hiki hakiwezi kurejeshwa.</>
+          <>
+            Are you sure you want to permanently delete the voice message from{' '}
+            <strong>{deleteVmModal.guest_name}</strong> ({deleteVmModal.invitation_code})?
+            <br /><br />
+            This action cannot be undone.
+          </>
         ) : ''}
-        confirmLabel="Futa"
-        cancelLabel="Ghairi"
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         onConfirm={confirmDeleteVm}
         onCancel={() => setDeleteVmModal(null)}
       />
