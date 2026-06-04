@@ -7,6 +7,7 @@ import {
 import { GiDiamondRing } from 'react-icons/gi';
 import QRCode from 'qrcode';
 import { getPublicInvite, submitRSVP } from '../utils/api';
+import CelebrationEffect from '../components/CelebrationEffect';
 import '../styles/public-invite.css';
 
 function formatDate(raw) {
@@ -24,10 +25,11 @@ export default function PublicInvitePage({ isPreview = false }) {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
   const [qrUrl,      setQrUrl]      = useState('');
-  const [rsvpState,   setRsvpState]   = useState(null);
-  const [rsvping,     setRsvping]     = useState(false);
-  const [rsvpMsg,     setRsvpMsg]     = useState('');
-  const [showModal,   setShowModal]   = useState(false);
+  const [rsvpState,    setRsvpState]    = useState(null);
+  const [rsvping,      setRsvping]      = useState(false);
+  const [rsvpMsg,      setRsvpMsg]      = useState('');
+  const [showModal,    setShowModal]    = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     getPublicInvite(uuid)
@@ -91,6 +93,7 @@ export default function PublicInvitePage({ isPreview = false }) {
       setRsvpMsg(r.message);
       playSound(response);
       setShowModal(true);
+      if (response === 'attending') setShowConfetti(true);
       // Auto-close modal after 5 s
       setTimeout(() => setShowModal(false), 5000);
     } catch (err) {
@@ -262,7 +265,7 @@ export default function PublicInvitePage({ isPreview = false }) {
         {/* ── SECTION 5: QR Code ── */}
         <section className="invite-section invite-section--qr">
           <h3 className="invite-section-title">
-            <MdQrCodeScanner size={16} /> Msimbo wa Mlangoni
+            <MdQrCodeScanner size={16} /> QR Code ya Mwaliko
           </h3>
           <div className="invite-qr-wrap">
             {qrUrl && (
@@ -271,7 +274,7 @@ export default function PublicInvitePage({ isPreview = false }) {
               </div>
             )}
             <p className="invite-qr-cn">{inv?.code}</p>
-            <p className="invite-qr-hint">Onyesha msimbo huu mlangoni kwenye tukio</p>
+            <p className="invite-qr-hint">Onyesha QR Code hii mlangoni kwenye tukio</p>
           </div>
         </section>
 
@@ -343,6 +346,11 @@ export default function PublicInvitePage({ isPreview = false }) {
         <p className="invite-footer">Powered by Nardio Events</p>
       </div>
 
+      {/* ── Celebration petals (attending only) ── */}
+      {showConfetti && (
+        <CelebrationEffect onDone={() => setShowConfetti(false)} />
+      )}
+
       {/* ── RSVP Success Modal ── */}
       {showModal && rsvpState && (
         <div className="rsvp-modal-overlay" onClick={() => setShowModal(false)}>
@@ -355,17 +363,27 @@ export default function PublicInvitePage({ isPreview = false }) {
                 ? <MdCheckCircle size={48} />
                 : <MdCancel size={48} />}
             </div>
-            <h2 className="rsvp-modal-title">
-              {rsvpState === 'attending' ? 'Umekubalika! 🎉' : 'Jibu Limepokelewa'}
-            </h2>
-            <p className="rsvp-modal-msg">
-              {rsvpMsg || (rsvpState === 'attending'
-                ? 'Asante kwa kuthibitisha mahudhurio yako.'
-                : 'Asante kwa kutujulisha.')}
-            </p>
-            {rsvpState === 'attending' && (
-              <p className="rsvp-modal-sub">Tutafurahi kukuona kwenye tukio.</p>
+
+            {rsvpState === 'attending' ? (
+              <>
+                <h2 className="rsvp-modal-title">🎉 Asante!</h2>
+                <p className="rsvp-modal-msg">
+                  Mahudhurio yako yamethibitishwa kwa mafanikio.
+                </p>
+                <p className="rsvp-modal-sub">
+                  Tunafurahi kuwa utakuwa sehemu ya tukio hili muhimu.
+                  <br />Karibu sana.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="rsvp-modal-title">Jibu Limepokelewa</h2>
+                <p className="rsvp-modal-msg">
+                  {rsvpMsg || 'Asante kwa kutujulisha.'}
+                </p>
+              </>
             )}
+
             <button className="rsvp-modal-btn" onClick={() => setShowModal(false)}>
               Sawa, Asante
             </button>

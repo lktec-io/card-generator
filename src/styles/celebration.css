@@ -1,0 +1,58 @@
+/* ── Celebration Effect ───────────────────────────────────────────────── */
+/* Lightweight pure-CSS petals — GPU-accelerated via transform/opacity only */
+
+.celebration-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99998;
+  overflow: hidden;
+}
+
+/* ── Shared petal base ────────────────────────────────────────────────── */
+
+.celebration-petal {
+  position: absolute;
+  top: -18px;
+  will-change: transform, opacity;
+  animation: petalFall linear forwards;
+}
+
+/* ── Petal shape: oval ────────────────────────────────────────────────── */
+
+.celebration-petal--petal {
+  border-radius: 50% 50% 50% 0 / 60% 60% 40% 40%;
+}
+
+/* ── Petal shape: circle ──────────────────────────────────────────────── */
+
+.celebration-petal--circle {
+  border-radius: 50%;
+}
+
+/* ── Petal shape: star (diamond) ─────────────────────────────────────── */
+
+.celebration-petal--star {
+  border-radius: 2px;
+  transform-origin: center;
+}
+
+/* ── Fall animation ───────────────────────────────────────────────────── */
+
+@keyframes petalFall {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0) rotate(0deg) scale(0.4);
+  }
+  8% {
+    opacity: var(--op, 0.85);
+    transform: translateY(15px) translateX(0) rotate(30deg) scale(1);
+  }
+  70% {
+    opacity: var(--op, 0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(calc(100vh + 30px)) translateX(var(--drift, 0px)) rotate(640deg) scale(0.3);
+  }
+}

@@ -125,14 +125,23 @@ export default function EventDetailPage() {
     const lines = [
       `Habari ${inv.guest_name},`,
       ``,
-      `Umealikwa kuhudhuria:`,
+      `Kwa furaha kubwa tunakukaribisha kushiriki nasi katika hafla yetu ya:`,
       ``,
-      `${name}`,
+      `🎉 ${name}`,
     ];
-    if (date)  lines.push(``, `📅 Tarehe:`, date);
-    if (time)  lines.push(``, `🕒 Wakati:`, time);
-    if (venue) lines.push(``, `📍 Mahali:`, venue);
-    lines.push(``, `Tafadhali thibitisha mahudhurio yako kupitia link:`, ``, url, ``, `Asante.`);
+    if (date)  lines.push(``, `📅 Tarehe: ${date}`);
+    if (time)  lines.push(`🕒 Saa: ${time}`);
+    if (venue) lines.push(`📍 Ukumbi: ${venue}`);
+    lines.push(
+      ``,
+      `Tafadhali fungua kiungo kilicho hapa chini kuona mwaliko wako rasmi, QR Code ya kuingilia na kuthibitisha mahudhurio yako.`,
+      ``,
+      url,
+      ``,
+      `Asante sana kwa kuwa sehemu ya siku yetu muhimu.`,
+      ``,
+      `Karibu sana.`,
+    );
 
     const fullMessage = lines.join('\n');
 

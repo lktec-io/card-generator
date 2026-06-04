@@ -93,15 +93,17 @@ export default function AdminPage() {
     const lines = [
       `Habari ${inv.guest_name},`,
       ``,
-      `Umealikwa kuhudhuria:`,
+      `Kwa furaha kubwa tunakukaribisha kushiriki nasi katika hafla yetu ya:`,
       ``,
-      eventName,
+      `🎉 ${eventName}`,
       ``,
-      `Tafadhali thibitisha mahudhurio yako kupitia link:`,
+      `Tafadhali fungua kiungo kilicho hapa chini kuona mwaliko wako rasmi, QR Code ya kuingilia na kuthibitisha mahudhurio yako.`,
       ``,
       link,
       ``,
-      `Asante.`,
+      `Asante sana kwa kuwa sehemu ya siku yetu muhimu.`,
+      ``,
+      `Karibu sana.`,
     ];
     const fullMessage = lines.join('\n');
 
