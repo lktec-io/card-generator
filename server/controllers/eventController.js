@@ -7,6 +7,17 @@ const VALID_TYPES = [
 
 function sanitize(v) { return (typeof v === 'string' && v.trim()) ? v.trim() : null; }
 
+// Accepts any date format (ISO datetime, YYYY-MM-DD, etc.) and returns YYYY-MM-DD or null.
+// MySQL DATE columns reject ISO timestamps like "2026-06-17T22:00:00.000Z".
+function formatMySQLDate(v) {
+  if (!v) return null;
+  try {
+    return new Date(v).toISOString().split('T')[0];
+  } catch {
+    return null;
+  }
+}
+
 // GET /events
 async function listEvents(req, res) {
   try {
@@ -53,7 +64,7 @@ async function createEvent(req, res) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sanitize(event_name), safeType,
-        sanitize(event_date),  sanitize(event_time), sanitize(venue),
+        formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
@@ -138,7 +149,7 @@ async function updateEvent(req, res) {
        WHERE id = ?`,
       [
         sanitize(event_name), safeType,
-        sanitize(event_date),  sanitize(event_time), sanitize(venue),
+        formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
