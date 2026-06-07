@@ -28,25 +28,34 @@ function parseCSV(text) {
   if (lines.length < 2) return { headers: [], rows: [] };
 
   const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[\s_]+/g, '_'));
-  const nameIdx  = headers.findIndex(h => h.includes('name') || h.includes('jina') || h.includes('guest'));
-  const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('simu') || h.includes('tel') || h.includes('namba'));
+  const nameIdx   = headers.findIndex(h => h.includes('name') || h.includes('jina') || h.includes('guest'));
+  const phoneIdx  = headers.findIndex(h => h.includes('phone') || h.includes('simu') || h.includes('tel') || h.includes('namba'));
+  const amountIdx = headers.findIndex(h => h.includes('amount') || h.includes('kiasi'));
 
   const rows = lines.slice(1)
     .map((line, i) => {
-      const cols        = parseCSVLine(line);
-      const guest_name  = nameIdx  >= 0 ? (cols[nameIdx]  || '').trim() : '';
-      const phone_number = phoneIdx >= 0 ? (cols[phoneIdx] || '').trim() : '';
-      return { _row: i + 2, guest_name, phone_number };
+      const cols         = parseCSVLine(line);
+      const guest_name   = nameIdx   >= 0 ? (cols[nameIdx]   || '').trim() : '';
+      const phone_number = phoneIdx  >= 0 ? (cols[phoneIdx]  || '').trim() : '';
+      let requested_amount = null;
+      if (amountIdx >= 0) {
+        const raw = (cols[amountIdx] || '').replace(/[^\d.]/g, '');
+        const num = parseFloat(raw);
+        if (Number.isFinite(num) && num >= 0) requested_amount = num;
+      }
+      return { _row: i + 2, guest_name, phone_number, requested_amount };
     })
     .filter(r => r.guest_name);
 
-  return { headers, rows, nameIdx, phoneIdx };
+  return { headers, rows, nameIdx, phoneIdx, amountIdx };
 }
 
 /* ── Template download ──────────────────────────────────────────────────── */
 
-function downloadTemplate() {
-  const csv  = 'Guest Name,Phone Number\nJohn Doe,+255712345678\nJane Smith,+255723456789\n';
+function downloadTemplate(isContribution) {
+  const csv = isContribution
+    ? 'Guest Name,Phone Number,Amount\nJohn Doe,+255712345678,50000\nJane Smith,+255723456789,100000\n'
+    : 'Guest Name,Phone Number\nJohn Doe,+255712345678\nJane Smith,+255723456789\n';
   const blob = new Blob([csv], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -54,6 +63,12 @@ function downloadTemplate() {
   a.download = 'guest-list-template.csv';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function formatAmount(n) {
+  const num = Number(n);
+  if (!Number.isFinite(num)) return '0';
+  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
@@ -150,6 +165,9 @@ export default function ImportPage() {
     setParsed(prev => ({ ...prev, rows: prev.rows.filter((_, i) => i !== idx) }));
   };
 
+  const selectedEvent = events.find(ev => String(ev.id) === String(eventId));
+  const isContribution = selectedEvent?.event_mode === 'contribution';
+
   return (
     <div className="import-page page-enter">
       <div className="import-container">
@@ -161,7 +179,7 @@ export default function ImportPage() {
             <h1>Import Guests</h1>
             <p>Upload a CSV or Excel file to create invitations in bulk</p>
           </div>
-          <button className="btn-outline" onClick={downloadTemplate}>
+          <button className="btn-outline" onClick={() => downloadTemplate(isContribution)}>
             <MdDownload size={15} /> Download Template
           </button>
         </div>
@@ -242,6 +260,7 @@ export default function ImportPage() {
                     <th>#</th>
                     <th>Guest Name</th>
                     <th>Phone</th>
+                    {isContribution && <th>Amount</th>}
                     <th></th>
                   </tr>
                 </thead>
@@ -254,6 +273,11 @@ export default function ImportPage() {
                         {!row.guest_name && <span className="import-missing">Missing name</span>}
                       </td>
                       <td className="import-phone">{row.phone_number || '—'}</td>
+                      {isContribution && (
+                        <td className="import-phone">
+                          {row.requested_amount != null ? `TZS ${formatAmount(row.requested_amount)}` : '—'}
+                        </td>
+                      )}
                       <td>
                         <button
                           className="import-remove-btn"
@@ -312,7 +336,7 @@ export default function ImportPage() {
             <h3>How it works</h3>
             <ol>
               <li>Download the CSV template above</li>
-              <li>Fill in Guest Name and Phone Number columns</li>
+              <li>Fill in Guest Name and Phone Number columns{isContribution && ' (plus an Amount column for contribution campaigns)'}</li>
               <li>Save as CSV (.csv) or Excel (.xlsx)</li>
               <li>Select the event and upload the file</li>
               <li>Review the preview and click Import</li>

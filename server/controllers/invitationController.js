@@ -127,7 +127,10 @@ async function verifyCode(req, res) {
 
   try {
     const [rows] = await connection.execute(
-      'SELECT id, code, guest_name, status, used_at, event_id FROM invitations WHERE code = ? LIMIT 1',
+      `SELECT i.id, i.code, i.guest_name, i.status, i.used_at, i.event_id, e.event_mode
+         FROM invitations i
+         LEFT JOIN events e ON e.id = i.event_id
+        WHERE i.code = ? LIMIT 1`,
       [code]
     );
 
@@ -140,6 +143,15 @@ async function verifyCode(req, res) {
     }
 
     const inv = rows[0];
+
+    if (inv.event_mode === 'contribution') {
+      return res.status(200).json({
+        success: false,
+        type:    'not_applicable',
+        message: 'This code belongs to a Contribution Campaign — QR check-in is not applicable here.',
+        name:    inv.guest_name,
+      });
+    }
 
     if (inv.status === 'used') {
       return res.status(200).json({
@@ -305,7 +317,10 @@ async function verifyManual(req, res) {
   const connection = await pool.getConnection();
   try {
     const [rows] = await connection.execute(
-      'SELECT id, code, guest_name, status, used_at, event_id FROM invitations WHERE code = ? LIMIT 1',
+      `SELECT i.id, i.code, i.guest_name, i.status, i.used_at, i.event_id, e.event_mode
+         FROM invitations i
+         LEFT JOIN events e ON e.id = i.event_id
+        WHERE i.code = ? LIMIT 1`,
       [code]
     );
 
@@ -314,6 +329,15 @@ async function verifyManual(req, res) {
     }
 
     const inv = rows[0];
+
+    if (inv.event_mode === 'contribution') {
+      return res.status(200).json({
+        success: false,
+        type:    'not_applicable',
+        message: 'This code belongs to a Contribution Campaign — check-in is not applicable here.',
+        name:    inv.guest_name,
+      });
+    }
 
     if (inv.status === 'used') {
       return res.status(200).json({
@@ -377,17 +401,24 @@ async function bulkImport(req, res) {
     const phone = (g.phone_number || '').trim() || null;
     if (!name) { errors.push({ input: g, error: 'Name is required' }); continue; }
 
+    // Optional contribution amount — accepts numbers or numeric strings (e.g. "50,000")
+    let amount = null;
+    if (g.requested_amount !== undefined && g.requested_amount !== null && g.requested_amount !== '') {
+      const parsed = Number(String(g.requested_amount).replace(/,/g, ''));
+      if (Number.isFinite(parsed) && parsed >= 0) amount = parsed;
+    }
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
       const code = await getNextCode(connection);
       const uuid = crypto.randomUUID();
       await connection.execute(
-        `INSERT INTO invitations (code, guest_name, phone_number, status, event_id, invitation_uuid) VALUES (?, ?, ?, 'unused', ?, ?)`,
-        [code, name, phone, eventId, uuid]
+        `INSERT INTO invitations (code, guest_name, phone_number, requested_amount, status, event_id, invitation_uuid) VALUES (?, ?, ?, ?, 'unused', ?, ?)`,
+        [code, name, phone, amount, eventId, uuid]
       );
       await connection.commit();
-      created.push({ code, guest_name: name, phone_number: phone, invitation_uuid: uuid });
+      created.push({ code, guest_name: name, phone_number: phone, requested_amount: amount, invitation_uuid: uuid });
     } catch (err) {
       await connection.rollback();
       errors.push({ input: g, error: err.message });
@@ -400,4 +431,32 @@ async function bulkImport(req, res) {
   return res.status(201).json({ success: true, created, errors });
 }
 
-module.exports = { generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations, reserveCode, verifyManual, bulkImport };
+// ── trackShare ────────────────────────────────────────────────────────────────
+// POST /invitations/:id/share — records that a card was shared (powers the
+// "Total Shared" Contribution Dashboard metric). Idempotent-ish: just stamps now().
+
+async function trackShare(req, res) {
+  const id = parseInt(req.params.id, 10);
+  if (!id || isNaN(id)) {
+    return res.status(400).json({ success: false, message: 'Invalid invitation ID.' });
+  }
+
+  try {
+    const [result] = await pool.execute(
+      'UPDATE invitations SET shared_at = NOW() WHERE id = ?',
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Invitation not found.' });
+    }
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('[trackShare]', err);
+    return res.status(500).json({ success: false, message: 'Failed to record share.' });
+  }
+}
+
+module.exports = {
+  generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations,
+  reserveCode, verifyManual, bulkImport, trackShare,
+};

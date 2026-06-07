@@ -1,0 +1,420 @@
+/* ════════════════════════════════════════════════════════════════════════
+   CONTRIBUTION CAMPAIGN MODULE — shared styles
+   Conventions: CSS vars from global.css (--gold, --glass-bg, --glass-border,
+   --radius-*, --text, Poppins via --font-main), glass-morphism cards,
+   0.3s ease transitions, mobile-first auto-fill grids, no horizontal overflow.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shared canvas (ContributionCardCanvas) ─────────────────────────────
+ * Mirrors the proven .card-frame / .card-canvas two-layer scaling pattern
+ * from create.css: frame = aspect-ratio container, canvas = fixed 1080px
+ * with JS-driven transform: scale(). Overlay positions are absolute pixel
+ * coordinates on the 1080px canvas, applied via transform: translate(x,y)
+ * — identical in editor / read-only / html2canvas capture (one render path).
+ * ─────────────────────────────────────────────────────────────────────── */
+
+.cc-frame {
+  width: 100%;
+  max-width: 1080px;
+  aspect-ratio: 1080 / 1350;   /* overridden by JS once background loads */
+  margin: 0 auto;
+  overflow: hidden;
+  position: relative;
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+}
+
+.cc-frame--mini {
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+
+.cc-canvas {
+  width: 1080px;
+  height: 1350px;
+  transform-origin: top left;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.cc-bg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cc-bg-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-family: var(--font-main);
+  font-size: 32px;
+  text-align: center;
+  padding: 40px;
+}
+
+.cc-el {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-family: var(--font-main);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.cc-el--editable {
+  cursor: grab;
+  outline: 1.5px dashed transparent;
+  border-radius: 6px;
+  transition: outline-color 0.2s ease, background 0.2s ease;
+}
+.cc-el--editable:hover  { outline-color: var(--gold-glow); background: rgba(212, 175, 55, 0.08); }
+.cc-el--editable:active { cursor: grabbing; outline-color: var(--gold); }
+
+.cc-el--guestName,
+.cc-el--cn,
+.cc-el--amount {
+  font-size: 38px;
+  font-weight: 600;
+  color: #111;
+  padding: 4px 8px;
+}
+
+.cc-el--qr {
+  background: #ffffff;
+  padding: 4px;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cc-qr-img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  display: block;
+}
+
+/* ── Contribution Template Gallery grid ──────────────────────────────── */
+
+.ct-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.ct-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.ct-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  border-color: var(--gold-glow);
+}
+
+.ct-card-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1080 / 1350;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.ct-card-body {
+  padding: 14px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ct-card-name {
+  font-family: var(--font-main);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ct-card-cat {
+  font-size: 12px;
+  color: var(--gold-light);
+  background: var(--gold-dim);
+  border-radius: 20px;
+  padding: 4px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ct-card-usage {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.ct-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ct-card-status {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+.ct-card-status--active   { color: #6fe3a0; background: rgba(111, 227, 160, 0.12); }
+.ct-card-status--disabled { color: var(--text-muted); background: rgba(255, 255, 255, 0.06); }
+
+.ct-upload-card {
+  border: 1.5px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 220px;
+  aspect-ratio: 1080 / 1350;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  transition: border-color 0.25s ease, color 0.25s ease, background 0.25s ease;
+}
+.ct-upload-card:hover {
+  border-color: var(--gold);
+  color: var(--gold-light);
+  background: var(--gold-dim);
+}
+.ct-upload-card svg { font-size: 38px; }
+
+/* ── Editor page layout ───────────────────────────────────────────────── */
+
+.cte-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 4px 40px;
+}
+
+.cte-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+
+@media (min-width: 920px) {
+  .cte-layout { grid-template-columns: minmax(0, 360px) minmax(0, 1fr); }
+}
+
+.cte-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cte-panel-title {
+  font-family: var(--font-main);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--text);
+  margin: 0;
+}
+
+.cte-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cte-field label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: var(--font-main);
+}
+
+.cte-field input,
+.cte-field select {
+  font-family: var(--font-main);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.cte-field input:focus,
+.cte-field select:focus { border-color: var(--gold); }
+
+.cte-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  font-family: var(--font-main);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.cte-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  line-height: 1.5;
+}
+
+.cte-canvas-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cte-canvas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cte-element-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cte-element-chip {
+  font-family: var(--font-main);
+  font-size: 12px;
+  border-radius: 20px;
+  padding: 7px 14px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cte-element-chip.is-visible {
+  color: var(--gold-light);
+  background: var(--gold-dim);
+  border-color: var(--gold-glow);
+}
+
+/* ── Contribution Dashboard stat cards (EventDetailPage) ─────────────── */
+
+.cd-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.cd-stat-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cd-stat-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: var(--font-main);
+}
+
+.cd-stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  font-family: var(--font-main);
+  color: var(--gold-light);
+  word-break: break-word;
+}
+
+.cd-amount-badge {
+  font-family: var(--font-main);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold-light);
+  background: var(--gold-dim);
+  border-radius: 20px;
+  padding: 4px 12px;
+  white-space: nowrap;
+}
+
+/* ── Share row (admin + guest) ────────────────────────────────────────── */
+
+.cc-share-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cc-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-main);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.22s ease;
+  text-decoration: none;
+}
+.cc-share-btn:hover { border-color: var(--gold); color: var(--gold-light); transform: translateY(-2px); }
+.cc-share-btn--whatsapp:hover { border-color: #25D366; color: #25D366; }
+.cc-share-btn--sms:hover      { border-color: #4FC3F7; color: #4FC3F7; }
+
+/* ── Mobile-first tweaks ─────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .ct-grid       { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .cd-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .cc-share-row  { flex-direction: column; }
+  .cc-share-btn  { width: 100%; justify-content: center; }
+}

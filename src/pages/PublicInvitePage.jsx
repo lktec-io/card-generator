@@ -1,23 +1,49 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   MdCalendarToday, MdLocationOn, MdMap, MdPalette,
   MdCheckCircle, MdCancel, MdQrCodeScanner, MdVisibility,
+  MdDownload, MdSms, MdContentCopy,
 } from 'react-icons/md';
 import { GiDiamondRing } from 'react-icons/gi';
+import { FaWhatsapp } from 'react-icons/fa';
 import QRCode from 'qrcode';
+import html2canvas from 'html2canvas';
 import { getPublicInvite, submitRSVP } from '../utils/api';
 import { celebrateRSVP } from '../utils/confettiCelebration';
+import { useToast } from '../context/ToastContext';
 import VoiceRecorder from '../components/VoiceRecorder';
+import ContributionCardCanvas from '../components/ContributionCardCanvas';
 import { getTemplateComponent } from '../templates/index';
 import '../styles/public-invite.css';
 import '../styles/voice-recorder.css';
+import '../styles/contribution.css';
 
 function formatDate(raw) {
   if (!raw) return null;
   return new Date(raw).toLocaleDateString('sw-TZ', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+}
+
+function formatAmount(n) {
+  const num = Number(n);
+  if (!Number.isFinite(num)) return '0';
+  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function buildContributionMessage(inv, event, link) {
+  const amount = inv?.requested_amount != null ? formatAmount(inv.requested_amount) : '0';
+  return [
+    `Habari ${inv?.guest_name || ''}`, '',
+    'Unaombwa kuchangia katika:', '',
+    event?.event_name || '', '',
+    'Kiasi kilichopangwa:', '',
+    `TZS ${amount}`, '',
+    'Fungua link yako hapa:', '',
+    link, '',
+    'Asante kwa ushirikiano wako.',
+  ].join('\n');
 }
 
 
@@ -32,6 +58,10 @@ export default function PublicInvitePage({ isPreview = false }) {
   const [rsvping,    setRsvping]    = useState(false);
   const [rsvpMsg,    setRsvpMsg]    = useState('');
   const [showModal,  setShowModal]  = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const canvasRef = useRef(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     getPublicInvite(uuid)
@@ -41,10 +71,16 @@ export default function PublicInvitePage({ isPreview = false }) {
         if (d.invitation?.rsvp_response) {
           setRsvpState(d.invitation.rsvp_response);
         }
-        // Generate QR for the CN code (what staff scans at entrance)
         if (d.invitation?.code) {
-          const url = await QRCode.toDataURL(d.invitation.code, {
-            errorCorrectionLevel: 'M', margin: 1, width: 280,
+          const isContrib = d.event?.event_mode === 'contribution';
+          // Contribution cards: QR encodes the shareable invitation link itself
+          // (informational/share-friendly — not wired to check-in).
+          // Invitation cards: QR encodes the CN code (what staff scans at entrance).
+          const qrContent = isContrib
+            ? `${window.location.origin}/invite/${d.invitation.invitation_uuid || uuid}`
+            : d.invitation.code;
+          const url = await QRCode.toDataURL(qrContent, {
+            errorCorrectionLevel: isContrib ? 'L' : 'M', margin: 1, width: isContrib ? 300 : 280,
           });
           setQrUrl(url);
         }
@@ -52,6 +88,46 @@ export default function PublicInvitePage({ isPreview = false }) {
       .catch(() => setError('Mwaliko haukupatikana.'))
       .finally(() => setLoading(false));
   }, [uuid]);
+
+  const handleDownload = async () => {
+    const canvasEl = canvasRef.current?.getCanvas?.();
+    if (!canvasEl) return;
+    setDownloading(true);
+    const savedTransform = canvasEl.style.transform;
+    canvasEl.style.transform = 'scale(1)';
+    try {
+      const result = await html2canvas(canvasEl, {
+        scale: 3, useCORS: true, allowTaint: false, logging: false, backgroundColor: null,
+      });
+      canvasEl.style.transform = savedTransform;
+      const link = document.createElement('a');
+      link.download = `${data?.invitation?.code || 'kadi'}.png`;
+      link.href = result.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      canvasEl.style.transform = savedTransform;
+      console.error('[html2canvas]', err);
+      showToast('Imeshindwa kupakua kadi. Jaribu tena.', 'error');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleShareContribution = (channel) => {
+    const inv = data?.invitation;
+    const event = data?.event;
+    const link = `${window.location.origin}/invite/${inv?.invitation_uuid || uuid}`;
+    const message = buildContributionMessage(inv, event, link);
+    if (channel === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    } else if (channel === 'sms') {
+      window.location.href = `sms:?body=${encodeURIComponent(message)}`;
+    } else if (channel === 'copy') {
+      navigator.clipboard.writeText(message)
+        .then(() => showToast('Ujumbe umenakiliwa!', 'success'))
+        .catch(() => showToast('Imeshindwa kunakili.', 'error'));
+    }
+  };
 
   const playSound = (type) => {
     try {
@@ -131,6 +207,7 @@ export default function PublicInvitePage({ isPreview = false }) {
 
   const inv   = data?.invitation;
   const event = data?.event;
+  const isContribution = event?.event_mode === 'contribution';
   // Only show dress code section when at least one value is explicitly set in the DB.
   // Default color values stored by the form (#d4af37 etc.) still count as "set".
   // If the event was never edited and all fields are null → hide the section.
@@ -161,11 +238,26 @@ export default function PublicInvitePage({ isPreview = false }) {
           <span>Nardio Events</span>
         </div>
 
-        {/* ── SECTION 1: Invitation card
-              • If event has a template → render dynamic template component
+        {/* ── SECTION 1: Card
+              • Contribution campaign → render the drag-positioned ContributionCardCanvas
+              • Invitation event with template → render dynamic template component
               • Fallback: show static card image (backward compat for old events)
         ── */}
-        {event?.template_slug ? (
+        {isContribution ? (
+          <section className="invite-section invite-section--card">
+            <ContributionCardCanvas
+              ref={canvasRef}
+              backgroundImage={event?.template_background}
+              layoutConfig={event?.template_layout}
+              data={{
+                guestName: inv?.guest_name,
+                cn: inv?.code,
+                amount: inv?.requested_amount != null ? `TZS ${formatAmount(inv.requested_amount)}` : '',
+                qrDataUrl: qrUrl,
+              }}
+            />
+          </section>
+        ) : event?.template_slug ? (
           <section className="invite-section invite-section--card invite-section--template">
             {(() => {
               const TemplateComponent = getTemplateComponent(event.template_slug);
@@ -195,9 +287,14 @@ export default function PublicInvitePage({ isPreview = false }) {
             <h2 className="invite-event-name">{event.event_name}</h2>
           )}
           <div className="invite-cn-badge">
-            <span className="invite-cn-label">Nambari ya Mwaliko</span>
+            <span className="invite-cn-label">{isContribution ? 'Nambari ya Mchangiaji' : 'Nambari ya Mwaliko'}</span>
             <span className="invite-cn-code">{inv?.code}</span>
           </div>
+          {isContribution && inv?.requested_amount != null && (
+            <div className="cd-amount-badge" style={{ marginTop: '0.85rem' }}>
+              TZS {formatAmount(inv.requested_amount)}
+            </div>
+          )}
         </section>
 
         {/* ── SECTION 3: Event details ── */}
@@ -285,91 +382,124 @@ export default function PublicInvitePage({ isPreview = false }) {
           </section>
         )}
 
-        {/* ── SECTION 5: QR Code ── */}
-        <section className="invite-section invite-section--qr">
-          <h3 className="invite-section-title">
-            <MdQrCodeScanner size={16} /> QR Code ya Mwaliko
-          </h3>
-          <div className="invite-qr-wrap">
-            {qrUrl && (
-              <div className="invite-qr-box">
-                <img src={qrUrl} alt="QR Code" className="invite-qr-img" />
-              </div>
-            )}
-            <p className="invite-qr-cn">{inv?.code}</p>
-            <p className="invite-qr-hint">Onyesha QR Code hii mlangoni kwenye tukio</p>
-          </div>
-        </section>
+        {/* ── Contribution: Download + Share (replaces QR/Voice/RSVP) ── */}
+        {isContribution && (
+          <section className="invite-section">
+            <h3 className="invite-section-title">
+              <MdDownload size={16} /> Pakua na Shiriki Kadi Yako
+            </h3>
+            <button
+              className="btn-gold"
+              onClick={handleDownload}
+              disabled={downloading}
+              style={{ width: '100%', justifyContent: 'center', marginBottom: '1rem' }}
+            >
+              {downloading ? <span className="invite-btn-spinner" /> : <MdDownload size={18} />}
+              {' '}Pakua Kadi (PNG)
+            </button>
+            <div className="cc-share-row">
+              <button className="cc-share-btn cc-share-btn--whatsapp" onClick={() => handleShareContribution('whatsapp')}>
+                <FaWhatsapp size={18} /> WhatsApp
+              </button>
+              <button className="cc-share-btn cc-share-btn--sms" onClick={() => handleShareContribution('sms')}>
+                <MdSms size={18} /> SMS
+              </button>
+              <button className="cc-share-btn" onClick={() => handleShareContribution('copy')}>
+                <MdContentCopy size={18} /> Nakili Ujumbe
+              </button>
+            </div>
+          </section>
+        )}
 
-        {/* ── SECTION 6: Voice Message (standalone, above RSVP) ── */}
-        <section className="invite-section">
-          <VoiceRecorder uuid={uuid} />
-        </section>
-
-        {/* ── SECTION 7: RSVP ── */}
-        <section className="invite-section invite-section--rsvp">
-          <h3 className="invite-rsvp-title">Je, Utahudhuria?</h3>
-          <p className="invite-rsvp-sub">Tafadhali thibitisha mahudhurio yako</p>
-
-          {(rsvpState === 'attending' || rsvpState === 'declined') ? (
-            /* Already responded — immutable */
-            <div className={`invite-rsvp-done invite-rsvp-done--${rsvpState}`}>
-              {rsvpState === 'attending' ? (
-                <>
-                  <MdCheckCircle size={28} />
-                  <div>
-                    <strong>Utahudhuria!</strong>
-                    <p>{rsvpMsg || 'Asante! Tunafurahi kukuona.'}</p>
+        {!isContribution && (
+          <>
+            {/* ── SECTION 5: QR Code ── */}
+            <section className="invite-section invite-section--qr">
+              <h3 className="invite-section-title">
+                <MdQrCodeScanner size={16} /> QR Code ya Mwaliko
+              </h3>
+              <div className="invite-qr-wrap">
+                {qrUrl && (
+                  <div className="invite-qr-box">
+                    <img src={qrUrl} alt="QR Code" className="invite-qr-img" />
                   </div>
-                </>
+                )}
+                <p className="invite-qr-cn">{inv?.code}</p>
+                <p className="invite-qr-hint">Onyesha QR Code hii mlangoni kwenye tukio</p>
+              </div>
+            </section>
+
+            {/* ── SECTION 6: Voice Message (standalone, above RSVP) ── */}
+            <section className="invite-section">
+              <VoiceRecorder uuid={uuid} />
+            </section>
+
+            {/* ── SECTION 7: RSVP ── */}
+            <section className="invite-section invite-section--rsvp">
+              <h3 className="invite-rsvp-title">Je, Utahudhuria?</h3>
+              <p className="invite-rsvp-sub">Tafadhali thibitisha mahudhurio yako</p>
+
+              {(rsvpState === 'attending' || rsvpState === 'declined') ? (
+                /* Already responded — immutable */
+                <div className={`invite-rsvp-done invite-rsvp-done--${rsvpState}`}>
+                  {rsvpState === 'attending' ? (
+                    <>
+                      <MdCheckCircle size={28} />
+                      <div>
+                        <strong>Utahudhuria!</strong>
+                        <p>{rsvpMsg || 'Asante! Tunafurahi kukuona.'}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <MdCancel size={28} />
+                      <div>
+                        <strong>Hutahudhuria</strong>
+                        <p>{rsvpMsg || 'Asante kwa kutujulisha.'}</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : rsvpState === 'already' ? (
+                <div className="invite-rsvp-done invite-rsvp-done--already">
+                  <MdCheckCircle size={24} />
+                  <div>
+                    <strong>Tayari Ulijibu</strong>
+                    <p>Tayari umeshajibu mwaliko huu.</p>
+                  </div>
+                </div>
               ) : (
-                <>
-                  <MdCancel size={28} />
-                  <div>
-                    <strong>Hutahudhuria</strong>
-                    <p>{rsvpMsg || 'Asante kwa kutujulisha.'}</p>
-                  </div>
-                </>
+                /* Not yet responded */
+                <div className="invite-rsvp-btns">
+                  <button
+                    className="invite-btn-attend"
+                    onClick={() => handleRSVP('attending')}
+                    disabled={rsvping}
+                  >
+                    {rsvping ? (
+                      <span className="invite-btn-spinner" />
+                    ) : (
+                      <MdCheckCircle size={20} />
+                    )}
+                    NITAHUDHURIA
+                  </button>
+                  <button
+                    className="invite-btn-decline"
+                    onClick={() => handleRSVP('declined')}
+                    disabled={rsvping}
+                  >
+                    {rsvping ? (
+                      <span className="invite-btn-spinner" />
+                    ) : (
+                      <MdCancel size={20} />
+                    )}
+                    SITAHUDHURIA
+                  </button>
+                </div>
               )}
-            </div>
-          ) : rsvpState === 'already' ? (
-            <div className="invite-rsvp-done invite-rsvp-done--already">
-              <MdCheckCircle size={24} />
-              <div>
-                <strong>Tayari Ulijibu</strong>
-                <p>Tayari umeshajibu mwaliko huu.</p>
-              </div>
-            </div>
-          ) : (
-            /* Not yet responded */
-            <div className="invite-rsvp-btns">
-              <button
-                className="invite-btn-attend"
-                onClick={() => handleRSVP('attending')}
-                disabled={rsvping}
-              >
-                {rsvping ? (
-                  <span className="invite-btn-spinner" />
-                ) : (
-                  <MdCheckCircle size={20} />
-                )}
-                NITAHUDHURIA
-              </button>
-              <button
-                className="invite-btn-decline"
-                onClick={() => handleRSVP('declined')}
-                disabled={rsvping}
-              >
-                {rsvping ? (
-                  <span className="invite-btn-spinner" />
-                ) : (
-                  <MdCancel size={20} />
-                )}
-                SITAHUDHURIA
-              </button>
-            </div>
-          )}
-        </section>
+            </section>
+          </>
+        )}
 
         <p className="invite-footer">Powered by Nardio Events</p>
       </div>

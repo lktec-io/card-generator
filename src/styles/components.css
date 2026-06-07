@@ -214,6 +214,7 @@
 .popup-card.success::before { background: linear-gradient(90deg, #16a34a, #22c55e); }
 .popup-card.error::before   { background: linear-gradient(90deg, #b91c1c, #ef4444); }
 .popup-card.invalid::before { background: linear-gradient(90deg, #b45309, #f59e0b); }
+.popup-card.info::before    { background: linear-gradient(90deg, #1d4ed8, #3b82f6); }
 
 @keyframes popIn {
   from { transform: scale(0.78); opacity: 0; }
@@ -234,6 +235,7 @@
 .popup-card.success .popup-icon { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
 .popup-card.error   .popup-icon { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
 .popup-card.invalid .popup-icon { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.popup-card.info    .popup-icon { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
 
 .popup-title {
   font-family: var(--font-elegant);

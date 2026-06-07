@@ -48,9 +48,14 @@ export const getGlobalStats       = () => api.get('/stats/global');
 export const getAdminDashboard    = () => api.get('/admin/dashboard');
 
 // ── Templates ─────────────────────────────────────────────────────────────────
-export const listTemplates    = ()   => api.get('/templates');
-export const listAllTemplates = ()   => api.get('/templates/all');
+export const listTemplates    = (type = null) => api.get('/templates',     { params: type ? { type } : {} });
+export const listAllTemplates = (type = null) => api.get('/templates/all', { params: type ? { type } : {} });
 export const toggleTemplate   = (id) => api.patch(`/templates/${id}/toggle`);
+export const updateTemplateLayout = (id, layoutConfig) =>
+  api.patch(`/templates/${id}/layout`, { layout_config: layoutConfig });
+
+export const createContributionTemplate = (formData) =>
+  api.post('/templates/contribution', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
 // ── Events ────────────────────────────────────────────────────────────────────
 export const listEvents  = ()         => api.get('/events');
@@ -82,6 +87,7 @@ export const deleteVoiceMessage  = (id)      => api.delete(`/voice-messages/${id
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const deleteInvitation     = (id)           => api.delete(`/invitations/${id}`);
 export const deleteAllInvitations = ()             => api.delete('/invitations');
+export const trackInvitationShare = (id)           => api.post(`/invitations/${id}/share`);
 export const bulkImport           = (guests, eventId) =>
   api.post('/import', { guests, event_id: eventId });
 

@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { MdCheckCircle, MdCancel, MdWarning } from 'react-icons/md';
+import { MdCheckCircle, MdCancel, MdWarning, MdInfo } from 'react-icons/md';
 
 const CONFIG = {
-  success: { Icon: MdCheckCircle, title: (name) => `Welcome, ${name}!` },
-  error:   { Icon: MdCancel,      title: ()     => 'Already Scanned'   },
-  invalid: { Icon: MdWarning,     title: ()     => 'Invalid Code'       },
+  success:       { Icon: MdCheckCircle, title: (name) => `Welcome, ${name}!`        },
+  error:         { Icon: MdCancel,      title: ()     => 'Already Scanned'           },
+  invalid:       { Icon: MdWarning,     title: ()     => 'Invalid Code'              },
+  info:          { Icon: MdInfo,        title: ()     => 'Not a Check-in Code'       },
 };
 
 export default function Popup({ type, name, message, onClose }) {

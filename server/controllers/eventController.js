@@ -5,6 +5,8 @@ const VALID_TYPES = [
   'Graduation', 'Conference', 'Church Event', 'Corporate Event',
 ];
 
+const VALID_MODES = ['invitation', 'contribution'];
+
 function sanitize(v) { return (typeof v === 'string' && v.trim()) ? v.trim() : null; }
 
 // Accepts any date format (ISO datetime, YYYY-MM-DD, etc.) and returns YYYY-MM-DD or null.
@@ -47,7 +49,7 @@ async function listEvents(req, res) {
 // POST /events
 async function createEvent(req, res) {
   const {
-    event_name, event_type, event_date, event_time, venue,
+    event_name, event_type, event_mode, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id,
   } = req.body;
@@ -57,18 +59,19 @@ async function createEvent(req, res) {
   }
 
   const safeType = VALID_TYPES.includes(event_type) ? event_type : 'Wedding';
+  const safeMode = VALID_MODES.includes(event_mode) ? event_mode : 'invitation';
 
   try {
     const safeTemplateId = template_id ? parseInt(template_id, 10) || null : null;
 
     const [result] = await pool.execute(
       `INSERT INTO events
-         (event_name, event_type, event_date, event_time, venue,
+         (event_name, event_type, event_mode, event_date, event_time, venue,
           dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
           maps_link, contact_name, contact_phone, template_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        sanitize(event_name), safeType,
+        sanitize(event_name), safeType, safeMode,
         formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
@@ -96,6 +99,7 @@ async function getEvent(req, res) {
 
     const [invitations] = await pool.execute(
       `SELECT i.id, i.code, i.invitation_uuid, i.guest_name, i.phone_number,
+              i.requested_amount, i.shared_at,
               i.status, i.image_url, i.created_at, i.used_at,
               r.response          AS rsvp_response,
               r.voice_message_url AS rsvp_voice_url
@@ -122,7 +126,19 @@ async function getEvent(req, res) {
     const rsvp = { attending: 0, declined: 0, pending: 0 };
     rsvpRows.forEach(r => { rsvp[r.response] = Number(r.count); });
 
-    res.json({ success: true, event, invitations, stats, rsvp });
+    // Contribution Dashboard stats — harmless to compute for invitation events too
+    // (requested_amount/shared_at are NULL there, so SUM/AVG/COUNT naturally yield 0).
+    const [[contribution]] = await pool.execute(
+      `SELECT
+         COUNT(*)                                          AS total_records,
+         COALESCE(SUM(requested_amount), 0)                AS total_requested_amount,
+         COALESCE(AVG(requested_amount), 0)                AS avg_contribution,
+         COUNT(shared_at)                                  AS total_shared
+       FROM invitations WHERE event_id = ?`,
+      [id]
+    );
+
+    res.json({ success: true, event, invitations, stats, rsvp, contribution });
   } catch (err) {
     console.error('[getEvent]', err);
     res.status(500).json({ success: false, message: 'Failed to fetch event.' });
@@ -135,7 +151,7 @@ async function updateEvent(req, res) {
   if (!id) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
 
   const {
-    event_name, event_type, event_date, event_time, venue,
+    event_name, event_type, event_mode, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id,
   } = req.body;
@@ -146,19 +162,20 @@ async function updateEvent(req, res) {
 
   // Guard: never send undefined/null to a NOT NULL ENUM column
   const safeType = VALID_TYPES.includes(event_type) ? event_type : 'Wedding';
+  const safeMode = VALID_MODES.includes(event_mode) ? event_mode : 'invitation';
 
   try {
     const safeTemplateId = template_id ? parseInt(template_id, 10) || null : null;
 
     await pool.execute(
       `UPDATE events SET
-         event_name = ?, event_type = ?, event_date = ?, event_time = ?, venue = ?,
+         event_name = ?, event_type = ?, event_mode = ?, event_date = ?, event_time = ?, venue = ?,
          dress_code_main = ?, dress_code_secondary = ?, dress_code_accent = ?,
          dress_code_notes = ?, maps_link = ?, contact_name = ?, contact_phone = ?,
          template_id = ?
        WHERE id = ?`,
       [
-        sanitize(event_name), safeType,
+        sanitize(event_name), safeType, safeMode,
         formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),

@@ -22,14 +22,17 @@ const audioUpload = multer({
 
 const {
   generateCard, verifyCode, getStats,
-  deleteInvitation, deleteAllInvitations, reserveCode, verifyManual, bulkImport,
+  deleteInvitation, deleteAllInvitations, reserveCode, verifyManual, bulkImport, trackShare,
 } = require('../controllers/invitationController');
 
 const { getDashboard }           = require('../controllers/adminController');
 const { listEvents, createEvent, getEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
 const { submitRSVP, getPublicInvite } = require('../controllers/rsvpController');
 const { sendVoiceMessage, getVoiceMessages, deleteVoiceMessage } = require('../controllers/voiceMessageController');
-const { listTemplates, listAllTemplates, toggleTemplate } = require('../controllers/templateController');
+const {
+  listTemplates, listAllTemplates, toggleTemplate,
+  createContributionTemplate, updateTemplateLayout,
+} = require('../controllers/templateController');
 const { getGlobalStats }         = require('../controllers/statsController');
 const { getVerificationHistory } = require('../controllers/verificationLogController');
 
@@ -40,6 +43,10 @@ router.get('/', (_req, res) => res.json({ status: 'ok', service: 'Nardio Events 
 router.get('/templates',         listTemplates);
 router.get('/templates/all',     requireAdmin, listAllTemplates);
 router.patch('/templates/:id/toggle', requireAdmin, toggleTemplate);
+router.patch('/templates/:id/layout', requireAdmin, updateTemplateLayout);
+router.post('/templates/contribution', requireAdmin,
+  upload.fields([{ name: 'background', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]),
+  createContributionTemplate);
 
 // ── Public (no auth) ────────────────────────────────────────────────────────
 router.post('/reserve',       reserveCode);
@@ -64,6 +71,7 @@ router.get('/verification-logs', requireAdmin, getVerificationHistory);
 // Invitations — destructive ops are admin-only
 router.delete('/invitations',     requireAdmin, deleteAllInvitations);
 router.delete('/invitations/:id', requireAdmin, deleteInvitation);
+router.post(  '/invitations/:id/share', requireAdmin, trackShare);
 
 // Events CRUD — all admin-only
 router.get(   '/events',                       requireAdmin, listEvents);

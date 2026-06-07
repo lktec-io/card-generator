@@ -28,6 +28,11 @@ export default function VerifyPage() {
       if (data.success) {
         playSuccess();
         setPopup({ type: 'success', name: data.name, message: data.message });
+      } else if (data.type === 'not_applicable') {
+        setPopup({
+          type: 'info', name: data.name || '',
+          message: data.message || 'Tukio hili ni kampeni ya michango — uthibitishaji wa QR haupatikani.',
+        });
       } else if (data.type === 'used') {
         playError();
         setPopup({ type: 'error', name: data.name, message: data.message });
@@ -59,6 +64,11 @@ export default function VerifyPage() {
       if (data.success) {
         playSuccess();
         setManualPopup({ type: 'success', name: data.name, message: data.message });
+      } else if (data.type === 'not_applicable') {
+        setManualPopup({
+          type: 'info', name: data.name || '',
+          message: data.message || 'Tukio hili ni kampeni ya michango — uthibitishaji wa QR haupatikani.',
+        });
       } else if (data.type === 'used') {
         playError();
         setManualPopup({ type: 'error', name: data.name || '', message: data.message });

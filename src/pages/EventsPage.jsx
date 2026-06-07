@@ -5,11 +5,64 @@ import {
   MdLocationOn, MdPeople, MdCheckCircle, MdArrowForward, MdDelete,
   MdGridView, MdViewList,
 } from 'react-icons/md';
-import { listEvents, createEvent, deleteEvent } from '../utils/api';
+import { listEvents, createEvent, deleteEvent, listTemplates } from '../utils/api';
 import TemplateGallery from '../components/TemplateGallery';
+import ContributionCardCanvas from '../components/ContributionCardCanvas';
 import ConfirmModal from '../components/ConfirmModal';
 import '../styles/events.css';
 import '../styles/template-gallery.css';
+import '../styles/contribution.css';
+
+const EVENT_MODES = [
+  { key: 'invitation',   label: 'Invitation Event',     hint: 'RSVP, QR Check-in & Attendance Statistics' },
+  { key: 'contribution', label: 'Contribution Campaign', hint: 'Contribution Cards, Amount Tracking & Dashboard' },
+];
+
+/* ── Contribution template picker (image-based, drag-positioned templates) ── */
+
+function ContributionTemplatePicker({ selectedId, onChange }) {
+  const [templates, setTemplates] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+
+  useEffect(() => {
+    listTemplates('contribution')
+      .then(({ data }) => setTemplates(data.templates || []))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="tg-loading"><div className="tg-spinner" /> Loading templates…</div>;
+  if (templates.length === 0) return <p className="tg-empty">Hakuna template za michango — tengeneza moja kwenye Templates.</p>;
+
+  return (
+    <div className="ct-grid">
+      {templates.map((tmpl) => {
+        const selected = selectedId === tmpl.id;
+        return (
+          <div
+            key={tmpl.id}
+            className={`ct-card${selected ? ' tg-card--selected' : ''}`}
+            style={{ cursor: 'pointer' }}
+            onClick={() => onChange(tmpl)}
+          >
+            {selected && <div className="tg-check"><MdCheckCircle size={18} /></div>}
+            <div className="ct-card-preview">
+              <ContributionCardCanvas
+                backgroundImage={tmpl.background_image}
+                layoutConfig={tmpl.layout_config}
+                data={{ guestName: 'Jina la Mfadhili', cn: 'CN-001', amount: 'TZS 50,000' }}
+                mini
+              />
+            </div>
+            <div className="ct-card-body">
+              <p className="ct-card-name">{tmpl.name}</p>
+              <span className="ct-card-cat">{tmpl.category}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 const EVENT_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
@@ -33,7 +86,7 @@ function formatDate(raw) {
 }
 
 const EMPTY_FORM = {
-  event_name: '', event_type: 'Wedding', event_date: '', event_time: '',
+  event_name: '', event_type: 'Wedding', event_mode: 'invitation', event_date: '', event_time: '',
   venue: '', maps_link: '', contact_name: '', contact_phone: '',
   dress_code_main: '#d4af37', dress_code_secondary: '#1a1a2e', dress_code_accent: '#ffffff',
   dress_code_notes: '', template_id: null,
@@ -128,6 +181,25 @@ export default function EventsPage() {
               <button className="event-form-close" onClick={() => setShowForm(false)}><MdClose /></button>
             </div>
             <form onSubmit={handleCreate} className="event-form">
+              <div className="ef-field ef-field--full">
+                <label>Event Type *</label>
+                <div className="tg-cats">
+                  {EVENT_MODES.map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      className={`tg-cat-btn${form.event_mode === m.key ? ' active' : ''}`}
+                      onClick={() => setForm(f => ({ ...f, event_mode: m.key, template_id: null }))}
+                      title={m.hint}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="cte-hint" style={{ marginTop: '0.35rem' }}>
+                  {EVENT_MODES.find(m => m.key === form.event_mode)?.hint}
+                </p>
+              </div>
               <div className="ef-row">
                 <div className="ef-field ef-field--wide">
                   <label>Event Name *</label>
@@ -201,21 +273,28 @@ export default function EventsPage() {
                 <textarea name="dress_code_notes" value={form.dress_code_notes} onChange={handleChange} rows={2} placeholder="e.g. Ladies: Royal Blue gowns. Gentlemen: Black suit." />
               </div>
 
-              {/* Template selection */}
+              {/* Template selection — gallery depends on event mode */}
               <div className="ef-field ef-field--full">
                 <label>
-                  Invitation Template
+                  {form.event_mode === 'contribution' ? 'Contribution Template' : 'Invitation Template'}
                   {form.template_id ? (
                     <span style={{ marginLeft: '0.5rem', color: 'var(--gold)', fontSize: '0.75em' }}>✓ Selected</span>
                   ) : (
                     <span style={{ marginLeft: '0.5rem', color: 'rgba(255,255,255,0.30)', fontSize: '0.75em' }}>(Optional — guests see dynamic template)</span>
                   )}
                 </label>
-                <TemplateGallery
-                  selectedId={form.template_id}
-                  onChange={(tmpl) => setForm(f => ({ ...f, template_id: tmpl.id }))}
-                  event={form}
-                />
+                {form.event_mode === 'contribution' ? (
+                  <ContributionTemplatePicker
+                    selectedId={form.template_id}
+                    onChange={(tmpl) => setForm(f => ({ ...f, template_id: tmpl.id }))}
+                  />
+                ) : (
+                  <TemplateGallery
+                    selectedId={form.template_id}
+                    onChange={(tmpl) => setForm(f => ({ ...f, template_id: tmpl.id }))}
+                    event={form}
+                  />
+                )}
               </div>
 
               {formError && <p className="ef-error">{formError}</p>}

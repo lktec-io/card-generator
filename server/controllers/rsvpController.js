@@ -9,6 +9,7 @@ async function getPublicInvite(req, res) {
     const [[inv]] = await pool.execute(
       `SELECT
          i.id, i.code, i.guest_name, i.image_url, i.event_id, i.invitation_uuid,
+         i.requested_amount,
          r.response AS rsvp_response
        FROM invitations i
        LEFT JOIN rsvp_responses r ON r.invitation_id = i.id
@@ -22,13 +23,19 @@ async function getPublicInvite(req, res) {
     let event = null;
     if (inv.event_id) {
       const [[ev]] = await pool.execute(
-        `SELECT e.*, t.slug AS template_slug, t.name AS template_name
+        `SELECT e.*, t.slug AS template_slug, t.name AS template_name,
+                t.template_type AS template_type, t.background_image AS template_background,
+                t.layout_config AS template_layout
            FROM events e
            LEFT JOIN templates t ON t.id = e.template_id
           WHERE e.id = ?`,
         [inv.event_id]
       );
       event = ev || null;
+      // mysql2 can return JSON columns as strings depending on driver/version — normalize to an object.
+      if (event && typeof event.template_layout === 'string') {
+        try { event.template_layout = JSON.parse(event.template_layout); } catch { event.template_layout = null; }
+      }
     }
 
     res.json({ success: true, invitation: inv, event });
