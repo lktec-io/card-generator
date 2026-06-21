@@ -20,6 +20,12 @@
   border: 1px solid rgba(212, 175, 55, 0.28);
 }
 
+.nav-role-chip--super_admin {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.40);
+}
+
 .nav-role-chip--gate_staff,
 .nav-role-chip--verifier {
   background: rgba(74, 222, 128, 0.10);

@@ -21,10 +21,11 @@ function formatMySQLDate(v) {
   }
 }
 
-// Visibility check — returns true when the event is accessible for the given user.
+// Visibility check — mirrors eventScopeSQL logic for individual row access.
 // Used in getEvent and updateEvent to avoid leaking other managers' events.
 function canSeeEvent(event, user) {
-  if (!user || user.role === 'admin') return true;
+  if (!user || user.role === 'super_admin') return true;
+  if (user.role === 'admin') return event.created_by === user.id;
   if (user.role === 'event_manager') {
     return event.created_by === user.id || event.assigned_to === user.id;
   }
@@ -32,24 +33,31 @@ function canSeeEvent(event, user) {
   return event.assigned_to === user.id;
 }
 
+// Returns whether the current user can assign events (admin-level operation).
+function canAssign(user) {
+  return user?.role === 'admin' || user?.role === 'super_admin';
+}
+
 // GET /events
 async function listEvents(req, res) {
   const scope = eventScopeSQL(req.user);
+  // Filter events by the user's access_type (from JWT — set at login)
+  const at = req.user?.access_type;
+  const accessFilter = at === 'invitation'   ? "AND e.event_mode = 'invitation'"
+                     : at === 'contribution' ? "AND e.event_mode = 'contribution'"
+                     : '';
   try {
     const [events] = await pool.execute(
       `SELECT
          e.*,
-         t.slug  AS template_slug,
-         t.name  AS template_name,
          COUNT(DISTINCT i.id)                       AS total_invitations,
          COALESCE(SUM(i.status = 'used'),        0) AS checked_in,
          COALESCE(SUM(r.response = 'attending'), 0) AS rsvp_attending,
          COALESCE(SUM(r.response = 'declined'),  0) AS rsvp_declined
        FROM events e
-       LEFT JOIN templates      t ON t.id = e.template_id
        LEFT JOIN invitations    i ON i.event_id = e.id
        LEFT JOIN rsvp_responses r ON r.event_id = e.id
-       WHERE 1=1 ${scope.where}
+       WHERE 1=1 ${scope.where} ${accessFilter}
        GROUP BY e.id
        ORDER BY e.created_at DESC`,
       scope.params
@@ -67,19 +75,23 @@ async function createEvent(req, res) {
     event_name, event_type, event_mode, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id, assigned_to,
+    name_color, cn_color, amount_color,
   } = req.body;
 
   if (!sanitize(event_name)) {
     return res.status(400).json({ success: false, message: 'Event name is required.' });
   }
 
-  const safeType = VALID_TYPES.includes(event_type) ? event_type : 'Wedding';
-  const safeMode = VALID_MODES.includes(event_mode) ? event_mode : 'invitation';
-  const createdBy   = req.user?.id || null;
-  // Only admin can assign events to other users
-  const assignedTo  = (req.user?.role === 'admin' && assigned_to)
+  const safeType   = VALID_TYPES.includes(event_type) ? event_type : 'Wedding';
+  const safeMode   = VALID_MODES.includes(event_mode) ? event_mode : 'invitation';
+  const createdBy  = req.user?.id || null;
+  const assignedTo = (canAssign(req.user) && assigned_to)
     ? (parseInt(assigned_to, 10) || null)
     : null;
+
+  const safeNameColor   = /^#[0-9a-fA-F]{6}$/.test(name_color)   ? name_color   : '#111111';
+  const safeCnColor     = /^#[0-9a-fA-F]{6}$/.test(cn_color)     ? cn_color     : '#222222';
+  const safeAmountColor = /^#[0-9a-fA-F]{6}$/.test(amount_color) ? amount_color : '#222222';
 
   try {
     const safeTemplateId = template_id ? parseInt(template_id, 10) || null : null;
@@ -88,15 +100,18 @@ async function createEvent(req, res) {
       `INSERT INTO events
          (event_name, event_type, event_mode, event_date, event_time, venue,
           dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
-          maps_link, contact_name, contact_phone, template_id, created_by, assigned_to)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          maps_link, contact_name, contact_phone, template_id,
+          name_color, cn_color, amount_color, created_by, assigned_to)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sanitize(event_name), safeType, safeMode,
         formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
-        safeTemplateId, createdBy, assignedTo,
+        safeTemplateId,
+        safeNameColor, safeCnColor, safeAmountColor,
+        createdBy, assignedTo,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [result.insertId]);
@@ -176,6 +191,7 @@ async function updateEvent(req, res) {
     event_name, event_type, event_mode, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id, assigned_to,
+    name_color, cn_color, amount_color,
   } = req.body;
 
   if (!sanitize(event_name)) {
@@ -193,18 +209,21 @@ async function updateEvent(req, res) {
       return res.status(404).json({ success: false, message: 'Event not found.' });
     }
 
-    const safeTemplateId = template_id ? parseInt(template_id, 10) || null : null;
-    // Only admin may reassign events
-    const newAssignedTo  = (req.user?.role === 'admin' && assigned_to !== undefined)
+    const safeTemplateId  = template_id ? parseInt(template_id, 10) || null : null;
+    const newAssignedTo   = (canAssign(req.user) && assigned_to !== undefined)
       ? (parseInt(assigned_to, 10) || null)
       : existing.assigned_to;
+
+    const safeNameColor   = /^#[0-9a-fA-F]{6}$/.test(name_color)   ? name_color   : (existing.name_color   || '#111111');
+    const safeCnColor     = /^#[0-9a-fA-F]{6}$/.test(cn_color)     ? cn_color     : (existing.cn_color     || '#222222');
+    const safeAmountColor = /^#[0-9a-fA-F]{6}$/.test(amount_color) ? amount_color : (existing.amount_color || '#222222');
 
     await pool.execute(
       `UPDATE events SET
          event_name = ?, event_type = ?, event_mode = ?, event_date = ?, event_time = ?, venue = ?,
          dress_code_main = ?, dress_code_secondary = ?, dress_code_accent = ?,
          dress_code_notes = ?, maps_link = ?, contact_name = ?, contact_phone = ?,
-         template_id = ?, assigned_to = ?
+         template_id = ?, name_color = ?, cn_color = ?, amount_color = ?, assigned_to = ?
        WHERE id = ?`,
       [
         sanitize(event_name), safeType, safeMode,
@@ -212,7 +231,7 @@ async function updateEvent(req, res) {
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
-        safeTemplateId, newAssignedTo, id,
+        safeTemplateId, safeNameColor, safeCnColor, safeAmountColor, newAssignedTo, id,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [id]);

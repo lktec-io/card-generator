@@ -25,6 +25,7 @@ export default function LoginPage() {
         } else if (data.role === 'event_manager') {
           navigate('/events', { replace: true });
         } else {
+          // admin and super_admin both go to dashboard
           navigate('/', { replace: true });
         }
       } else {

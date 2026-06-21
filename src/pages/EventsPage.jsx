@@ -5,65 +5,15 @@ import {
   MdLocationOn, MdPeople, MdCheckCircle, MdArrowForward, MdDelete,
   MdGridView, MdViewList,
 } from 'react-icons/md';
-import { listEvents, createEvent, deleteEvent, listTemplates, listUsersDropdown } from '../utils/api';
+import { listEvents, createEvent, deleteEvent, listUsersDropdown } from '../utils/api';
 import { isAdmin } from '../utils/auth';
-import TemplateGallery from '../components/TemplateGallery';
-import ContributionCardCanvas from '../components/ContributionCardCanvas';
 import ConfirmModal from '../components/ConfirmModal';
 import '../styles/events.css';
-import '../styles/template-gallery.css';
-import '../styles/contribution.css';
 
 const EVENT_MODES = [
   { key: 'invitation',   label: 'Invitation Event',     hint: 'RSVP, QR Check-in & Attendance Statistics' },
   { key: 'contribution', label: 'Contribution Campaign', hint: 'Contribution Cards, Amount Tracking & Dashboard' },
 ];
-
-/* ── Contribution template picker (image-based, drag-positioned templates) ── */
-
-function ContributionTemplatePicker({ selectedId, onChange }) {
-  const [templates, setTemplates] = useState([]);
-  const [loading,   setLoading]   = useState(true);
-
-  useEffect(() => {
-    listTemplates('contribution')
-      .then(({ data }) => setTemplates(data.templates || []))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <div className="tg-loading"><div className="tg-spinner" /> Loading templates…</div>;
-  if (templates.length === 0) return <p className="tg-empty">Hakuna template za michango — tengeneza moja kwenye Templates.</p>;
-
-  return (
-    <div className="ct-grid">
-      {templates.map((tmpl) => {
-        const selected = selectedId === tmpl.id;
-        return (
-          <div
-            key={tmpl.id}
-            className={`ct-card${selected ? ' tg-card--selected' : ''}`}
-            style={{ cursor: 'pointer' }}
-            onClick={() => onChange(tmpl)}
-          >
-            {selected && <div className="tg-check"><MdCheckCircle size={18} /></div>}
-            <div className="ct-card-preview">
-              <ContributionCardCanvas
-                backgroundImage={tmpl.background_image}
-                layoutConfig={tmpl.layout_config}
-                data={{ guestName: 'Jina la Mfadhili', cn: 'CN-001', amount: 'TZS 50,000' }}
-                mini
-              />
-            </div>
-            <div className="ct-card-body">
-              <p className="ct-card-name">{tmpl.name}</p>
-              <span className="ct-card-cat">{tmpl.category}</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 const EVENT_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
@@ -91,6 +41,7 @@ const EMPTY_FORM = {
   venue: '', maps_link: '', contact_name: '', contact_phone: '',
   dress_code_main: '#d4af37', dress_code_secondary: '#1a1a2e', dress_code_accent: '#ffffff',
   dress_code_notes: '', template_id: null, assigned_to: '',
+  name_color: '#111111', cn_color: '#222222', amount_color: '#222222',
 };
 
 export default function EventsPage() {
@@ -198,7 +149,7 @@ export default function EventsPage() {
                       key={m.key}
                       type="button"
                       className={`tg-cat-btn${form.event_mode === m.key ? ' active' : ''}`}
-                      onClick={() => setForm(f => ({ ...f, event_mode: m.key, template_id: null }))}
+                      onClick={() => setForm(f => ({ ...f, event_mode: m.key }))}
                       title={m.hint}
                     >
                       {m.label}
@@ -295,28 +246,35 @@ export default function EventsPage() {
                 <textarea name="dress_code_notes" value={form.dress_code_notes} onChange={handleChange} rows={2} placeholder="e.g. Ladies: Royal Blue gowns. Gentlemen: Black suit." />
               </div>
 
-              {/* Template selection — gallery depends on event mode */}
-              <div className="ef-field ef-field--full">
-                <label>
-                  {form.event_mode === 'contribution' ? 'Contribution Template' : 'Invitation Template'}
-                  {form.template_id ? (
-                    <span style={{ marginLeft: '0.5rem', color: 'var(--gold)', fontSize: '0.75em' }}>✓ Selected</span>
-                  ) : (
-                    <span style={{ marginLeft: '0.5rem', color: 'rgba(255,255,255,0.30)', fontSize: '0.75em' }}>(Optional — guests see dynamic template)</span>
-                  )}
-                </label>
-                {form.event_mode === 'contribution' ? (
-                  <ContributionTemplatePicker
-                    selectedId={form.template_id}
-                    onChange={(tmpl) => setForm(f => ({ ...f, template_id: tmpl.id }))}
-                  />
-                ) : (
-                  <TemplateGallery
-                    selectedId={form.template_id}
-                    onChange={(tmpl) => setForm(f => ({ ...f, template_id: tmpl.id }))}
-                    event={form}
-                  />
-                )}
+              {/* Card text color pickers */}
+              <div className="ef-field ef-field--full" style={{ marginTop: '0.25rem' }}>
+                <label>Card Text Colors</label>
+              </div>
+              <div className="ef-row ef-row--3">
+                <div className="ef-field">
+                  <label style={{ fontSize: '0.75rem', opacity: 0.75 }}>Guest Name</label>
+                  <div className="color-picker-wrap">
+                    <input type="color" name="name_color" value={form.name_color || '#111111'} onChange={handleChange} />
+                    <span className="color-swatch" style={{ background: form.name_color || '#111111' }} />
+                    <span className="color-hex">{form.name_color || '#111111'}</span>
+                  </div>
+                </div>
+                <div className="ef-field">
+                  <label style={{ fontSize: '0.75rem', opacity: 0.75 }}>Code (CN)</label>
+                  <div className="color-picker-wrap">
+                    <input type="color" name="cn_color" value={form.cn_color || '#222222'} onChange={handleChange} />
+                    <span className="color-swatch" style={{ background: form.cn_color || '#222222' }} />
+                    <span className="color-hex">{form.cn_color || '#222222'}</span>
+                  </div>
+                </div>
+                <div className="ef-field">
+                  <label style={{ fontSize: '0.75rem', opacity: 0.75 }}>Amount</label>
+                  <div className="color-picker-wrap">
+                    <input type="color" name="amount_color" value={form.amount_color || '#222222'} onChange={handleChange} />
+                    <span className="color-swatch" style={{ background: form.amount_color || '#222222' }} />
+                    <span className="color-hex">{form.amount_color || '#222222'}</span>
+                  </div>
+                </div>
               </div>
 
               {formError && <p className="ef-error">{formError}</p>}

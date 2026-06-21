@@ -9,9 +9,9 @@ export default function CreatePage() {
   const [searchParams] = useSearchParams();
   const preselected = searchParams.get('event') ? parseInt(searchParams.get('event'), 10) : null;
 
-  const [events,   setEvents]   = useState([]);
-  const [eventId,  setEventId]  = useState(preselected);
-  const [loadingE, setLoadingE] = useState(true);
+  const [events,        setEvents]        = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState(preselected);
+  const [loadingE,      setLoadingE]      = useState(true);
 
   useEffect(() => {
     listEvents()
@@ -19,17 +19,18 @@ export default function CreatePage() {
       .finally(() => setLoadingE(false));
   }, []);
 
+  const selectedEvent = events.find(ev => ev.id === selectedEventId) || null;
+
   return (
     <>
-      {/* Event selector — optional */}
       {!loadingE && events.length > 0 && (
         <div className="create-event-bar">
           <MdEvent size={16} />
           <label htmlFor="event-select">Assign to Event:</label>
           <select
             id="event-select"
-            value={eventId || ''}
-            onChange={(e) => setEventId(e.target.value ? parseInt(e.target.value, 10) : null)}
+            value={selectedEventId || ''}
+            onChange={(e) => setSelectedEventId(e.target.value ? parseInt(e.target.value, 10) : null)}
           >
             <option value="">— No event (standalone card) —</option>
             {events.map(ev => (
@@ -38,7 +39,7 @@ export default function CreatePage() {
           </select>
         </div>
       )}
-      <CardGenerator eventId={eventId} />
+      <CardGenerator event={selectedEvent} />
     </>
   );
 }

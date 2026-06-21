@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   MdCalendarToday, MdLocationOn, MdMap, MdPalette,
@@ -8,13 +8,10 @@ import {
 import { GiDiamondRing } from 'react-icons/gi';
 import { FaWhatsapp } from 'react-icons/fa';
 import QRCode from 'qrcode';
-import html2canvas from 'html2canvas';
 import { getPublicInvite, submitRSVP } from '../utils/api';
 import { celebrateRSVP } from '../utils/confettiCelebration';
 import { useToast } from '../context/ToastContext';
 import VoiceRecorder from '../components/VoiceRecorder';
-import ContributionCardCanvas from '../components/ContributionCardCanvas';
-import { getTemplateComponent } from '../templates/index';
 import '../styles/public-invite.css';
 import '../styles/voice-recorder.css';
 import '../styles/contribution.css';
@@ -46,36 +43,28 @@ function buildContributionMessage(inv, event, link) {
   ].join('\n');
 }
 
-
 export default function PublicInvitePage({ isPreview = false }) {
   const { uuid } = useParams();
-
-  const [data,       setData]       = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState('');
-  const [qrUrl,      setQrUrl]      = useState('');
-  const [rsvpState,  setRsvpState]  = useState(null);
-  const [rsvping,    setRsvping]    = useState(false);
-  const [rsvpMsg,    setRsvpMsg]    = useState('');
-  const [showModal,  setShowModal]  = useState(false);
-  const [downloading, setDownloading] = useState(false);
-
-  const canvasRef = useRef(null);
   const { showToast } = useToast();
+
+  const [data,      setData]      = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState('');
+  const [qrUrl,     setQrUrl]     = useState('');
+  const [rsvpState, setRsvpState] = useState(null);
+  const [rsvping,   setRsvping]   = useState(false);
+  const [rsvpMsg,   setRsvpMsg]   = useState('');
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     getPublicInvite(uuid)
       .then(async ({ data: d }) => {
         setData(d);
-        // Set initial RSVP state if already responded
         if (d.invitation?.rsvp_response) {
           setRsvpState(d.invitation.rsvp_response);
         }
         if (d.invitation?.code) {
           const isContrib = d.event?.event_mode === 'contribution';
-          // Contribution cards: QR encodes the shareable invitation link itself
-          // (informational/share-friendly — not wired to check-in).
-          // Invitation cards: QR encodes the CN code (what staff scans at entrance).
           const qrContent = isContrib
             ? `${window.location.origin}/invite/${d.invitation.invitation_uuid || uuid}`
             : d.invitation.code;
@@ -89,34 +78,10 @@ export default function PublicInvitePage({ isPreview = false }) {
       .finally(() => setLoading(false));
   }, [uuid]);
 
-  const handleDownload = async () => {
-    const canvasEl = canvasRef.current?.getCanvas?.();
-    if (!canvasEl) return;
-    setDownloading(true);
-    const savedTransform = canvasEl.style.transform;
-    canvasEl.style.transform = 'scale(1)';
-    try {
-      const result = await html2canvas(canvasEl, {
-        scale: 3, useCORS: true, allowTaint: false, logging: false, backgroundColor: null,
-      });
-      canvasEl.style.transform = savedTransform;
-      const link = document.createElement('a');
-      link.download = `${data?.invitation?.code || 'kadi'}.png`;
-      link.href = result.toDataURL('image/png');
-      link.click();
-    } catch (err) {
-      canvasEl.style.transform = savedTransform;
-      console.error('[html2canvas]', err);
-      showToast('Imeshindwa kupakua kadi. Jaribu tena.', 'error');
-    } finally {
-      setDownloading(false);
-    }
-  };
-
   const handleShareContribution = (channel) => {
-    const inv = data?.invitation;
+    const inv   = data?.invitation;
     const event = data?.event;
-    const link = `${window.location.origin}/invite/${inv?.invitation_uuid || uuid}`;
+    const link  = `${window.location.origin}/invite/${inv?.invitation_uuid || uuid}`;
     const message = buildContributionMessage(inv, event, link);
     if (channel === 'whatsapp') {
       window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
@@ -134,9 +99,7 @@ export default function PublicInvitePage({ isPreview = false }) {
       const ctx  = new (window.AudioContext || window.webkitAudioContext)();
       const gain = ctx.createGain();
       gain.connect(ctx.destination);
-
       if (type === 'attending') {
-        // Warm C-major arpeggio
         [523.25, 659.25, 783.99].forEach((freq, i) => {
           const osc = ctx.createOscillator();
           osc.connect(gain);
@@ -148,7 +111,6 @@ export default function PublicInvitePage({ isPreview = false }) {
           osc.stop(ctx.currentTime + 0.60);
         });
       } else {
-        // Soft single descend for decline
         const osc = ctx.createOscillator();
         osc.connect(gain);
         osc.type = 'sine';
@@ -186,14 +148,12 @@ export default function PublicInvitePage({ isPreview = false }) {
     }
   };
 
-  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="invite-page">
       <div className="invite-loading"><div className="invite-spinner" /></div>
     </div>
   );
 
-  // ── Not found ─────────────────────────────────────────────────────────────
   if (error) return (
     <div className="invite-page">
       <div className="invite-not-found">
@@ -208,21 +168,15 @@ export default function PublicInvitePage({ isPreview = false }) {
   const inv   = data?.invitation;
   const event = data?.event;
   const isContribution = event?.event_mode === 'contribution';
-  // Only show dress code section when at least one value is explicitly set in the DB.
-  // Default color values stored by the form (#d4af37 etc.) still count as "set".
-  // If the event was never edited and all fields are null → hide the section.
   const hasDresscode = !!(
-    event?.dress_code_main     ||
-    event?.dress_code_secondary ||
-    event?.dress_code_accent   ||
-    event?.dress_code_notes
+    event?.dress_code_main || event?.dress_code_secondary ||
+    event?.dress_code_accent || event?.dress_code_notes
   );
 
   return (
     <div className="invite-page">
       <div className="invite-bg" aria-hidden="true" />
 
-      {/* ── Admin preview banner ── */}
       {isPreview && (
         <div className="invite-preview-banner">
           <MdVisibility size={16} />
@@ -232,52 +186,19 @@ export default function PublicInvitePage({ isPreview = false }) {
 
       <div className="invite-container">
 
-        {/* ── Brand ── */}
         <div className="invite-brand">
           <GiDiamondRing className="invite-ring" />
           <span>Nardio Events</span>
         </div>
 
-        {/* ── SECTION 1: Card
-              • Contribution campaign → render the drag-positioned ContributionCardCanvas
-              • Invitation event with template → render dynamic template component
-              • Fallback: show static card image (backward compat for old events)
-        ── */}
-        {isContribution ? (
-          <section className="invite-section invite-section--card">
-            <ContributionCardCanvas
-              ref={canvasRef}
-              backgroundImage={event?.template_background}
-              layoutConfig={event?.template_layout}
-              data={{
-                guestName: inv?.guest_name,
-                cn: inv?.code,
-                amount: inv?.requested_amount != null ? `TZS ${formatAmount(inv.requested_amount)}` : '',
-                qrDataUrl: qrUrl,
-              }}
-            />
-          </section>
-        ) : event?.template_slug ? (
-          <section className="invite-section invite-section--card invite-section--template">
-            {(() => {
-              const TemplateComponent = getTemplateComponent(event.template_slug);
-              return (
-                <TemplateComponent
-                  guestName={inv?.guest_name}
-                  invitationCode={inv?.code}
-                  event={event}
-                  qrUrl={qrUrl}
-                />
-              );
-            })()}
-          </section>
-        ) : inv?.image_url ? (
+        {/* ── SECTION 1: Card image ── */}
+        {inv?.image_url && (
           <section className="invite-section invite-section--card">
             <div className="invite-card-img">
               <img src={inv.image_url} alt="Kadi ya Mwaliko" crossOrigin="anonymous" />
             </div>
           </section>
-        ) : null}
+        )}
 
         {/* ── SECTION 2: Guest info ── */}
         <section className="invite-section invite-section--guest">
@@ -349,30 +270,17 @@ export default function PublicInvitePage({ isPreview = false }) {
             <h3 className="invite-section-title">
               <MdPalette size={16} /> Mavazi ya Sherehe
             </h3>
-            {/* All three color swatches — show even if color was inherited from default */}
             <div className="invite-color-swatches">
               <div className="invite-color-chip">
-                <span
-                  className="invite-color-circle"
-                  style={{ background: event.dress_code_main || '#d4af37' }}
-                />
+                <span className="invite-color-circle" style={{ background: event.dress_code_main || '#d4af37' }} />
                 <span>Primary</span>
               </div>
               <div className="invite-color-chip">
-                <span
-                  className="invite-color-circle"
-                  style={{ background: event.dress_code_secondary || '#1a1a2e' }}
-                />
+                <span className="invite-color-circle" style={{ background: event.dress_code_secondary || '#1a1a2e' }} />
                 <span>Secondary</span>
               </div>
               <div className="invite-color-chip">
-                <span
-                  className="invite-color-circle"
-                  style={{
-                    background: event.dress_code_accent || '#ffffff',
-                    border: '2px solid rgba(255,255,255,0.22)',
-                  }}
-                />
+                <span className="invite-color-circle" style={{ background: event.dress_code_accent || '#ffffff', border: '2px solid rgba(255,255,255,0.22)' }} />
                 <span>Accent</span>
               </div>
             </div>
@@ -382,21 +290,22 @@ export default function PublicInvitePage({ isPreview = false }) {
           </section>
         )}
 
-        {/* ── Contribution: Download + Share (replaces QR/Voice/RSVP) ── */}
+        {/* ── Contribution: Download + Share ── */}
         {isContribution && (
           <section className="invite-section">
             <h3 className="invite-section-title">
               <MdDownload size={16} /> Pakua na Shiriki Kadi Yako
             </h3>
-            <button
-              className="btn-gold"
-              onClick={handleDownload}
-              disabled={downloading}
-              style={{ width: '100%', justifyContent: 'center', marginBottom: '1rem' }}
-            >
-              {downloading ? <span className="invite-btn-spinner" /> : <MdDownload size={18} />}
-              {' '}Pakua Kadi (PNG)
-            </button>
+            {inv?.image_url && (
+              <a
+                className="btn-gold"
+                href={inv.image_url}
+                download={`${inv.code || 'kadi'}.png`}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', textDecoration: 'none', width: '100%', marginBottom: '1rem' }}
+              >
+                <MdDownload size={18} /> Pakua Kadi (PNG)
+              </a>
+            )}
             <div className="cc-share-row">
               <button className="cc-share-btn cc-share-btn--whatsapp" onClick={() => handleShareContribution('whatsapp')}>
                 <FaWhatsapp size={18} /> WhatsApp
@@ -429,7 +338,7 @@ export default function PublicInvitePage({ isPreview = false }) {
               </div>
             </section>
 
-            {/* ── SECTION 6: Voice Message (standalone, above RSVP) ── */}
+            {/* ── SECTION 6: Voice Message ── */}
             <section className="invite-section">
               <VoiceRecorder uuid={uuid} />
             </section>
@@ -440,59 +349,32 @@ export default function PublicInvitePage({ isPreview = false }) {
               <p className="invite-rsvp-sub">Tafadhali thibitisha mahudhurio yako</p>
 
               {(rsvpState === 'attending' || rsvpState === 'declined') ? (
-                /* Already responded — immutable */
                 <div className={`invite-rsvp-done invite-rsvp-done--${rsvpState}`}>
                   {rsvpState === 'attending' ? (
                     <>
                       <MdCheckCircle size={28} />
-                      <div>
-                        <strong>Utahudhuria!</strong>
-                        <p>{rsvpMsg || 'Asante! Tunafurahi kukuona.'}</p>
-                      </div>
+                      <div><strong>Utahudhuria!</strong><p>{rsvpMsg || 'Asante! Tunafurahi kukuona.'}</p></div>
                     </>
                   ) : (
                     <>
                       <MdCancel size={28} />
-                      <div>
-                        <strong>Hutahudhuria</strong>
-                        <p>{rsvpMsg || 'Asante kwa kutujulisha.'}</p>
-                      </div>
+                      <div><strong>Hutahudhuria</strong><p>{rsvpMsg || 'Asante kwa kutujulisha.'}</p></div>
                     </>
                   )}
                 </div>
               ) : rsvpState === 'already' ? (
                 <div className="invite-rsvp-done invite-rsvp-done--already">
                   <MdCheckCircle size={24} />
-                  <div>
-                    <strong>Tayari Ulijibu</strong>
-                    <p>Tayari umeshajibu mwaliko huu.</p>
-                  </div>
+                  <div><strong>Tayari Ulijibu</strong><p>Tayari umeshajibu mwaliko huu.</p></div>
                 </div>
               ) : (
-                /* Not yet responded */
                 <div className="invite-rsvp-btns">
-                  <button
-                    className="invite-btn-attend"
-                    onClick={() => handleRSVP('attending')}
-                    disabled={rsvping}
-                  >
-                    {rsvping ? (
-                      <span className="invite-btn-spinner" />
-                    ) : (
-                      <MdCheckCircle size={20} />
-                    )}
+                  <button className="invite-btn-attend" onClick={() => handleRSVP('attending')} disabled={rsvping}>
+                    {rsvping ? <span className="invite-btn-spinner" /> : <MdCheckCircle size={20} />}
                     NITAHUDHURIA
                   </button>
-                  <button
-                    className="invite-btn-decline"
-                    onClick={() => handleRSVP('declined')}
-                    disabled={rsvping}
-                  >
-                    {rsvping ? (
-                      <span className="invite-btn-spinner" />
-                    ) : (
-                      <MdCancel size={20} />
-                    )}
+                  <button className="invite-btn-decline" onClick={() => handleRSVP('declined')} disabled={rsvping}>
+                    {rsvping ? <span className="invite-btn-spinner" /> : <MdCancel size={20} />}
                     SITAHUDHURIA
                   </button>
                 </div>
@@ -504,19 +386,12 @@ export default function PublicInvitePage({ isPreview = false }) {
         <p className="invite-footer">Powered by Nardio Events</p>
       </div>
 
-      {/* ── RSVP Success Modal ── */}
       {showModal && rsvpState && (
         <div className="rsvp-modal-overlay" onClick={() => setShowModal(false)}>
-          <div
-            className={`rsvp-modal rsvp-modal--${rsvpState}`}
-            onClick={e => e.stopPropagation()}
-          >
+          <div className={`rsvp-modal rsvp-modal--${rsvpState}`} onClick={e => e.stopPropagation()}>
             <div className="rsvp-modal-icon">
-              {rsvpState === 'attending'
-                ? <MdCheckCircle size={48} />
-                : <MdCancel size={48} />}
+              {rsvpState === 'attending' ? <MdCheckCircle size={48} /> : <MdCancel size={48} />}
             </div>
-
             {rsvpState === 'attending' ? (
               <>
                 <h2 className="rsvp-modal-title">🎉 Asante!</h2>
@@ -529,10 +404,7 @@ export default function PublicInvitePage({ isPreview = false }) {
                 <p className="rsvp-modal-msg">Jibu lako limepokelewa.</p>
               </>
             )}
-
-            <button className="rsvp-modal-btn" onClick={() => setShowModal(false)}>
-              Sawa, Asante
-            </button>
+            <button className="rsvp-modal-btn" onClick={() => setShowModal(false)}>Sawa, Asante</button>
           </div>
         </div>
       )}

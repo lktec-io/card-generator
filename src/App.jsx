@@ -10,8 +10,6 @@ import EventDetailPage          from './pages/EventDetailPage';
 import VerificationHistoryPage  from './pages/VerificationHistoryPage';
 import PublicInvitePage         from './pages/PublicInvitePage';
 import ImportPage               from './pages/ImportPage';
-import TemplatesPage            from './pages/TemplatesPage';
-import ContributionTemplateEditorPage from './pages/ContributionTemplateEditorPage';
 import UsersPage                    from './pages/UsersPage';
 import { ToastProvider }        from './context/ToastContext';
 import { isLoggedIn, isAdmin, canManage } from './utils/auth';
@@ -49,7 +47,7 @@ function AppShell() {
           {/* Public */}
           <Route path="/login"         element={<LoginPage />} />
           <Route path="/invite/:uuid"  element={<PublicInvitePage />} />
-          <Route path="/display/:uuid" element={<AdminRoute><PublicInvitePage isPreview /></AdminRoute>} />
+          <Route path="/display/:uuid" element={<ManagerRoute><PublicInvitePage isPreview /></ManagerRoute>} />
 
           {/* Any authenticated user */}
           <Route path="/verify" element={<ProtectedRoute><VerifyPage /></ProtectedRoute>} />
@@ -65,8 +63,6 @@ function AppShell() {
           <Route path="/create"     element={<ManagerRoute><CreatePage /></ManagerRoute>} />
           <Route path="/import"     element={<ManagerRoute><ImportPage /></ManagerRoute>} />
           <Route path="/history"    element={<ManagerRoute><VerificationHistoryPage /></ManagerRoute>} />
-          <Route path="/templates"  element={<ManagerRoute><TemplatesPage /></ManagerRoute>} />
-          <Route path="/templates/contributions/:id/editor" element={<ManagerRoute><ContributionTemplateEditorPage /></ManagerRoute>} />
         </Routes>
       </main>
     </>

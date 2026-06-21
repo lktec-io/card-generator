@@ -7,6 +7,9 @@ const { uploadBuffer }            = require('../config/cloudinary');
 const { getNextCode }             = require('../utils/codeGenerator');
 const { generateStyledQRBuffer }  = require('../utils/qrGenerator');
 const { processCardImage }        = require('../utils/imageProcessor');
+const { eventScopeSQL }           = require('../middleware/authMiddleware');
+
+const CLIENT_URL = process.env.CLIENT_URL || 'https://wedding.nardio.online';
 
 // Ensure the generated/ folder exists at server startup
 const GENERATED_DIR = path.join(__dirname, '..', 'generated');
@@ -15,14 +18,11 @@ if (!fs.existsSync(GENERATED_DIR)) fs.mkdirSync(GENERATED_DIR, { recursive: true
 // ── generateCard ──────────────────────────────────────────────────────────────
 
 async function generateCard(req, res) {
-  // Validation
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'Card image is required.' });
   }
 
   const guestName = (req.body.guest_name || '').trim();
-  const language  = (req.body.language   || 'english').trim();
-
   if (!guestName) {
     return res.status(400).json({ success: false, message: 'Guest name is required.' });
   }
@@ -30,42 +30,81 @@ async function generateCard(req, res) {
     return res.status(400).json({ success: false, message: 'Guest name must be 100 characters or fewer.' });
   }
 
+  // Optional fields
+  const phone       = (req.body.phone_number || '').trim() || null;
+  const eventId     = req.body.event_id ? parseInt(req.body.event_id, 10) || null : null;
+  const nameColor   = (req.body.name_color   || '#111111').trim();
+  const cnColor     = (req.body.cn_color     || '#222222').trim();
+  const amountColor = (req.body.amount_color || '#222222').trim();
+
+  let requestedAmount = null;
+  if (req.body.requested_amount) {
+    const parsed = parseFloat(String(req.body.requested_amount).replace(/,/g, ''));
+    if (Number.isFinite(parsed) && parsed >= 0) requestedAmount = parsed;
+  }
+
   const connection = await pool.getConnection();
 
   try {
     await connection.beginTransaction();
 
-    // 1 — Reserve a unique code inside the transaction (FOR UPDATE prevents races)
-    const code = await getNextCode(connection);
+    // 1 — Fetch event for mode + contact info (if event_id provided)
+    let event = null;
+    if (eventId) {
+      const [[ev]] = await connection.execute('SELECT * FROM events WHERE id = ?', [eventId]);
+      event = ev || null;
+    }
+    const isContribution = event?.event_mode === 'contribution';
 
-    // 2 — Insert the row immediately so the code is locked in DB
+    // 2 — Reserve a unique code
+    const code = await getNextCode(connection);
     const uuid = crypto.randomUUID();
+
+    // 3 — Insert invitation row
     await connection.execute(
-      `INSERT INTO invitations (code, guest_name, status, invitation_uuid)
-       VALUES (?, ?, 'unused', ?)`,
-      [code, guestName, uuid]
+      `INSERT INTO invitations
+         (code, guest_name, phone_number, requested_amount, status, event_id, invitation_uuid)
+       VALUES (?, ?, ?, ?, 'unused', ?, ?)`,
+      [code, guestName, phone, requestedAmount, eventId, uuid]
     );
 
-    // 3 — Upload original card to Cloudinary
-    const originalUpload = await uploadBuffer(req.file.buffer, {
+    // 4 — Upload original card to Cloudinary
+    await uploadBuffer(req.file.buffer, {
       public_id:     `wedding-qr/originals/original_${code}`,
       resource_type: 'image',
       overwrite:     true,
       quality:       'auto:best',
     });
 
-    // 4 — Generate styled QR code as PNG buffer
-    const qrData   = JSON.stringify({ code, name: guestName });
+    // 5 — Generate styled QR code
+    // Contribution: QR encodes the guest's shareable invite link.
+    // Invitation:   QR encodes the CN code (scanned at entrance).
+    const qrData   = isContribution
+      ? `${CLIENT_URL}/invite/${uuid}`
+      : JSON.stringify({ code, name: guestName });
     const qrBuffer = await generateStyledQRBuffer(qrData, 400);
 
-    // 5 — Overlay QR + text onto the card image
-    const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code);
+    // 6 — Format amount text for card overlay
+    let amountText = null;
+    if (requestedAmount != null) {
+      amountText = `TZS ${requestedAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+    }
 
-    // 6 — Save final card locally for static serving
+    // 7 — Overlay QR + text onto card image with colour + amount options
+    const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
+      nameColor,
+      cnColor,
+      amountColor,
+      amount:       amountText,
+      contactName:  event?.contact_name  || null,
+      contactPhone: event?.contact_phone || null,
+    });
+
+    // 8 — Save locally for static serving
     const localFile = path.join(GENERATED_DIR, `${code}.png`);
     fs.writeFileSync(localFile, finalBuffer);
 
-    // 7 — Upload final card to Cloudinary
+    // 9 — Upload final card to Cloudinary
     const finalUpload = await uploadBuffer(finalBuffer, {
       public_id:     `wedding-qr/generated/card_${code}`,
       resource_type: 'image',
@@ -73,7 +112,7 @@ async function generateCard(req, res) {
       quality:       'auto:best',
     });
 
-    // 8 — Persist image URL in DB
+    // 10 — Persist image URL in DB
     await connection.execute(
       `UPDATE invitations SET image_url = ? WHERE code = ?`,
       [finalUpload.secure_url, code]
@@ -81,7 +120,7 @@ async function generateCard(req, res) {
 
     await connection.commit();
 
-    console.log(`[generateCard] Created: ${code} for "${guestName}"`);
+    console.log(`[generateCard] Created: ${code} for "${guestName}" (${isContribution ? 'contribution' : 'invitation'})`);
 
     return res.status(201).json({
       success:         true,
@@ -151,6 +190,24 @@ async function verifyCode(req, res) {
         message: 'This code belongs to a Contribution Campaign — QR check-in is not applicable here.',
         name:    inv.guest_name,
       });
+    }
+
+    // If a scoped user is logged in, ensure the code belongs to one of their events
+    if (req.user && req.user.role !== 'super_admin' && inv.event_id) {
+      const scope = eventScopeSQL(req.user);
+      if (scope.where) {
+        const [[eventCheck]] = await connection.execute(
+          `SELECT id FROM events e WHERE e.id = ? ${scope.where}`,
+          [inv.event_id, ...scope.params]
+        );
+        if (!eventCheck) {
+          return res.status(200).json({
+            success: false,
+            type:    'unauthorized',
+            message: 'Hauna ruhusa kuverify event hii.',
+          });
+        }
+      }
     }
 
     if (inv.status === 'used') {
@@ -337,6 +394,24 @@ async function verifyManual(req, res) {
         message: 'This code belongs to a Contribution Campaign — check-in is not applicable here.',
         name:    inv.guest_name,
       });
+    }
+
+    // If a scoped user is logged in, ensure the code belongs to one of their events
+    if (req.user && req.user.role !== 'super_admin' && inv.event_id) {
+      const scope = eventScopeSQL(req.user);
+      if (scope.where) {
+        const [[eventCheck]] = await connection.execute(
+          `SELECT id FROM events e WHERE e.id = ? ${scope.where}`,
+          [inv.event_id, ...scope.params]
+        );
+        if (!eventCheck) {
+          return res.status(200).json({
+            success: false,
+            type:    'unauthorized',
+            message: 'Hauna ruhusa kuverify event hii.',
+          });
+        }
+      }
     }
 
     if (inv.status === 'used') {

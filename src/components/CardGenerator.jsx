@@ -1,92 +1,45 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import Draggable   from 'react-draggable';
-import QRCode      from 'qrcode';
-import html2canvas from 'html2canvas';
-import { reserveCard } from '../utils/api';
-import { MdAutoAwesome, MdDownload, MdAddPhotoAlternate } from 'react-icons/md';
+import { useState } from 'react';
+import { generateCard } from '../utils/api';
+import { MdAutoAwesome, MdDownload, MdAddPhotoAlternate, MdExpandMore, MdExpandLess } from 'react-icons/md';
 import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
-export default function CardGenerator({ eventId = null }) {
-  // frameRef  → .card-frame  — measures available width; aspect-ratio provides height
-  // canvasRef → .card-canvas — 1080px fixed canvas; transform set directly on DOM node
-  const frameRef  = useRef(null);
-  const canvasRef = useRef(null);
+export default function CardGenerator({ event = null }) {
+  const eventId        = event?.id     || null;
+  const isContribution = event?.event_mode === 'contribution';
 
-  const qrNodeRef   = useRef(null);
-  const nameNodeRef = useRef(null);
-  const codeNodeRef = useRef(null);
+  const [imageFile,    setImageFile]   = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [dragOver,     setDragOver]    = useState(false);
 
-  const [uploadedImage, setUploadedImage] = useState(null);
-  const [dragOver,      setDragOver]      = useState(false);
-  const [guestName,     setGuestName]     = useState('');
-  const [phoneNumber,   setPhoneNumber]   = useState('');
-  const [invitation,    setInvitation]    = useState(null);
-  const [loading,       setLoading]       = useState(false);
-  const [downloading,   setDownloading]   = useState(false);
-  const [progress,      setProgress]      = useState(0);
-  const [error,         setError]         = useState('');
+  const [guestName,    setGuestName]   = useState('');
+  const [phoneNumber,  setPhoneNumber] = useState('');
+  const [amount,       setAmount]      = useState('');
 
-  // canvasScale is kept in state solely to pass as `scale` prop to Draggable,
-  // so drag movement matches the visual canvas size at every zoom level.
-  const [canvasScale, setCanvasScale] = useState(1);
+  const [nameColor,    setNameColor]   = useState(event?.name_color   || '#111111');
+  const [cnColor,      setCnColor]     = useState(event?.cn_color     || '#222222');
+  const [amountColor,  setAmountColor] = useState(event?.amount_color || '#222222');
+  const [showColors,   setShowColors]  = useState(false);
 
-  const [isLandscape, setIsLandscape] = useState(false);
-
-  const [qrPos,   setQrPos]   = useState({ x: 0, y: 0 });
-  const [namePos, setNamePos] = useState({ x: 0, y: 0 });
-  const [codePos, setCodePos] = useState({ x: 0, y: 0 });
-
-  // ── Responsive scale ──────────────────────────────────────────────────
-
-  const updateScale = useCallback(() => {
-    if (!frameRef.current || !canvasRef.current) return;
-    const frameWidth = frameRef.current.offsetWidth;
-    const scale = frameWidth / 1080;
-    canvasRef.current.style.transform = `scale(${scale})`;
-    setCanvasScale(scale);
-  }, []);
-
-  useEffect(() => {
-    updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
-  }, [updateScale]);
-
-  // Adjust frame aspect-ratio + canvas height to match uploaded image,
-  // then recompute scale so nothing overflows.
-  const handleBgLoad = (e) => {
-    const { naturalWidth, naturalHeight } = e.target;
-    if (!naturalWidth || !naturalHeight) return;
-    const canvasHeight = Math.round(1080 * naturalHeight / naturalWidth);
-    if (frameRef.current)  frameRef.current.style.aspectRatio  = `1080 / ${canvasHeight}`;
-    if (canvasRef.current) canvasRef.current.style.height       = `${canvasHeight}px`;
-    setIsLandscape(naturalWidth > naturalHeight);
-    resetPositions();
-    updateScale();
-  };
-
-  // ── Image upload ──────────────────────────────────────────────────────
+  const [result,       setResult]      = useState(null); // { image_url, code, guest_name }
+  const [loading,      setLoading]     = useState(false);
+  const [progress,     setProgress]    = useState(0);
+  const [error,        setError]       = useState('');
 
   const loadFile = (file) => {
     if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = (e) => setUploadedImage(e.target.result);
-    reader.readAsDataURL(file);
-    setInvitation(null);
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setResult(null);
     setError('');
-    resetPositions();
   };
 
   const handleFileChange = (e) => loadFile(e.target.files[0]);
-
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
     loadFile(e.dataTransfer.files[0]);
   };
-
-  // ── Generate ──────────────────────────────────────────────────────────
 
   const finishProgress = () => {
     setProgress(100);
@@ -94,109 +47,60 @@ export default function CardGenerator({ eventId = null }) {
   };
 
   const handleGenerate = async () => {
-    if (!uploadedImage) return setError('Please upload a card image first.');
-    const name = guestName.trim();
-    if (!name) return setError('Guest name is required.');
+    if (!imageFile)         return setError('Please upload a card image first.');
+    if (!guestName.trim())  return setError('Guest name is required.');
 
     setLoading(true);
     setError('');
-    setProgress(10);
-    resetPositions();
-    await new Promise((r) => setTimeout(r, 0));
+    setProgress(15);
+
+    const fd = new FormData();
+    fd.append('image',            imageFile);
+    fd.append('guest_name',       guestName.trim());
+    fd.append('phone',            phoneNumber.trim() || '');
+    fd.append('name_color',       nameColor);
+    fd.append('cn_color',         cnColor);
+    fd.append('amount_color',     amountColor);
+    if (eventId)            fd.append('event_id',           String(eventId));
+    if (isContribution && amount.trim()) {
+      fd.append('requested_amount', amount.trim());
+    }
 
     try {
-      setProgress(30);
-      const { data } = await reserveCard(name, phoneNumber.trim() || null, eventId);
-
-      setProgress(65);
-      // Encode only the code (e.g. "CN-016") — minimal payload = fewest modules = easiest scan.
-      // QRScanner already handles both plain text and JSON payloads.
-      const qrDataUrl = await QRCode.toDataURL(data.code, {
-        errorCorrectionLevel: 'L', // lowest density
-        margin:               1,   // minimal quiet zone — CSS padding handles the rest
-        width:                400, // generate large, display at CSS size
-      });
-
+      setProgress(40);
+      const { data } = await generateCard(fd);
       setProgress(90);
-      setInvitation({
-        guest_name:      data.guest_name,
-        invitation_code: data.code,
-        qr_data_url:     qrDataUrl,
-      });
+      if (!data.success) throw new Error(data.message || 'Generation failed.');
+      setResult({ image_url: data.image_url, code: data.code, guest_name: data.guest_name });
       finishProgress();
     } catch (err) {
-      setError(err.response?.data?.message || 'Generation failed. Please try again.');
+      setError(err.response?.data?.message || err.message || 'Generation failed. Please try again.');
       setProgress(0);
       setLoading(false);
     }
   };
 
-  // ── Download ──────────────────────────────────────────────────────────
-
-  const handleDownload = async () => {
-    if (!canvasRef.current || !invitation) return;
-    setDownloading(true);
-    const el = canvasRef.current;
-    const savedTransform = el.style.transform;
-    // Reset to scale(1) so html2canvas captures the full 1080px canvas,
-    // not the scaled-down visual size. Restored immediately after capture.
-    el.style.transform = 'scale(1)';
-    try {
-      const result = await html2canvas(el, {
-        scale:           3,    // 3× → ~3240px wide output
-        useCORS:         true,
-        allowTaint:      false,
-        logging:         false,
-        backgroundColor: null,
-      });
-      el.style.transform = savedTransform;
-      const link    = document.createElement('a');
-      link.download = `${invitation.invitation_code}.png`;
-      link.href     = result.toDataURL('image/png');
-      link.click();
-    } catch (err) {
-      el.style.transform = savedTransform;
-      console.error('[html2canvas]', err);
-      setError('Download failed — please try again.');
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  // ── Reset ─────────────────────────────────────────────────────────────
-
-  const resetPositions = () => {
-    setQrPos({ x: 0, y: 0 });
-    setNamePos({ x: 0, y: 0 });
-    setCodePos({ x: 0, y: 0 });
-  };
-
   const handleReset = () => {
-    setUploadedImage(null);
+    setImageFile(null);
+    setImagePreview(null);
     setGuestName('');
     setPhoneNumber('');
-    setInvitation(null);
+    setAmount('');
+    setResult(null);
     setError('');
     setProgress(0);
-    setIsLandscape(false);
-    resetPositions();
   };
-
-  // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <>
       {progress > 0 && (
-        <div
-          className="top-loader"
-          style={{ width: `${progress}%`, opacity: progress === 100 ? 0 : 1 }}
-        />
+        <div className="top-loader" style={{ width: `${progress}%`, opacity: progress === 100 ? 0 : 1 }} />
       )}
 
       <div className="create-page page-enter">
         <div className="create-header">
           <span className="create-ornament">— Card Generator —</span>
-          <h1>Create Invitation Card</h1>
+          <h1>{isContribution ? 'Create Contribution Card' : 'Create Invitation Card'}</h1>
           <p>Upload your card design, enter the guest name — QR code and invitation number are added automatically.</p>
         </div>
 
@@ -211,14 +115,9 @@ export default function CardGenerator({ eventId = null }) {
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
             >
-              <input
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handleFileChange}
-              />
-              {uploadedImage ? (
-                <img src={uploadedImage} alt="Uploaded card" />
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+              {imagePreview ? (
+                <img src={imagePreview} alt="Uploaded card" />
               ) : (
                 <>
                   <MdAddPhotoAlternate className="upload-icon" />
@@ -253,12 +152,59 @@ export default function CardGenerator({ eventId = null }) {
               />
             </div>
 
+            {isContribution && (
+              <div className="form-group">
+                <label htmlFor="amount">Contribution Amount</label>
+                <input
+                  id="amount"
+                  type="text"
+                  placeholder="e.g. TZS 50,000"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  maxLength={50}
+                />
+              </div>
+            )}
+
+            {/* Card text color pickers — collapsible */}
+            <div className="color-section">
+              <button
+                type="button"
+                className="color-section-toggle"
+                onClick={() => setShowColors(v => !v)}
+              >
+                Card Text Colors
+                {showColors ? <MdExpandLess size={18} /> : <MdExpandMore size={18} />}
+              </button>
+              {showColors && (
+                <div className="color-pickers-grid">
+                  <div className="color-picker-row">
+                    <span className="color-picker-label">Name</span>
+                    <input type="color" value={nameColor}   onChange={(e) => setNameColor(e.target.value)}   />
+                    <span className="color-hex-sm">{nameColor}</span>
+                  </div>
+                  <div className="color-picker-row">
+                    <span className="color-picker-label">Code (CN)</span>
+                    <input type="color" value={cnColor}     onChange={(e) => setCnColor(e.target.value)}     />
+                    <span className="color-hex-sm">{cnColor}</span>
+                  </div>
+                  {isContribution && (
+                    <div className="color-picker-row">
+                      <span className="color-picker-label">Amount</span>
+                      <input type="color" value={amountColor} onChange={(e) => setAmountColor(e.target.value)} />
+                      <span className="color-hex-sm">{amountColor}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {error && <p className="form-error">{error}</p>}
 
             <button
               className="btn-gold"
               onClick={handleGenerate}
-              disabled={loading || !guestName.trim() || !uploadedImage}
+              disabled={loading || !guestName.trim() || !imageFile}
             >
               {loading
                 ? <><div className="btn-spinner" /> Generating…</>
@@ -266,11 +212,10 @@ export default function CardGenerator({ eventId = null }) {
               }
             </button>
 
-            {invitation && (
+            {result && (
               <div className="inv-summary">
-                <p className="inv-code">{invitation.invitation_code}</p>
-                <p className="inv-name">{invitation.guest_name}</p>
-                <p className="inv-drag-hint">Drag QR, name, or code to fine-tune position</p>
+                <p className="inv-code">{result.code}</p>
+                <p className="inv-name">{result.guest_name}</p>
               </div>
             )}
           </div>
@@ -282,80 +227,31 @@ export default function CardGenerator({ eventId = null }) {
                 <div className="generate-spinner" />
                 <p>Creating your invitation…</p>
               </div>
-            ) : !invitation ? (
+            ) : !result ? (
               <div className="result-placeholder">
                 <div className="result-placeholder-icon">🎴</div>
                 <p>Card preview will appear here</p>
               </div>
             ) : (
               <div className="result-card fade">
-
-                {/*
-                  frameRef  → .card-frame  : aspect-ratio container; measures width
-                  canvasRef → .card-canvas : 1080px fixed; transform set directly on DOM
-                  Download resets transform to scale(1) before capture, restores after.
-                */}
-                <div className="card-frame" ref={frameRef}>
-                  <div className={`card-canvas${isLandscape ? ' landscape' : ''}`} ref={canvasRef}>
-                    <img
-                      src={uploadedImage}
-                      className="template-bg"
-                      alt="Invitation card"
-                      crossOrigin="anonymous"
-                      onLoad={handleBgLoad}
-                    />
-
-                    {/* scale prop keeps drag movement matching visual canvas size */}
-                    <Draggable
-                      nodeRef={nameNodeRef}
-                      position={namePos}
-                      scale={canvasScale}
-                      onStop={(_, d) => setNamePos({ x: d.x, y: d.y })}
-                    >
-                      <div className="guest-name" ref={nameNodeRef}>
-                        {invitation.guest_name}
-                      </div>
-                    </Draggable>
-
-                    <Draggable
-                      nodeRef={codeNodeRef}
-                      position={codePos}
-                      scale={canvasScale}
-                      onStop={(_, d) => setCodePos({ x: d.x, y: d.y })}
-                    >
-                      <div className="invitation-code" ref={codeNodeRef}>
-                        {invitation.invitation_code}
-                      </div>
-                    </Draggable>
-
-                    <Draggable
-                      nodeRef={qrNodeRef}
-                      position={qrPos}
-                      scale={canvasScale}
-                      onStop={(_, d) => setQrPos({ x: d.x, y: d.y })}
-                    >
-                      <div className="qr-wrapper" ref={qrNodeRef}>
-                        <img src={invitation.qr_data_url} alt="QR Code" />
-                      </div>
-                    </Draggable>
-
-                  </div>
-                </div>
-
+                <img
+                  src={result.image_url}
+                  alt={result.guest_name}
+                  style={{ width: '100%', borderRadius: 'var(--radius-md)', display: 'block' }}
+                />
                 <div className="result-actions">
-                  <button
+                  <a
                     className="btn-gold"
-                    onClick={handleDownload}
-                    disabled={downloading}
+                    href={result.image_url}
+                    download={`${result.code}.png`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
                   >
-                    <MdDownload size={17} />
-                    {downloading ? 'Saving…' : 'Download PNG'}
-                  </button>
+                    <MdDownload size={17} /> Download PNG
+                  </a>
                   <button className="btn-outline" onClick={handleReset}>
                     <FiRefreshCw size={15} /> New Card
                   </button>
                 </div>
-
               </div>
             )}
           </div>

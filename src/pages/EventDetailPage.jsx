@@ -110,6 +110,9 @@ export default function EventDetailPage() {
       dress_code_main:      ev.dress_code_main      || '#d4af37',
       dress_code_secondary: ev.dress_code_secondary || '#1a1a2e',
       dress_code_accent:    ev.dress_code_accent     || '#ffffff',
+      name_color:           ev.name_color            || '#111111',
+      cn_color:             ev.cn_color              || '#222222',
+      amount_color:         ev.amount_color          || '#222222',
     };
   }
 
@@ -602,7 +605,7 @@ export default function EventDetailPage() {
                   </button>
                 </div>
               )}
-              <button className="btn-gold" onClick={() => navigate(isContribution ? '/import' : `/create?event=${id}`)}>
+              <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
                 <MdAddPhotoAlternate size={15} /> {isContribution ? 'Import Contributors' : 'Add Invitations'}
               </button>
             </div>
@@ -613,7 +616,7 @@ export default function EventDetailPage() {
               <MdPeople size={48} style={{ opacity: 0.25 }} />
               <h3>No {isContribution ? 'Contributors' : 'Invitations'} Yet</h3>
               <p>{isContribution ? 'Import a contributors list (CSV) to start sharing contribution cards.' : 'Add invitations to start tracking guests.'}</p>
-              <button className="btn-gold" onClick={() => navigate(isContribution ? '/import' : `/create?event=${id}`)}>
+              <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
                 <MdAddPhotoAlternate size={15} /> {isContribution ? 'Import Contributors' : 'Create First Invitation'}
               </button>
             </div>

@@ -5,7 +5,7 @@ const router    = express.Router();
 
 const upload        = require('../middleware/upload');
 const verifyToken                              = require('../middleware/authMiddleware');
-const { requireAdmin, requireManager, requireAuth } = require('../middleware/authMiddleware');
+const { requireAdmin, requireManager, requireAuth, optionalAuth } = require('../middleware/authMiddleware');
 
 // Audio upload multer — accepts audio/* and video/webm (Chrome records audio as video/webm)
 const audioUpload = multer({
@@ -29,31 +29,22 @@ const { getDashboard }           = require('../controllers/adminController');
 const { listEvents, createEvent, getEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
 const { submitRSVP, getPublicInvite } = require('../controllers/rsvpController');
 const { sendVoiceMessage, getVoiceMessages, deleteVoiceMessage } = require('../controllers/voiceMessageController');
-const {
-  listTemplates, listAllTemplates, toggleTemplate,
-  createContributionTemplate, updateTemplateLayout,
-} = require('../controllers/templateController');
+const { listTemplates }          = require('../controllers/templateController');
 const { getGlobalStats }         = require('../controllers/statsController');
 const { getVerificationHistory } = require('../controllers/verificationLogController');
 
 // ── API status ─────────────────────────────────────────────────────────────
 router.get('/', (_req, res) => res.json({ status: 'ok', service: 'Nardio Events API v2' }));
 
-// ── Templates (active list is public, admin ops require auth) ──────────────
-router.get('/templates',         listTemplates);
-router.get('/templates/all',     requireManager, listAllTemplates);
-router.patch('/templates/:id/toggle', requireAdmin,   toggleTemplate);
-router.patch('/templates/:id/layout', requireManager, updateTemplateLayout);
-router.post('/templates/contribution', requireManager,
-  upload.fields([{ name: 'background', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]),
-  createContributionTemplate);
+// ── Templates (active list only — management routes removed) ───────────────
+router.get('/templates', listTemplates);
 
 // ── Public (no auth) ────────────────────────────────────────────────────────
 router.post('/reserve',       reserveCode);
 router.post('/import',        requireManager, bulkImport);
 router.post('/generate',      upload.single('image'), generateCard);
-router.post('/verify',        verifyCode);
-router.post('/verify/manual', verifyManual);
+router.post('/verify',        optionalAuth, verifyCode);
+router.post('/verify/manual', optionalAuth, verifyManual);
 router.get( '/stats',         getStats);
 
 // Public invite page + RSVP — UUID-based

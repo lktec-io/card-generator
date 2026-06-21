@@ -14,9 +14,16 @@ import '../styles/users.css';
 /* ── Role label helpers ───────────────────────────────────────────────── */
 
 const ROLE_LABELS = {
+  super_admin:   'Super Admin',
   admin:         'Admin',
   event_manager: 'Manager',
   verifier:      'Verifier',
+};
+
+const ACCESS_LABELS = {
+  both:         'Both',
+  invitation:   'Invitation',
+  contribution: 'Contribution',
 };
 
 const ROLE_ICONS = {
@@ -48,14 +55,16 @@ function formatDate(raw) {
 
 /* ── Empty form ───────────────────────────────────────────────────────── */
 
-const EMPTY_FORM = { name: '', email: '', password: '', role: 'verifier' };
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'verifier', access_type: 'both' };
 
 /* ── User form modal ──────────────────────────────────────────────────── */
 
 function UserModal({ user, onClose, onSaved }) {
   const isEdit = !!user;
   const [form,    setForm]    = useState(
-    isEdit ? { name: user.name, email: user.email, role: user.role, password: '' } : EMPTY_FORM
+    isEdit
+      ? { name: user.name, email: user.email, role: user.role, access_type: user.access_type || 'both', password: '' }
+      : EMPTY_FORM
   );
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState('');
@@ -80,7 +89,7 @@ function UserModal({ user, onClose, onSaved }) {
     setSaving(true);
     setError('');
     try {
-      const payload = { name: form.name, email: form.email, role: form.role };
+      const payload = { name: form.name, email: form.email, role: form.role, access_type: form.access_type };
       if (form.password) payload.password = form.password;
 
       const { data } = isEdit
@@ -160,6 +169,15 @@ function UserModal({ user, onClose, onSaved }) {
               <option value="verifier">Verifier — scan QR only</option>
               <option value="event_manager">Event Manager — manage assigned events</option>
               <option value="admin">Admin — full access</option>
+            </select>
+          </div>
+
+          <div className="user-modal-field">
+            <label>Access Type</label>
+            <select name="access_type" value={form.access_type} onChange={handleChange} disabled={saving}>
+              <option value="both">Both — Invitations &amp; Contributions</option>
+              <option value="invitation">Invitation Events Only</option>
+              <option value="contribution">Contribution Campaigns Only</option>
             </select>
           </div>
 
@@ -295,6 +313,7 @@ export default function UsersPage() {
                   <tr>
                     <th>User</th>
                     <th>Role</th>
+                    <th>Access</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th>Actions</th>
@@ -313,6 +332,7 @@ export default function UsersPage() {
                           </div>
                         </td>
                         <td><RoleBadge role={user.role} /></td>
+                        <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{ACCESS_LABELS[user.access_type] || 'Both'}</td>
                         <td><StatusBadge status={user.status} /></td>
                         <td style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{formatDate(user.created_at)}</td>
                         <td>

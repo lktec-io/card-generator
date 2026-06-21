@@ -23,27 +23,29 @@ function verifyToken(req, res, next) {
   next();
 }
 
-// Admin only
+// super_admin OR admin
 function requireAdmin(req, res, next) {
   const user = _verify(req);
   if (!user) return res.status(401).json({ success: false, message: 'Authentication required.' });
-  if (user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin access required.' });
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
+    return res.status(403).json({ success: false, message: 'Admin access required.' });
+  }
   req.user = user;
   next();
 }
 
-// Admin OR Event Manager
+// super_admin OR admin OR event_manager
 function requireManager(req, res, next) {
   const user = _verify(req);
   if (!user) return res.status(401).json({ success: false, message: 'Authentication required.' });
-  if (user.role !== 'admin' && user.role !== 'event_manager') {
+  if (user.role !== 'super_admin' && user.role !== 'admin' && user.role !== 'event_manager') {
     return res.status(403).json({ success: false, message: 'Manager access required.' });
   }
   req.user = user;
   next();
 }
 
-// Any logged-in user (admin + event_manager + verifier + legacy gate_staff)
+// Any logged-in user (super_admin + admin + event_manager + verifier + legacy gate_staff)
 function requireAuth(req, res, next) {
   const user = _verify(req);
   if (!user) return res.status(401).json({ success: false, message: 'Authentication required.' });
@@ -51,10 +53,24 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// Reads token silently — never returns 401. Used on public endpoints that benefit
+// from optional scope narrowing (e.g. /verify, /verify/manual).
+function optionalAuth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (token) {
+    try { req.user = jwt.verify(token, JWT_SECRET); } catch { /* ignore bad token */ }
+  }
+  next();
+}
+
 // Returns SQL WHERE fragment + params to scope event queries by role.
 // The alias for the events table must be 'e'.
 function eventScopeSQL(user) {
-  if (!user || user.role === 'admin') return { where: '', params: [] };
+  if (!user || user.role === 'super_admin') return { where: '', params: [] };
+  if (user.role === 'admin') {
+    return { where: 'AND e.created_by = ?', params: [user.id] };
+  }
   if (user.role === 'event_manager') {
     return {
       where:  'AND (e.created_by = ? OR e.assigned_to = ?)',
@@ -65,9 +81,16 @@ function eventScopeSQL(user) {
   return { where: 'AND e.assigned_to = ?', params: [user.id] };
 }
 
-// Same scope but expressed as a subquery (for WHERE i.event_id IN (...))
+// Same scope but expressed as a subquery (for WHERE i.event_id IN (...)).
+// Invitation alias must be 'i'.
 function invitationScopeSQL(user) {
-  if (!user || user.role === 'admin') return { where: '', params: [] };
+  if (!user || user.role === 'super_admin') return { where: '', params: [] };
+  if (user.role === 'admin') {
+    return {
+      where:  'AND i.event_id IN (SELECT id FROM events WHERE created_by = ?)',
+      params: [user.id],
+    };
+  }
   if (user.role === 'event_manager') {
     return {
       where:  'AND i.event_id IN (SELECT id FROM events WHERE created_by = ? OR assigned_to = ?)',
@@ -80,9 +103,10 @@ function invitationScopeSQL(user) {
   };
 }
 
-module.exports               = verifyToken;
-module.exports.requireAdmin  = requireAdmin;
-module.exports.requireManager= requireManager;
-module.exports.requireAuth   = requireAuth;
-module.exports.eventScopeSQL = eventScopeSQL;
+module.exports                    = verifyToken;
+module.exports.requireAdmin       = requireAdmin;
+module.exports.requireManager     = requireManager;
+module.exports.requireAuth        = requireAuth;
+module.exports.optionalAuth       = optionalAuth;
+module.exports.eventScopeSQL      = eventScopeSQL;
 module.exports.invitationScopeSQL = invitationScopeSQL;

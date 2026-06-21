@@ -1,13 +1,16 @@
 const pool   = require('../config/db');
 const bcrypt = require('bcryptjs');
 
-const VALID_ROLES = ['admin', 'event_manager', 'verifier'];
+const VALID_ROLES        = ['admin', 'event_manager', 'verifier'];
+const VALID_ACCESS_TYPES = ['invitation', 'contribution', 'both'];
+
+const USER_SELECT = 'id, name, email, role, status, access_type, created_at';
 
 // GET /users
 async function listUsers(_req, res) {
   try {
     const [users] = await pool.execute(
-      'SELECT id, name, email, role, status, created_at FROM users ORDER BY created_at DESC'
+      `SELECT ${USER_SELECT} FROM users ORDER BY created_at DESC`
     );
     res.json({ success: true, users });
   } catch (err) {
@@ -31,7 +34,7 @@ async function listForDropdown(_req, res) {
 
 // POST /users
 async function createUser(req, res) {
-  const { name = '', email = '', password = '', role = 'verifier' } = req.body;
+  const { name = '', email = '', password = '', role = 'verifier', access_type = 'both' } = req.body;
   const cleanName  = name.trim();
   const cleanEmail = email.trim().toLowerCase();
 
@@ -39,19 +42,20 @@ async function createUser(req, res) {
     return res.status(400).json({ success: false, message: 'Name, email, and password are required.' });
   }
 
-  const safeRole = VALID_ROLES.includes(role) ? role : 'verifier';
+  const safeRole       = VALID_ROLES.includes(role)               ? role        : 'verifier';
+  const safeAccessType = VALID_ACCESS_TYPES.includes(access_type) ? access_type : 'both';
 
   try {
     const hash = await bcrypt.hash(password, 12);
     const [result] = await pool.execute(
-      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-      [cleanName, cleanEmail, hash, safeRole]
+      'INSERT INTO users (name, email, password, role, access_type) VALUES (?, ?, ?, ?, ?)',
+      [cleanName, cleanEmail, hash, safeRole, safeAccessType]
     );
     const [[user]] = await pool.execute(
-      'SELECT id, name, email, role, status, created_at FROM users WHERE id = ?',
+      `SELECT ${USER_SELECT} FROM users WHERE id = ?`,
       [result.insertId]
     );
-    console.log(`[createUser] "${user.name}" <${user.email}> role=${user.role}`);
+    console.log(`[createUser] "${user.name}" <${user.email}> role=${user.role} access=${user.access_type}`);
     res.status(201).json({ success: true, user });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -69,7 +73,7 @@ async function getUser(req, res) {
 
   try {
     const [[user]] = await pool.execute(
-      'SELECT id, name, email, role, status, created_at FROM users WHERE id = ?',
+      `SELECT ${USER_SELECT} FROM users WHERE id = ?`,
       [id]
     );
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
@@ -85,7 +89,7 @@ async function updateUser(req, res) {
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ success: false, message: 'Invalid user ID.' });
 
-  const { name = '', email = '', role = '', password } = req.body;
+  const { name = '', email = '', role = '', password, access_type = 'both' } = req.body;
   const cleanName  = name.trim();
   const cleanEmail = email.trim().toLowerCase();
 
@@ -93,24 +97,25 @@ async function updateUser(req, res) {
     return res.status(400).json({ success: false, message: 'Name and email are required.' });
   }
 
-  const safeRole = VALID_ROLES.includes(role) ? role : 'verifier';
+  const safeRole       = VALID_ROLES.includes(role)               ? role        : 'verifier';
+  const safeAccessType = VALID_ACCESS_TYPES.includes(access_type) ? access_type : 'both';
 
   try {
     if (password) {
       const hash = await bcrypt.hash(password, 12);
       await pool.execute(
-        'UPDATE users SET name = ?, email = ?, role = ?, password = ? WHERE id = ?',
-        [cleanName, cleanEmail, safeRole, hash, id]
+        'UPDATE users SET name = ?, email = ?, role = ?, access_type = ?, password = ? WHERE id = ?',
+        [cleanName, cleanEmail, safeRole, safeAccessType, hash, id]
       );
     } else {
       await pool.execute(
-        'UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?',
-        [cleanName, cleanEmail, safeRole, id]
+        'UPDATE users SET name = ?, email = ?, role = ?, access_type = ? WHERE id = ?',
+        [cleanName, cleanEmail, safeRole, safeAccessType, id]
       );
     }
 
     const [[user]] = await pool.execute(
-      'SELECT id, name, email, role, status, created_at FROM users WHERE id = ?',
+      `SELECT ${USER_SELECT} FROM users WHERE id = ?`,
       [id]
     );
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
@@ -143,7 +148,7 @@ async function toggleStatus(req, res) {
     await pool.execute('UPDATE users SET status = ? WHERE id = ?', [newStatus, id]);
 
     const [[user]] = await pool.execute(
-      'SELECT id, name, email, role, status, created_at FROM users WHERE id = ?', [id]
+      `SELECT ${USER_SELECT} FROM users WHERE id = ?`, [id]
     );
     res.json({ success: true, user });
   } catch (err) {

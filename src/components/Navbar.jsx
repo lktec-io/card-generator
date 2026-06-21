@@ -4,10 +4,10 @@ import { GiDiamondRing } from 'react-icons/gi';
 import {
   MdDashboard, MdQrCodeScanner, MdAdminPanelSettings,
   MdMenu, MdClose, MdAddPhotoAlternate, MdLogout,
-  MdEvent, MdHistory, MdShield, MdUploadFile, MdPhotoLibrary,
+  MdEvent, MdHistory, MdShield, MdUploadFile,
   MdPeople,
 } from 'react-icons/md';
-import { isAdmin, isEventManager, canManage, getRole, getUserName } from '../utils/auth';
+import { isAdmin, isSuperAdmin, isEventManager, canManage, getRole, getUserName } from '../utils/auth';
 import '../styles/components.css';
 
 const ADMIN_LINKS = [
@@ -17,7 +17,6 @@ const ADMIN_LINKS = [
   { to: '/import',    end: false, icon: <MdUploadFile size={16} />,         label: 'Import'       },
   { to: '/verify',    end: false, icon: <MdQrCodeScanner size={16} />,      label: 'Verify'       },
   { to: '/history',   end: false, icon: <MdHistory size={16} />,            label: 'History'      },
-  { to: '/templates', end: false, icon: <MdPhotoLibrary size={16} />,       label: 'Templates'    },
   { to: '/users',     end: false, icon: <MdPeople size={16} />,             label: 'Users'        },
   { to: '/admin',     end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'        },
 ];
@@ -28,7 +27,6 @@ const MANAGER_LINKS = [
   { to: '/import',    end: false, icon: <MdUploadFile size={16} />,        label: 'Import'       },
   { to: '/verify',    end: false, icon: <MdQrCodeScanner size={16} />,     label: 'Verify'       },
   { to: '/history',   end: false, icon: <MdHistory size={16} />,           label: 'History'      },
-  { to: '/templates', end: false, icon: <MdPhotoLibrary size={16} />,      label: 'Templates'    },
 ];
 
 const VERIFIER_LINKS = [
@@ -36,6 +34,7 @@ const VERIFIER_LINKS = [
 ];
 
 function getRoleLabel(role) {
+  if (role === 'super_admin')   return 'Super Admin';
   if (role === 'admin')         return 'Admin';
   if (role === 'event_manager') return 'Manager';
   return 'Verifier';
@@ -48,7 +47,7 @@ export default function Navbar() {
 
   const role  = getRole();
   const name  = getUserName();
-  const links = isAdmin() ? ADMIN_LINKS : isEventManager() ? MANAGER_LINKS : VERIFIER_LINKS;
+  const links = isSuperAdmin() ? ADMIN_LINKS : isAdmin() ? ADMIN_LINKS : isEventManager() ? MANAGER_LINKS : VERIFIER_LINKS;
   const logoTo = isAdmin() ? '/' : canManage() ? '/events' : '/verify';
 
   const handleLogout = () => {
@@ -67,7 +66,7 @@ export default function Navbar() {
       {/* Role chip */}
       {role && (
         <span className={`nav-role-chip nav-role-chip--${role}`}>
-          {role === 'admin'
+          {(role === 'admin' || role === 'super_admin')
             ? <MdAdminPanelSettings size={12}/>
             : role === 'event_manager'
               ? <MdPeople size={12}/>
