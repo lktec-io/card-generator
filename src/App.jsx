@@ -12,8 +12,9 @@ import PublicInvitePage         from './pages/PublicInvitePage';
 import ImportPage               from './pages/ImportPage';
 import TemplatesPage            from './pages/TemplatesPage';
 import ContributionTemplateEditorPage from './pages/ContributionTemplateEditorPage';
+import UsersPage                    from './pages/UsersPage';
 import { ToastProvider }        from './context/ToastContext';
-import { isLoggedIn, isAdmin }  from './utils/auth';
+import { isLoggedIn, isAdmin, canManage } from './utils/auth';
 import './styles/global.css';
 import './App.css';
 
@@ -24,6 +25,12 @@ function ProtectedRoute({ children }) {
 function AdminRoute({ children }) {
   if (!isLoggedIn()) return <Navigate to="/login"  replace />;
   if (!isAdmin())    return <Navigate to="/verify" replace />;
+  return children;
+}
+
+function ManagerRoute({ children }) {
+  if (!isLoggedIn())  return <Navigate to="/login"  replace />;
+  if (!canManage())   return <Navigate to="/verify" replace />;
   return children;
 }
 
@@ -48,15 +55,18 @@ function AppShell() {
           <Route path="/verify" element={<ProtectedRoute><VerifyPage /></ProtectedRoute>} />
 
           {/* Admin only */}
-          <Route path="/"            element={<AdminRoute><DashboardPage /></AdminRoute>} />
-          <Route path="/events"      element={<AdminRoute><EventsPage /></AdminRoute>} />
-          <Route path="/events/:id"  element={<AdminRoute><EventDetailPage /></AdminRoute>} />
-          <Route path="/create"      element={<AdminRoute><CreatePage /></AdminRoute>} />
-          <Route path="/import"      element={<AdminRoute><ImportPage /></AdminRoute>} />
-          <Route path="/history"     element={<AdminRoute><VerificationHistoryPage /></AdminRoute>} />
-          <Route path="/admin"       element={<AdminRoute><AdminPage /></AdminRoute>} />
-          <Route path="/templates"   element={<AdminRoute><TemplatesPage /></AdminRoute>} />
-          <Route path="/templates/contributions/:id/editor" element={<AdminRoute><ContributionTemplateEditorPage /></AdminRoute>} />
+          <Route path="/"       element={<AdminRoute><DashboardPage /></AdminRoute>} />
+          <Route path="/admin"  element={<AdminRoute><AdminPage /></AdminRoute>} />
+          <Route path="/users"  element={<AdminRoute><UsersPage /></AdminRoute>} />
+
+          {/* Manager+ (admin or event_manager) */}
+          <Route path="/events"     element={<ManagerRoute><EventsPage /></ManagerRoute>} />
+          <Route path="/events/:id" element={<ManagerRoute><EventDetailPage /></ManagerRoute>} />
+          <Route path="/create"     element={<ManagerRoute><CreatePage /></ManagerRoute>} />
+          <Route path="/import"     element={<ManagerRoute><ImportPage /></ManagerRoute>} />
+          <Route path="/history"    element={<ManagerRoute><VerificationHistoryPage /></ManagerRoute>} />
+          <Route path="/templates"  element={<ManagerRoute><TemplatesPage /></ManagerRoute>} />
+          <Route path="/templates/contributions/:id/editor" element={<ManagerRoute><ContributionTemplateEditorPage /></ManagerRoute>} />
         </Routes>
       </main>
     </>

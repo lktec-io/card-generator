@@ -5,7 +5,8 @@ import {
   MdLocationOn, MdPeople, MdCheckCircle, MdArrowForward, MdDelete,
   MdGridView, MdViewList,
 } from 'react-icons/md';
-import { listEvents, createEvent, deleteEvent, listTemplates } from '../utils/api';
+import { listEvents, createEvent, deleteEvent, listTemplates, listUsersDropdown } from '../utils/api';
+import { isAdmin } from '../utils/auth';
 import TemplateGallery from '../components/TemplateGallery';
 import ContributionCardCanvas from '../components/ContributionCardCanvas';
 import ConfirmModal from '../components/ConfirmModal';
@@ -89,7 +90,7 @@ const EMPTY_FORM = {
   event_name: '', event_type: 'Wedding', event_mode: 'invitation', event_date: '', event_time: '',
   venue: '', maps_link: '', contact_name: '', contact_phone: '',
   dress_code_main: '#d4af37', dress_code_secondary: '#1a1a2e', dress_code_accent: '#ffffff',
-  dress_code_notes: '', template_id: null,
+  dress_code_notes: '', template_id: null, assigned_to: '',
 };
 
 export default function EventsPage() {
@@ -103,6 +104,7 @@ export default function EventsPage() {
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState('');
   const [deleteId,   setDeleteId]   = useState(null);
+  const [usersList,  setUsersList]  = useState([]);
   const navigate = useNavigate();
 
   const load = () => {
@@ -113,6 +115,13 @@ export default function EventsPage() {
   };
 
   useEffect(load, []);
+
+  useEffect(() => {
+    if (isAdmin()) {
+      listUsersDropdown().then(({ data }) => setUsersList(data.users || [])).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -242,6 +251,19 @@ export default function EventsPage() {
                   <input name="contact_phone" type="tel" value={form.contact_phone} onChange={handleChange} placeholder="e.g. +255754123456" />
                 </div>
               </div>
+              {isAdmin() && usersList.length > 0 && (
+                <div className="ef-field ef-field--full">
+                  <label>Assign To (optional)</label>
+                  <select name="assigned_to" value={form.assigned_to} onChange={handleChange}>
+                    <option value="">— No assignment —</option>
+                    {usersList.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.role === 'event_manager' ? 'Manager' : u.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="ef-row ef-row--3">
                 <div className="ef-field">
                   <label>Primary Color</label>

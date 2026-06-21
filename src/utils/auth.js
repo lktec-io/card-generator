@@ -1,4 +1,4 @@
-// Decode the stored JWT client-side to read role.
+// Decode the stored JWT client-side to read payload fields.
 // No secret needed — we just read the payload, not verify it.
 
 function decodeToken() {
@@ -11,8 +11,15 @@ function decodeToken() {
   }
 }
 
-export function getRole()      { return decodeToken()?.role ?? null; }
-export function getEmail()     { return decodeToken()?.email ?? null; }
-export function isAdmin()      { return getRole() === 'admin'; }
-export function isGateStaff()  { return getRole() === 'gate_staff'; }
-export function isLoggedIn()   { return !!localStorage.getItem('wqr_token'); }
+export function getRole()         { return decodeToken()?.role  ?? null; }
+export function getEmail()        { return decodeToken()?.email ?? null; }
+export function getUserId()       { return decodeToken()?.id    ?? null; }
+export function getUserName()     { return decodeToken()?.name  ?? null; }
+
+export function isAdmin()         { return getRole() === 'admin'; }
+export function isEventManager()  { return getRole() === 'event_manager'; }
+export function isVerifier()      { const r = getRole(); return r === 'verifier' || r === 'gate_staff'; }
+export function isGateStaff()     { return getRole() === 'gate_staff'; }
+export function canManage()       { return isAdmin() || isEventManager(); }
+
+export function isLoggedIn()      { return !!localStorage.getItem('wqr_token'); }

@@ -4,6 +4,7 @@ const cors         = require('cors');
 const path         = require('path');
 const inviteRoutes = require('./routes/invitationRoutes');
 const authRoutes   = require('./routes/authRoutes');
+const userRoutes   = require('./routes/userRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 // Trigger connection test on startup
@@ -16,7 +17,7 @@ const PORT = process.env.PORT || 8003;
 app.use(cors({
   origin:      process.env.CLIENT_URL || 'https://wedding.nardio.online',
   credentials: true,
-  methods:     ['GET', 'POST', 'PUT', 'DELETE'],
+  methods:     ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -25,8 +26,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/generated', express.static(path.join(__dirname, 'generated')));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/auth', authRoutes);
-app.use('/', inviteRoutes);
+app.use('/auth',  authRoutes);
+app.use('/users', userRoutes);
+app.use('/',      inviteRoutes);
 
 // Root health check (also handles stray GET / if Nginx config changes)
 app.get('/health', (_req, res) => {

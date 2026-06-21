@@ -91,4 +91,13 @@ export const trackInvitationShare = (id)           => api.post(`/invitations/${i
 export const bulkImport           = (guests, eventId) =>
   api.post('/import', { guests, event_id: eventId });
 
+// ── Users ─────────────────────────────────────────────────────────────────────
+export const listUsers         = ()           => api.get('/users');
+export const listUsersDropdown = ()           => api.get('/users/dropdown');
+export const createUser        = (data)       => api.post('/users', data);
+export const getUser           = (id)         => api.get(`/users/${id}`);
+export const updateUser        = (id, data)   => api.put(`/users/${id}`, data);
+export const toggleUserStatus  = (id)         => api.patch(`/users/${id}/status`);
+export const deleteUser        = (id)         => api.delete(`/users/${id}`);
+
 export default api;

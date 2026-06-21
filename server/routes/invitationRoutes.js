@@ -4,8 +4,8 @@ const multer    = require('multer');
 const router    = express.Router();
 
 const upload        = require('../middleware/upload');
-const verifyToken   = require('../middleware/authMiddleware');
-const { requireAdmin } = require('../middleware/authMiddleware');
+const verifyToken                              = require('../middleware/authMiddleware');
+const { requireAdmin, requireManager, requireAuth } = require('../middleware/authMiddleware');
 
 // Audio upload multer — accepts audio/* and video/webm (Chrome records audio as video/webm)
 const audioUpload = multer({
@@ -41,16 +41,16 @@ router.get('/', (_req, res) => res.json({ status: 'ok', service: 'Nardio Events 
 
 // ── Templates (active list is public, admin ops require auth) ──────────────
 router.get('/templates',         listTemplates);
-router.get('/templates/all',     requireAdmin, listAllTemplates);
-router.patch('/templates/:id/toggle', requireAdmin, toggleTemplate);
-router.patch('/templates/:id/layout', requireAdmin, updateTemplateLayout);
-router.post('/templates/contribution', requireAdmin,
+router.get('/templates/all',     requireManager, listAllTemplates);
+router.patch('/templates/:id/toggle', requireAdmin,   toggleTemplate);
+router.patch('/templates/:id/layout', requireManager, updateTemplateLayout);
+router.post('/templates/contribution', requireManager,
   upload.fields([{ name: 'background', maxCount: 1 }, { name: 'thumbnail', maxCount: 1 }]),
   createContributionTemplate);
 
 // ── Public (no auth) ────────────────────────────────────────────────────────
 router.post('/reserve',       reserveCode);
-router.post('/import',        requireAdmin, bulkImport);
+router.post('/import',        requireManager, bulkImport);
 router.post('/generate',      upload.single('image'), generateCard);
 router.post('/verify',        verifyCode);
 router.post('/verify/manual', verifyManual);
@@ -64,23 +64,23 @@ router.post('/rsvp/:uuid',         submitRSVP);
 router.post('/voice-message/:uuid', audioUpload.single('audio'), sendVoiceMessage);
 
 // ── Protected (admin JWT required) ─────────────────────────────────────────
-router.get('/admin/dashboard',   requireAdmin, getDashboard);
-router.get('/stats/global',      requireAdmin, getGlobalStats);
-router.get('/verification-logs', requireAdmin, getVerificationHistory);
+router.get('/admin/dashboard',   requireAuth, getDashboard);
+router.get('/stats/global',      requireAuth, getGlobalStats);
+router.get('/verification-logs', requireAuth, getVerificationHistory);
 
 // Invitations — destructive ops are admin-only
-router.delete('/invitations',     requireAdmin, deleteAllInvitations);
-router.delete('/invitations/:id', requireAdmin, deleteInvitation);
-router.post(  '/invitations/:id/share', requireAdmin, trackShare);
+router.delete('/invitations',     requireAdmin,   deleteAllInvitations);
+router.delete('/invitations/:id', requireManager, deleteInvitation);
+router.post(  '/invitations/:id/share', requireManager, trackShare);
 
 // Events CRUD — all admin-only
-router.get(   '/events',                       requireAdmin, listEvents);
-router.post(  '/events',                       requireAdmin, createEvent);
-router.get(   '/events/:id',                   requireAdmin, getEvent);
-router.put(   '/events/:id',                   requireAdmin, updateEvent);
-router.delete('/events/:id',                   requireAdmin, deleteEvent);
-router.get(   '/events/:id/voice-messages',    requireAdmin, getVoiceMessages);
-router.delete('/voice-messages/:id',           requireAdmin, deleteVoiceMessage);
+router.get(   '/events',                    requireAuth,    listEvents);
+router.post(  '/events',                    requireManager, createEvent);
+router.get(   '/events/:id',               requireAuth,    getEvent);
+router.put(   '/events/:id',               requireManager, updateEvent);
+router.delete('/events/:id',               requireAdmin,   deleteEvent);
+router.get(   '/events/:id/voice-messages',requireAuth,    getVoiceMessages);
+router.delete('/voice-messages/:id',       requireAdmin,   deleteVoiceMessage);
 
 // ── Static — generated card images ─────────────────────────────────────────
 router.get('/generated/:filename', (req, res) => {
