@@ -107,10 +107,11 @@ async function generateCard(req, res) {
       nameColor,
       cnColor,
       amountColor,
-      amount:       amountText,
-      contactName:  event?.contact_name  || null,
-      contactPhone: event?.contact_phone || null,
+      amount:         amountText,
+      contactName:    event?.contact_name  || null,
+      contactPhone:   event?.contact_phone || null,
       positions,
+      isContribution,
     });
 
     // 8 — Save locally for static serving

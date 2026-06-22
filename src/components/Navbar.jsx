@@ -7,27 +7,37 @@ import {
   MdEvent, MdHistory, MdShield, MdUploadFile,
   MdPeople,
 } from 'react-icons/md';
-import { isAdmin, isSuperAdmin, isEventManager, canManage, getRole, getUserName } from '../utils/auth';
+import { isAdmin, isSuperAdmin, isEventManager, canManage, getRole, getUserName, getAccessType } from '../utils/auth';
 import '../styles/components.css';
 
+// invitation-only routes — hidden for contribution-only users
+const INVITATION_ROUTES = new Set(['/verify', '/history']);
+
 const ADMIN_LINKS = [
-  { to: '/',          end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard'    },
-  { to: '/events',    end: false, icon: <MdEvent size={16} />,              label: 'Events'       },
-  { to: '/create',    end: false, icon: <MdAddPhotoAlternate size={16} />,  label: 'Create Cards' },
-  { to: '/import',    end: false, icon: <MdUploadFile size={16} />,         label: 'Import'       },
-  { to: '/verify',    end: false, icon: <MdQrCodeScanner size={16} />,      label: 'Verify'       },
-  { to: '/history',   end: false, icon: <MdHistory size={16} />,            label: 'History'      },
-  { to: '/users',     end: false, icon: <MdPeople size={16} />,             label: 'Users'        },
-  { to: '/admin',     end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'        },
+  { to: '/',        end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard'    },
+  { to: '/events',  end: false, icon: <MdEvent size={16} />,              label: 'Events'       },
+  { to: '/create',  end: false, icon: <MdAddPhotoAlternate size={16} />,  label: 'Create Cards' },
+  { to: '/import',  end: false, icon: <MdUploadFile size={16} />,         label: 'Import'       },
+  { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />,      label: 'Verify'       },
+  { to: '/history', end: false, icon: <MdHistory size={16} />,            label: 'History'      },
+  { to: '/users',   end: false, icon: <MdPeople size={16} />,             label: 'Users'        },
+  { to: '/admin',   end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'        },
 ];
 
 const MANAGER_LINKS = [
-  { to: '/events',    end: false, icon: <MdEvent size={16} />,             label: 'Events'       },
-  { to: '/create',    end: false, icon: <MdAddPhotoAlternate size={16} />, label: 'Create Cards' },
-  { to: '/import',    end: false, icon: <MdUploadFile size={16} />,        label: 'Import'       },
-  { to: '/verify',    end: false, icon: <MdQrCodeScanner size={16} />,     label: 'Verify'       },
-  { to: '/history',   end: false, icon: <MdHistory size={16} />,           label: 'History'      },
+  { to: '/events',  end: false, icon: <MdEvent size={16} />,             label: 'Events'       },
+  { to: '/create',  end: false, icon: <MdAddPhotoAlternate size={16} />, label: 'Create Cards' },
+  { to: '/import',  end: false, icon: <MdUploadFile size={16} />,        label: 'Import'       },
+  { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />,     label: 'Verify'       },
+  { to: '/history', end: false, icon: <MdHistory size={16} />,           label: 'History'      },
 ];
+
+function applyAccessFilter(links, accessType) {
+  if (accessType === 'contribution') {
+    return links.filter(l => !INVITATION_ROUTES.has(l.to));
+  }
+  return links;
+}
 
 const VERIFIER_LINKS = [
   { to: '/verify', end: false, icon: <MdQrCodeScanner size={16} />, label: 'Scan & Verify' },
@@ -45,9 +55,11 @@ export default function Navbar() {
   const navigate = useNavigate();
   const close = () => setOpen(false);
 
-  const role  = getRole();
-  const name  = getUserName();
-  const links = isSuperAdmin() ? ADMIN_LINKS : isAdmin() ? ADMIN_LINKS : isEventManager() ? MANAGER_LINKS : VERIFIER_LINKS;
+  const role       = getRole();
+  const name       = getUserName();
+  const accessType = getAccessType();
+  const baseLinks  = isSuperAdmin() ? ADMIN_LINKS : isAdmin() ? ADMIN_LINKS : isEventManager() ? MANAGER_LINKS : VERIFIER_LINKS;
+  const links      = (isSuperAdmin()) ? baseLinks : applyAccessFilter(baseLinks, accessType);
   const logoTo = isAdmin() ? '/' : canManage() ? '/events' : '/verify';
 
   const handleLogout = () => {

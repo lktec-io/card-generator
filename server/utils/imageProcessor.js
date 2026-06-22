@@ -112,13 +112,14 @@ function rasterise(svgStr) {
  */
 async function processCardImage(cardBuffer, qrBuffer, guestName, code, options = {}) {
   const {
-    nameColor    = '#111111',
-    cnColor      = '#222222',
-    amountColor  = '#222222',
-    amount       = null,
-    contactName  = null,
-    contactPhone = null,
-    positions    = null,
+    nameColor      = '#111111',
+    cnColor        = '#222222',
+    amountColor    = '#222222',
+    amount         = null,
+    contactName    = null,
+    contactPhone   = null,
+    positions      = null,
+    isContribution = false,
   } = options;
 
   // STEP 1 — Load card; upscale narrow images to ≥1200px
@@ -160,15 +161,18 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, options =
     const namePNG = rasterise(buildElementSVG(
       cardW, cardH, guestName, cardW / 2, nameY, FONT_STYLES.name, nameColor
     ));
-    const codePNG = rasterise(buildElementSVG(
-      cardW, cardH, code, cardW / 2, codeY, FONT_STYLES.code, cnColor
-    ));
 
     composites = [
-      { input: paddedQR, top: Math.max(0, Math.round(qrTop)),  left: Math.max(0, Math.round(qrLeft)) },
-      { input: namePNG,  top: 0, left: 0 },
-      { input: codePNG,  top: 0, left: 0 },
+      { input: namePNG, top: 0, left: 0 },
     ];
+
+    if (!isContribution) {
+      const codePNG = rasterise(buildElementSVG(
+        cardW, cardH, code, cardW / 2, codeY, FONT_STYLES.code, cnColor
+      ));
+      composites.unshift({ input: paddedQR, top: Math.max(0, Math.round(qrTop)), left: Math.max(0, Math.round(qrLeft)) });
+      composites.push({ input: codePNG, top: 0, left: 0 });
+    }
 
     if (hasAmount && amountY != null) {
       const amountPNG = rasterise(buildElementSVG(
@@ -177,7 +181,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, options =
       composites.push({ input: amountPNG, top: 0, left: 0 });
     }
 
-    if (hasContact) {
+    if (hasContact && !isContribution) {
       const cy = contactY ?? (amountY ? amountY + 80 : codeY + 80);
       const contactPNG = rasterise(buildElementSVG(
         cardW, cardH, contactText, cardW / 2, cy, FONT_STYLES.contact, '#666666'
@@ -187,22 +191,43 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, options =
 
   } else {
     // ── AUTO mode: centred block at bottom (original behaviour) ───────────
-    const textSVG = buildAutoTextSVG(cardW, guestName, code, {
-      nameColor, cnColor, amountColor, amount, contactName, contactPhone,
-    });
-    const textPNG = rasterise(textSVG);
+    // For contribution cards, skip QR + CN; render Name + optional Amount only.
+    if (isContribution) {
+      const hasAmt = !!amount;
+      let svgHeight = 160;
+      if (hasAmt) svgHeight = 260;
+      const contSVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${svgHeight}">
+  <style>
+    .name   { font: 700 120px Georgia, 'Times New Roman', serif; letter-spacing: 2px; }
+    .amount { font: 600  96px Georgia, 'Times New Roman', serif; letter-spacing: 3px; }
+  </style>
+  <text x="50%" y="102" text-anchor="middle" class="name"   fill="${xmlEsc(nameColor)}"  >${xmlEsc(guestName)}</text>
+  ${hasAmt ? `<text x="50%" y="220" text-anchor="middle" class="amount" fill="${xmlEsc(amountColor)}">${xmlEsc(amount)}</text>` : ''}
+</svg>`;
+      const contPNG = rasterise(contSVG);
+      const textY = cardH - svgHeight - BOTTOM_MARGIN;
+      composites = [
+        { input: contPNG, top: textY, left: 0 },
+      ];
+    } else {
+      const textSVG = buildAutoTextSVG(cardW, guestName, code, {
+        nameColor, cnColor, amountColor, amount, contactName, contactPhone,
+      });
+      const textPNG = rasterise(textSVG);
 
-    const svgHMatch = textSVG.match(/height="(\d+)"/);
-    const textH     = svgHMatch ? Number(svgHMatch[1]) : 230;
+      const svgHMatch = textSVG.match(/height="(\d+)"/);
+      const textH     = svgHMatch ? Number(svgHMatch[1]) : 230;
 
-    const qrX   = Math.floor((cardW - QR_BLOCK) / 2);
-    const qrY   = cardH - QR_BLOCK - textH - BOTTOM_MARGIN;
-    const textY = qrY + QR_BLOCK + 4;
+      const qrX   = Math.floor((cardW - QR_BLOCK) / 2);
+      const qrY   = cardH - QR_BLOCK - textH - BOTTOM_MARGIN;
+      const textY = qrY + QR_BLOCK + 4;
 
-    composites = [
-      { input: paddedQR, top: qrY,   left: qrX },
-      { input: textPNG,  top: textY, left: 0   },
-    ];
+      composites = [
+        { input: paddedQR, top: qrY,   left: qrX },
+        { input: textPNG,  top: textY, left: 0   },
+      ];
+    }
   }
 
   console.log(`[processCardImage] ${cardW}×${cardH} | "${guestName}" | ${code} | mode=${positions ? 'manual' : 'auto'}`);

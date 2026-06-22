@@ -141,10 +141,12 @@ export default function CardGenerator({ event = null }) {
 
     // Positions from drag overlay (1080px canvas space)
     if (pos) {
-      fd.append('pos_name_y',  String(Math.round(pos.nameY)));
-      fd.append('pos_code_y',  String(Math.round(pos.codeY)));
-      fd.append('pos_qr_left', String(Math.round(pos.qrLeft)));
-      fd.append('pos_qr_top',  String(Math.round(pos.qrTop)));
+      fd.append('pos_name_y', String(Math.round(pos.nameY)));
+      if (!isContribution) {
+        fd.append('pos_code_y',  String(Math.round(pos.codeY)));
+        fd.append('pos_qr_left', String(Math.round(pos.qrLeft)));
+        fd.append('pos_qr_top',  String(Math.round(pos.qrTop)));
+      }
       if (pos.amountY != null) fd.append('pos_amount_y', String(Math.round(pos.amountY)));
     }
 
@@ -281,11 +283,13 @@ export default function CardGenerator({ event = null }) {
                     <input type="color" value={nameColor}   onChange={(e) => setNameColor(e.target.value)}   />
                     <span className="color-hex-sm">{nameColor}</span>
                   </div>
-                  <div className="color-picker-row">
-                    <span className="color-picker-label">Code (CN)</span>
-                    <input type="color" value={cnColor}     onChange={(e) => setCnColor(e.target.value)}     />
-                    <span className="color-hex-sm">{cnColor}</span>
-                  </div>
+                  {!isContribution && (
+                    <div className="color-picker-row">
+                      <span className="color-picker-label">Code (CN)</span>
+                      <input type="color" value={cnColor}     onChange={(e) => setCnColor(e.target.value)}     />
+                      <span className="color-hex-sm">{cnColor}</span>
+                    </div>
+                  )}
                   {isContribution && (
                     <div className="color-picker-row">
                       <span className="color-picker-label">Amount</span>
@@ -353,7 +357,9 @@ export default function CardGenerator({ event = null }) {
               <div className="drag-preview-wrap">
                 <p className="drag-hint-label">
                   <MdDragIndicator size={14} />
-                  Drag to position · QR moves freely · Name/Code/Amount snap vertically
+                  {isContribution
+                    ? 'Drag to position · Name/Amount snap vertically'
+                    : 'Drag to position · QR moves freely · Name/Code/Amount snap vertically'}
                 </p>
 
                 <div
@@ -371,24 +377,26 @@ export default function CardGenerator({ event = null }) {
 
                   {dragReady && (
                     <>
-                      {/* QR placeholder — free 2D drag */}
-                      <Draggable
-                        nodeRef={qrRef}
-                        position={{ x: pos.qrLeft * scale, y: pos.qrTop * scale }}
-                        bounds={{ top: 0, left: 0, right: overlayW - qrBoxPx, bottom: overlayH - qrBoxPx }}
-                        onStop={(_, d) => updatePos({
-                          qrLeft: clamp(Math.round(d.x / scale), 0, 1080 - 202),
-                          qrTop:  clamp(Math.round(d.y / scale), 0, canvasH - 202),
-                        })}
-                      >
-                        <div
-                          ref={qrRef}
-                          className="drag-el drag-el--qr"
-                          style={{ position: 'absolute', top: 0, left: 0, width: qrBoxPx, height: qrBoxPx }}
+                      {/* QR placeholder — free 2D drag (invitation only) */}
+                      {!isContribution && (
+                        <Draggable
+                          nodeRef={qrRef}
+                          position={{ x: pos.qrLeft * scale, y: pos.qrTop * scale }}
+                          bounds={{ top: 0, left: 0, right: overlayW - qrBoxPx, bottom: overlayH - qrBoxPx }}
+                          onStop={(_, d) => updatePos({
+                            qrLeft: clamp(Math.round(d.x / scale), 0, 1080 - 202),
+                            qrTop:  clamp(Math.round(d.y / scale), 0, canvasH - 202),
+                          })}
                         >
-                          <span className="drag-el-qr-label">QR</span>
-                        </div>
-                      </Draggable>
+                          <div
+                            ref={qrRef}
+                            className="drag-el drag-el--qr"
+                            style={{ position: 'absolute', top: 0, left: 0, width: qrBoxPx, height: qrBoxPx }}
+                          >
+                            <span className="drag-el-qr-label">QR</span>
+                          </div>
+                        </Draggable>
+                      )}
 
                       {/* Guest Name — vertical drag only */}
                       <Draggable
@@ -411,33 +419,35 @@ export default function CardGenerator({ event = null }) {
                         </div>
                       </Draggable>
 
-                      {/* Code — vertical drag only */}
-                      <Draggable
-                        nodeRef={codeRef}
-                        axis="y"
-                        position={{ x: 0, y: pos.codeY * scale }}
-                        bounds={{ top: 0, bottom: overlayH }}
-                        onStop={(_, d) => updatePos({ codeY: clamp(Math.round(d.y / scale), 0, canvasH) })}
-                      >
-                        <div
-                          ref={codeRef}
-                          className="drag-el drag-el--text"
-                          style={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
+                      {/* Code (CN) — invitation only, vertical drag */}
+                      {!isContribution && (
+                        <Draggable
+                          nodeRef={codeRef}
+                          axis="y"
+                          position={{ x: 0, y: pos.codeY * scale }}
+                          bounds={{ top: 0, bottom: overlayH }}
+                          onStop={(_, d) => updatePos({ codeY: clamp(Math.round(d.y / scale), 0, canvasH) })}
                         >
-                          <span className="drag-el-badge">CN</span>
-                          <span className="drag-el-text-preview" style={{ fontSize: codeFontPx, letterSpacing: '0.2em', color: cnColor }}>
-                            CN-###
-                          </span>
-                          <MdDragIndicator className="drag-el-arrow" size={Math.max(12, Math.round(18 * scale))} />
-                        </div>
-                      </Draggable>
+                          <div
+                            ref={codeRef}
+                            className="drag-el drag-el--text"
+                            style={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
+                          >
+                            <span className="drag-el-badge">CN</span>
+                            <span className="drag-el-text-preview" style={{ fontSize: codeFontPx, letterSpacing: '0.2em', color: cnColor }}>
+                              CN-###
+                            </span>
+                            <MdDragIndicator className="drag-el-arrow" size={Math.max(12, Math.round(18 * scale))} />
+                          </div>
+                        </Draggable>
+                      )}
 
                       {/* Amount — contribution only, vertical drag */}
                       {isContribution && (
                         <Draggable
                           nodeRef={amountRef}
                           axis="y"
-                          position={{ x: 0, y: (pos.amountY ?? pos.codeY + Math.round(80 * scale)) * scale }}
+                          position={{ x: 0, y: (pos.amountY ?? Math.round(canvasH * 0.94)) * scale }}
                           bounds={{ top: 0, bottom: overlayH }}
                           onStop={(_, d) => updatePos({ amountY: clamp(Math.round(d.y / scale), 0, canvasH) })}
                         >
