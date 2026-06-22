@@ -38,7 +38,7 @@ function formatDate(raw) {
 
 const EMPTY_FORM = {
   event_name: '', event_type: 'Wedding', event_mode: 'invitation', event_date: '', event_time: '',
-  venue: '', maps_link: '', contact_name: '', contact_phone: '',
+  venue: '', maps_link: '', contact_name: '', contact_phone: '', description: '',
   dress_code_main: '#d4af37', dress_code_secondary: '#1a1a2e', dress_code_accent: '#ffffff',
   dress_code_notes: '', template_id: null, assigned_to: '',
   name_color: '#111111', cn_color: '#222222', amount_color: '#222222',
@@ -141,8 +141,10 @@ export default function EventsPage() {
               <button className="event-form-close" onClick={() => setShowForm(false)}><MdClose /></button>
             </div>
             <form onSubmit={handleCreate} className="event-form">
+
+              {/* ── Mode selector ── */}
               <div className="ef-field ef-field--full">
-                <label>Event Type *</label>
+                <label>Event Category *</label>
                 <div className="tg-cats">
                   {EVENT_MODES.map((m) => (
                     <button
@@ -160,38 +162,52 @@ export default function EventsPage() {
                   {EVENT_MODES.find(m => m.key === form.event_mode)?.hint}
                 </p>
               </div>
+
+              {/* ── Name + type (both modes) ── */}
               <div className="ef-row">
                 <div className="ef-field ef-field--wide">
-                  <label>Event Name *</label>
-                  <input name="event_name" value={form.event_name} onChange={handleChange} placeholder="e.g. John & Jane Wedding" required />
+                  <label>{form.event_mode === 'contribution' ? 'Campaign Name *' : 'Event Name *'}</label>
+                  <input name="event_name" value={form.event_name} onChange={handleChange}
+                    placeholder={form.event_mode === 'contribution' ? 'e.g. Harusi ya Amina & Juma' : 'e.g. John & Jane Wedding'}
+                    required />
                 </div>
                 <div className="ef-field">
-                  <label>Event Type</label>
+                  <label>Category</label>
                   <select name="event_type" value={form.event_type} onChange={handleChange}>
                     {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
               </div>
+
+              {/* ── Date (both modes) ── */}
               <div className="ef-row">
                 <div className="ef-field">
                   <label>Date</label>
                   <input name="event_date" type="date" value={form.event_date} onChange={handleChange} />
                 </div>
-                <div className="ef-field">
-                  <label>Time</label>
-                  <input name="event_time" type="text" value={form.event_time} onChange={handleChange} placeholder="e.g. 5:00 PM" />
-                </div>
+                {form.event_mode === 'invitation' && (
+                  <div className="ef-field">
+                    <label>Time</label>
+                    <input name="event_time" type="text" value={form.event_time} onChange={handleChange} placeholder="e.g. 5:00 PM" />
+                  </div>
+                )}
               </div>
-              <div className="ef-row">
-                <div className="ef-field ef-field--wide">
-                  <label>Venue</label>
-                  <input name="venue" value={form.venue} onChange={handleChange} placeholder="Venue name or address" />
+
+              {/* ── Invitation-only: venue + maps ── */}
+              {form.event_mode === 'invitation' && (
+                <div className="ef-row">
+                  <div className="ef-field ef-field--wide">
+                    <label>Venue</label>
+                    <input name="venue" value={form.venue} onChange={handleChange} placeholder="Venue name or address" />
+                  </div>
+                  <div className="ef-field ef-field--full">
+                    <label>Google Maps Link</label>
+                    <input name="maps_link" value={form.maps_link} onChange={handleChange} placeholder="https://maps.google.com/..." />
+                  </div>
                 </div>
-                <div className="ef-field ef-field--full">
-                  <label>Google Maps Link</label>
-                  <input name="maps_link" value={form.maps_link} onChange={handleChange} placeholder="https://maps.google.com/..." />
-                </div>
-              </div>
+              )}
+
+              {/* ── Contact (both modes) ── */}
               <div className="ef-row">
                 <div className="ef-field">
                   <label>Contact Name</label>
@@ -202,6 +218,54 @@ export default function EventsPage() {
                   <input name="contact_phone" type="tel" value={form.contact_phone} onChange={handleChange} placeholder="e.g. +255754123456" />
                 </div>
               </div>
+
+              {/* ── Contribution-only: description ── */}
+              {form.event_mode === 'contribution' && (
+                <div className="ef-field ef-field--full">
+                  <label>Description (optional)</label>
+                  <textarea name="description" value={form.description} onChange={handleChange} rows={3}
+                    placeholder="Maelezo mafupi kuhusu kampeni hii ya mchango…" />
+                </div>
+              )}
+
+              {/* ── Invitation-only: dress code ── */}
+              {form.event_mode === 'invitation' && (
+                <>
+                  <div className="ef-row ef-row--3">
+                    <div className="ef-field">
+                      <label>Primary Color</label>
+                      <div className="color-picker-wrap">
+                        <input type="color" name="dress_code_main" value={form.dress_code_main || '#d4af37'} onChange={handleChange} />
+                        <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
+                        <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
+                      </div>
+                    </div>
+                    <div className="ef-field">
+                      <label>Secondary Color</label>
+                      <div className="color-picker-wrap">
+                        <input type="color" name="dress_code_secondary" value={form.dress_code_secondary || '#1a1a2e'} onChange={handleChange} />
+                        <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
+                        <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
+                      </div>
+                    </div>
+                    <div className="ef-field">
+                      <label>Accent Color</label>
+                      <div className="color-picker-wrap">
+                        <input type="color" name="dress_code_accent" value={form.dress_code_accent || '#ffffff'} onChange={handleChange} />
+                        <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
+                        <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ef-field ef-field--full">
+                    <label>Dress Code Notes</label>
+                    <textarea name="dress_code_notes" value={form.dress_code_notes} onChange={handleChange} rows={2}
+                      placeholder="e.g. Ladies: Royal Blue gowns. Gentlemen: Black suit." />
+                  </div>
+                </>
+              )}
+
+              {/* ── Assign (admin only, both modes) ── */}
               {isAdmin() && usersList.length > 0 && (
                 <div className="ef-field ef-field--full">
                   <label>Assign To (optional)</label>
@@ -215,38 +279,8 @@ export default function EventsPage() {
                   </select>
                 </div>
               )}
-              <div className="ef-row ef-row--3">
-                <div className="ef-field">
-                  <label>Primary Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" name="dress_code_main" value={form.dress_code_main || '#d4af37'} onChange={handleChange} />
-                    <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
-                    <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
-                  </div>
-                </div>
-                <div className="ef-field">
-                  <label>Secondary Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" name="dress_code_secondary" value={form.dress_code_secondary || '#1a1a2e'} onChange={handleChange} />
-                    <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
-                    <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
-                  </div>
-                </div>
-                <div className="ef-field">
-                  <label>Accent Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" name="dress_code_accent" value={form.dress_code_accent || '#ffffff'} onChange={handleChange} />
-                    <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
-                    <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="ef-field ef-field--full">
-                <label>Dress Code Notes</label>
-                <textarea name="dress_code_notes" value={form.dress_code_notes} onChange={handleChange} rows={2} placeholder="e.g. Ladies: Royal Blue gowns. Gentlemen: Black suit." />
-              </div>
 
-              {/* Card text color pickers */}
+              {/* ── Card text colors (both modes) ── */}
               <div className="ef-field ef-field--full" style={{ marginTop: '0.25rem' }}>
                 <label>Card Text Colors</label>
               </div>
@@ -281,7 +315,7 @@ export default function EventsPage() {
               <div className="ef-actions">
                 <button type="button" className="btn-outline" onClick={() => setShowForm(false)}>Cancel</button>
                 <button type="submit" className="btn-gold" disabled={saving}>
-                  {saving ? 'Creating…' : 'Create Event'}
+                  {saving ? 'Creating…' : form.event_mode === 'contribution' ? 'Create Campaign' : 'Create Event'}
                 </button>
               </div>
             </form>

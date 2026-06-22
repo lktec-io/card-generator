@@ -1,8 +1,11 @@
 const pool = require('../config/db');
-const { invitationScopeSQL } = require('../middleware/authMiddleware');
+const { invitationScopeSQL, eventScopeSQL } = require('../middleware/authMiddleware');
 
 async function getGlobalStats(req, res) {
-  const scope = invitationScopeSQL(req.user);
+  const iScope = invitationScopeSQL(req.user);
+  const eScope = eventScopeSQL(req.user);
+  const isSuperAdmin = !req.user || req.user.role === 'super_admin';
+  const isAdmin      = req.user?.role === 'admin' || req.user?.role === 'super_admin';
 
   try {
     const [[inv]] = await pool.execute(
@@ -11,32 +14,22 @@ async function getGlobalStats(req, res) {
          COALESCE(SUM(status='used'),  0) AS checked_in,
          COALESCE(SUM(status='unused'),0) AS pending
        FROM invitations i
-       WHERE 1=1 ${scope.where}`,
-      scope.params
+       WHERE 1=1 ${iScope.where}`,
+      iScope.params
     );
 
     const [[evCount]] = await pool.execute(
-      req.user?.role === 'admin'
-        ? 'SELECT COUNT(*) AS total_events FROM events'
-        : `SELECT COUNT(*) AS total_events FROM events e WHERE 1=1 ${
-            req.user?.role === 'event_manager'
-              ? 'AND (e.created_by = ? OR e.assigned_to = ?)'
-              : 'AND e.assigned_to = ?'
-          }`,
-      req.user?.role === 'admin'
-        ? []
-        : req.user?.role === 'event_manager'
-          ? [req.user.id, req.user.id]
-          : [req.user?.id]
+      `SELECT COUNT(*) AS total_events FROM events e WHERE 1=1 ${eScope.where}`,
+      eScope.params
     );
 
     const [rsvpRows] = await pool.execute(
       `SELECT r.response, COUNT(*) AS count
          FROM rsvp_responses r
          JOIN invitations i ON i.id = r.invitation_id
-        WHERE 1=1 ${scope.where}
+        WHERE 1=1 ${iScope.where}
         GROUP BY r.response`,
-      scope.params
+      iScope.params
     );
     const rsvp = { attending: 0, declined: 0, pending: 0 };
     rsvpRows.forEach(r => { rsvp[r.response] = Number(r.count); });
@@ -49,10 +42,10 @@ async function getGlobalStats(req, res) {
       `SELECT i.code, i.guest_name, i.used_at, e.event_name
          FROM invitations i
          LEFT JOIN events e ON e.id = i.event_id
-        WHERE i.status = 'used' ${scope.where}
+        WHERE i.status = 'used' ${iScope.where}
         ORDER BY i.used_at DESC
         LIMIT 5`,
-      scope.params
+      iScope.params
     );
 
     const [recentRSVP] = await pool.execute(
@@ -60,10 +53,10 @@ async function getGlobalStats(req, res) {
          FROM rsvp_responses r
          JOIN  invitations i ON i.id = r.invitation_id
          LEFT JOIN events e ON e.id = r.event_id
-        WHERE 1=1 ${scope.where}
+        WHERE 1=1 ${iScope.where}
         ORDER BY r.created_at DESC
         LIMIT 5`,
-      scope.params
+      iScope.params
     );
 
     const stats = {
@@ -76,11 +69,12 @@ async function getGlobalStats(req, res) {
       attendance_rate:   attendanceRate,
     };
 
-    // Admin-only extras
-    if (req.user?.role === 'admin') {
+    // Admin-level extras — scoped appropriately
+    if (isAdmin) {
       const [[{ total_users }]] = await pool.execute('SELECT COUNT(*) AS total_users FROM users');
       const [[{ total_campaigns }]] = await pool.execute(
-        "SELECT COUNT(*) AS total_campaigns FROM events WHERE event_mode = 'contribution'"
+        `SELECT COUNT(*) AS total_campaigns FROM events e WHERE e.event_mode = 'contribution' ${eScope.where}`,
+        eScope.params
       );
       stats.total_users     = Number(total_users);
       stats.total_campaigns = Number(total_campaigns);

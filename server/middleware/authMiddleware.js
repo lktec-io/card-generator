@@ -69,15 +69,19 @@ function optionalAuth(req, res, next) {
 function eventScopeSQL(user) {
   if (!user || user.role === 'super_admin') return { where: '', params: [] };
   if (user.role === 'admin') {
+    // Guard: old JWT tokens may lack the id field — treat as no-access so user re-logs in.
+    if (!user.id) return { where: 'AND 1=0', params: [] };
     return { where: 'AND e.created_by = ?', params: [user.id] };
   }
   if (user.role === 'event_manager') {
+    if (!user.id) return { where: 'AND 1=0', params: [] };
     return {
       where:  'AND (e.created_by = ? OR e.assigned_to = ?)',
       params: [user.id, user.id],
     };
   }
   // verifier or legacy gate_staff — sees only explicitly assigned events
+  if (!user.id) return { where: 'AND 1=0', params: [] };
   return { where: 'AND e.assigned_to = ?', params: [user.id] };
 }
 
@@ -86,27 +90,47 @@ function eventScopeSQL(user) {
 function invitationScopeSQL(user) {
   if (!user || user.role === 'super_admin') return { where: '', params: [] };
   if (user.role === 'admin') {
+    if (!user.id) return { where: 'AND 1=0', params: [] };
     return {
       where:  'AND i.event_id IN (SELECT id FROM events WHERE created_by = ?)',
       params: [user.id],
     };
   }
   if (user.role === 'event_manager') {
+    if (!user.id) return { where: 'AND 1=0', params: [] };
     return {
       where:  'AND i.event_id IN (SELECT id FROM events WHERE created_by = ? OR assigned_to = ?)',
       params: [user.id, user.id],
     };
   }
+  if (!user.id) return { where: 'AND 1=0', params: [] };
   return {
     where:  'AND i.event_id IN (SELECT id FROM events WHERE assigned_to = ?)',
     params: [user.id],
   };
 }
 
-module.exports                    = verifyToken;
-module.exports.requireAdmin       = requireAdmin;
-module.exports.requireManager     = requireManager;
-module.exports.requireAuth        = requireAuth;
-module.exports.optionalAuth       = optionalAuth;
-module.exports.eventScopeSQL      = eventScopeSQL;
-module.exports.invitationScopeSQL = invitationScopeSQL;
+// Scope for verification_logs — joins through events table.
+// vl = verification_logs alias, e = events alias (joined in caller).
+function verificationScopeSQL(user) {
+  if (!user || user.role === 'super_admin') return { where: '', params: [] };
+  if (user.role === 'admin') {
+    if (!user.id) return { where: 'AND 1=0', params: [] };
+    return { where: 'AND e.created_by = ?', params: [user.id] };
+  }
+  if (user.role === 'event_manager') {
+    if (!user.id) return { where: 'AND 1=0', params: [] };
+    return { where: 'AND (e.created_by = ? OR e.assigned_to = ?)', params: [user.id, user.id] };
+  }
+  if (!user.id) return { where: 'AND 1=0', params: [] };
+  return { where: 'AND e.assigned_to = ?', params: [user.id] };
+}
+
+module.exports                       = verifyToken;
+module.exports.requireAdmin          = requireAdmin;
+module.exports.requireManager        = requireManager;
+module.exports.requireAuth           = requireAuth;
+module.exports.optionalAuth          = optionalAuth;
+module.exports.eventScopeSQL         = eventScopeSQL;
+module.exports.invitationScopeSQL    = invitationScopeSQL;
+module.exports.verificationScopeSQL  = verificationScopeSQL;

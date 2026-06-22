@@ -505,12 +505,96 @@
   font-family: monospace;
 }
 
+/* ── Drag-and-drop canvas ────────────────────────────────────────────── */
+
+.drag-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.drag-hint-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+}
+
+.drag-canvas-overlay {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Base draggable element */
+.drag-el {
+  cursor: grab;
+  touch-action: none;
+}
+.drag-el:active { cursor: grabbing; }
+
+/* QR placeholder box */
+.drag-el--qr {
+  background: rgba(255, 255, 255, 0.88);
+  border: 2px dashed rgba(212, 175, 55, 0.70);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+.drag-el-qr-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #555;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Text element row */
+.drag-el--text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 2px 0;
+  pointer-events: auto;
+}
+
+.drag-el-badge {
+  position: absolute;
+  left: 0.4rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(212, 175, 55, 0.85);
+  color: #1a1200;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.drag-el-text-preview {
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.55), 0 0 8px rgba(0,0,0,0.35);
+  pointer-events: none;
+}
+
+.drag-el-arrow {
+  position: absolute;
+  right: 0.5rem;
+  color: rgba(212, 175, 55, 0.80);
+  flex-shrink: 0;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  /* Layout only — overlay positions are NOT overridden here.
-     The fixed-width canvas (.card-template = 560px) keeps all
-     pixel positions identical on every screen size. */
   .create-layout  { grid-template-columns: 1fr; }
   .result-actions { flex-direction: column; }
 }

@@ -1,5 +1,6 @@
 const pool                        = require('../config/db');
 const { uploadBuffer, cloudinary } = require('../config/cloudinary');
+const { eventScopeSQL }           = require('../middleware/authMiddleware');
 
 /* ── Extract Cloudinary public_id and resource_type from a secure_url ── */
 function extractCloudinaryInfo(url) {
@@ -60,12 +61,25 @@ async function sendVoiceMessage(req, res) {
   }
 }
 
-// GET /events/:id/voice-messages  — admin: list voice messages for an event
+// GET /events/:id/voice-messages  — list voice messages for a scoped event
 async function getVoiceMessages(req, res) {
   const eventId = parseInt(req.params.id, 10);
   if (!eventId) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
 
+  const scope = eventScopeSQL(req.user);
+
   try {
+    // Verify the requester has access to this event
+    if (scope.where) {
+      const [[eventCheck]] = await pool.execute(
+        `SELECT id FROM events e WHERE e.id = ? ${scope.where}`,
+        [eventId, ...scope.params]
+      );
+      if (!eventCheck) {
+        return res.status(404).json({ success: false, message: 'Event not found.' });
+      }
+    }
+
     const [messages] = await pool.execute(
       `SELECT id, guest_name, invitation_code, voice_message_url, created_at
          FROM voice_messages

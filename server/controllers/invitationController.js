@@ -43,6 +43,18 @@ async function generateCard(req, res) {
     if (Number.isFinite(parsed) && parsed >= 0) requestedAmount = parsed;
   }
 
+  // Drag-and-drop positions (all in 1080px canvas space, sent as strings from FormData)
+  const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+  const posNameY    = parseNum(req.body.pos_name_y);
+  const posCodeY    = parseNum(req.body.pos_code_y);
+  const posQrLeft   = parseNum(req.body.pos_qr_left);
+  const posQrTop    = parseNum(req.body.pos_qr_top);
+  const posAmountY  = parseNum(req.body.pos_amount_y);
+  const hasPositions = posNameY != null && posCodeY != null && posQrLeft != null && posQrTop != null;
+  const positions = hasPositions
+    ? { nameY: posNameY, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop, amountY: posAmountY }
+    : null;
+
   const connection = await pool.getConnection();
 
   try {
@@ -90,7 +102,7 @@ async function generateCard(req, res) {
       amountText = `TZS ${requestedAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
     }
 
-    // 7 — Overlay QR + text onto card image with colour + amount options
+    // 7 — Overlay QR + text onto card image with colour, amount, and optional drag positions
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
       nameColor,
       cnColor,
@@ -98,6 +110,7 @@ async function generateCard(req, res) {
       amount:       amountText,
       contactName:  event?.contact_name  || null,
       contactPhone: event?.contact_phone || null,
+      positions,
     });
 
     // 8 — Save locally for static serving

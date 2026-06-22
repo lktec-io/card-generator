@@ -198,7 +198,11 @@
   padding: 3rem 0;
 }
 
-.table-scroll { overflow-x: auto; }
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
 
 .inv-table {
   width: 100%;

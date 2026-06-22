@@ -10,6 +10,15 @@ const VALID_MODES = ['invitation', 'contribution'];
 
 function sanitize(v) { return (typeof v === 'string' && v.trim()) ? v.trim() : null; }
 
+function parseLayoutConfig(v) {
+  if (!v) return null;
+  try {
+    const obj = typeof v === 'string' ? JSON.parse(v) : v;
+    if (typeof obj !== 'object' || Array.isArray(obj)) return null;
+    return JSON.stringify(obj);
+  } catch { return null; }
+}
+
 // Accepts any date format (ISO datetime, YYYY-MM-DD, etc.) and returns YYYY-MM-DD or null.
 // MySQL DATE columns reject ISO timestamps like "2026-06-17T22:00:00.000Z".
 function formatMySQLDate(v) {
@@ -75,7 +84,7 @@ async function createEvent(req, res) {
     event_name, event_type, event_mode, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id, assigned_to,
-    name_color, cn_color, amount_color,
+    name_color, cn_color, amount_color, description, layout_config,
   } = req.body;
 
   if (!sanitize(event_name)) {
@@ -92,6 +101,8 @@ async function createEvent(req, res) {
   const safeNameColor   = /^#[0-9a-fA-F]{6}$/.test(name_color)   ? name_color   : '#111111';
   const safeCnColor     = /^#[0-9a-fA-F]{6}$/.test(cn_color)     ? cn_color     : '#222222';
   const safeAmountColor = /^#[0-9a-fA-F]{6}$/.test(amount_color) ? amount_color : '#222222';
+  const safeDescription = sanitize(description);
+  const safeLayoutConfig = parseLayoutConfig(layout_config);
 
   try {
     const safeTemplateId = template_id ? parseInt(template_id, 10) || null : null;
@@ -101,8 +112,9 @@ async function createEvent(req, res) {
          (event_name, event_type, event_mode, event_date, event_time, venue,
           dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
           maps_link, contact_name, contact_phone, template_id,
-          name_color, cn_color, amount_color, created_by, assigned_to)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          name_color, cn_color, amount_color, created_by, assigned_to,
+          description, layout_config)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sanitize(event_name), safeType, safeMode,
         formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
@@ -112,6 +124,7 @@ async function createEvent(req, res) {
         safeTemplateId,
         safeNameColor, safeCnColor, safeAmountColor,
         createdBy, assignedTo,
+        safeDescription, safeLayoutConfig,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [result.insertId]);
@@ -191,7 +204,7 @@ async function updateEvent(req, res) {
     event_name, event_type, event_mode, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id, assigned_to,
-    name_color, cn_color, amount_color,
+    name_color, cn_color, amount_color, description, layout_config,
   } = req.body;
 
   if (!sanitize(event_name)) {
@@ -217,13 +230,18 @@ async function updateEvent(req, res) {
     const safeNameColor   = /^#[0-9a-fA-F]{6}$/.test(name_color)   ? name_color   : (existing.name_color   || '#111111');
     const safeCnColor     = /^#[0-9a-fA-F]{6}$/.test(cn_color)     ? cn_color     : (existing.cn_color     || '#222222');
     const safeAmountColor = /^#[0-9a-fA-F]{6}$/.test(amount_color) ? amount_color : (existing.amount_color || '#222222');
+    const safeDescription  = description !== undefined ? sanitize(description) : existing.description;
+    const safeLayoutConfig = layout_config !== undefined
+      ? parseLayoutConfig(layout_config)
+      : (existing.layout_config ? JSON.stringify(existing.layout_config) : null);
 
     await pool.execute(
       `UPDATE events SET
          event_name = ?, event_type = ?, event_mode = ?, event_date = ?, event_time = ?, venue = ?,
          dress_code_main = ?, dress_code_secondary = ?, dress_code_accent = ?,
          dress_code_notes = ?, maps_link = ?, contact_name = ?, contact_phone = ?,
-         template_id = ?, name_color = ?, cn_color = ?, amount_color = ?, assigned_to = ?
+         template_id = ?, name_color = ?, cn_color = ?, amount_color = ?,
+         assigned_to = ?, description = ?, layout_config = ?
        WHERE id = ?`,
       [
         sanitize(event_name), safeType, safeMode,
@@ -231,7 +249,8 @@ async function updateEvent(req, res) {
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
-        safeTemplateId, safeNameColor, safeCnColor, safeAmountColor, newAssignedTo, id,
+        safeTemplateId, safeNameColor, safeCnColor, safeAmountColor,
+        newAssignedTo, safeDescription, safeLayoutConfig, id,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [id]);

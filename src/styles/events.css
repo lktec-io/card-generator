@@ -668,6 +668,16 @@
 
 .ev-info-empty { color: var(--text-faint); font-size: 0.84rem; }
 
+.ev-description {
+  align-items: flex-start !important;
+}
+
+.ev-description span:last-child {
+  line-height: 1.55;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
 .ev-info-edit-row {
   display: flex;
   flex-direction: column;
@@ -985,4 +995,21 @@
   .ev-info-grid { grid-template-columns: 1fr; }
   .ev-stats-row { gap: 0.5rem; }
   .ev-mini-stat { padding: 0.6rem 0.9rem; }
+  .ev-inv-head { flex-direction: column; align-items: flex-start; }
+  .ev-inv-toolbar { flex-wrap: wrap; width: 100%; }
+  .ev-inv-toolbar .btn-gold { width: 100%; justify-content: center; }
+  /* On mobile, hide the "Card" column in invitation table to save space */
+  .inv-table .col-card { display: none; }
+  /* List row meta: hide stats on very narrow screens */
+  .events-list-stats { display: none; }
+}
+
+@media (max-width: 480px) {
+  .events-page { padding: 1.5rem 0.75rem 3rem; }
+  .events-header h1 { font-size: 1.5rem; }
+  .event-form-card { padding: 1.25rem; }
+  .ev-info-card { padding: 1rem; }
+  .ev-inv-section { padding: 1.25rem; }
+  .inv-table th, .inv-table td { padding: 0.7rem 0.6rem; font-size: 0.80rem; }
+  .btn-action { width: 26px; height: 26px; }
 }

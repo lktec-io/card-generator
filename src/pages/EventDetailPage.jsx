@@ -113,6 +113,7 @@ export default function EventDetailPage() {
       name_color:           ev.name_color            || '#111111',
       cn_color:             ev.cn_color              || '#222222',
       amount_color:         ev.amount_color          || '#222222',
+      description:          ev.description           || '',
     };
   }
 
@@ -462,7 +463,7 @@ export default function EventDetailPage() {
         {/* ── Event info ── */}
         <div className="ev-info-grid">
           <div className="ev-info-card">
-            <h3>Event Details</h3>
+            <h3>{isContribution ? 'Campaign Details' : 'Event Details'}</h3>
             <div className="ev-info-rows">
               {editing ? (
                 <>
@@ -476,18 +477,24 @@ export default function EventDetailPage() {
                     <label>Date</label>
                     <input type="date" value={(form.event_date || '').split('T')[0]} onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} />
                   </div>
-                  <div className="ev-info-edit-row">
-                    <label>Time</label>
-                    <input value={form.event_time || ''} onChange={e => setForm(f => ({ ...f, event_time: e.target.value }))} placeholder="e.g. 5:00 PM" />
-                  </div>
-                  <div className="ev-info-edit-row">
-                    <label>Venue</label>
-                    <input value={form.venue || ''} onChange={e => setForm(f => ({ ...f, venue: e.target.value }))} placeholder="Venue" />
-                  </div>
-                  <div className="ev-info-edit-row">
-                    <label>Maps Link</label>
-                    <input value={form.maps_link || ''} onChange={e => setForm(f => ({ ...f, maps_link: e.target.value }))} placeholder="Google Maps URL" />
-                  </div>
+                  {!isContribution && (
+                    <div className="ev-info-edit-row">
+                      <label>Time</label>
+                      <input value={form.event_time || ''} onChange={e => setForm(f => ({ ...f, event_time: e.target.value }))} placeholder="e.g. 5:00 PM" />
+                    </div>
+                  )}
+                  {!isContribution && (
+                    <div className="ev-info-edit-row">
+                      <label>Venue</label>
+                      <input value={form.venue || ''} onChange={e => setForm(f => ({ ...f, venue: e.target.value }))} placeholder="Venue" />
+                    </div>
+                  )}
+                  {!isContribution && (
+                    <div className="ev-info-edit-row">
+                      <label>Maps Link</label>
+                      <input value={form.maps_link || ''} onChange={e => setForm(f => ({ ...f, maps_link: e.target.value }))} placeholder="Google Maps URL" />
+                    </div>
+                  )}
                   <div className="ev-info-edit-row">
                     <label>Contact Name</label>
                     <input value={form.contact_name || ''} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Event Coordinator" />
@@ -496,13 +503,19 @@ export default function EventDetailPage() {
                     <label>Contact Phone</label>
                     <input type="tel" value={form.contact_phone || ''} onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))} placeholder="+255754123456" />
                   </div>
+                  {isContribution && (
+                    <div className="ev-info-edit-row">
+                      <label>Description</label>
+                      <textarea rows={3} value={form.description || ''} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Maelezo mafupi kuhusu kampeni hii…" />
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
                   {ev?.event_date && <div className="ev-info-row"><MdCalendarToday size={15}/><span>{formatDate(ev.event_date)}</span></div>}
-                  {ev?.event_time && <div className="ev-info-row"><span style={{width:15,textAlign:'center'}}>🕒</span><span>{ev.event_time}</span></div>}
-                  {ev?.venue      && <div className="ev-info-row"><MdLocationOn size={15}/><span>{ev.venue}</span></div>}
-                  {ev?.maps_link  && (
+                  {!isContribution && ev?.event_time && <div className="ev-info-row"><span style={{width:15,textAlign:'center'}}>🕒</span><span>{ev.event_time}</span></div>}
+                  {!isContribution && ev?.venue && <div className="ev-info-row"><MdLocationOn size={15}/><span>{ev.venue}</span></div>}
+                  {!isContribution && ev?.maps_link && (
                     <div className="ev-info-row">
                       <MdMap size={15}/>
                       <a href={ev.maps_link} target="_blank" rel="noreferrer" className="ev-maps-link">Open Directions</a>
@@ -514,71 +527,80 @@ export default function EventDetailPage() {
                       <a href={`tel:${ev.contact_phone}`} className="ev-maps-link">{ev.contact_name || ev.contact_phone}</a>
                     </div>
                   )}
-                  {!ev?.event_date && !ev?.venue && <p className="ev-info-empty">No details added</p>}
+                  {isContribution && ev?.description && (
+                    <div className="ev-info-row ev-description">
+                      <span style={{width:15,textAlign:'center'}}>📝</span>
+                      <span>{ev.description}</span>
+                    </div>
+                  )}
+                  {!ev?.event_date && !ev?.venue && !ev?.description && <p className="ev-info-empty">No details added</p>}
                 </>
               )}
             </div>
           </div>
 
-          <div className="ev-info-card">
-            <h3>Dress Code</h3>
-            {editing ? (
-              <div className="ev-info-rows">
-                <div className="ev-info-edit-row">
-                  <label>Primary Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" value={form.dress_code_main || '#d4af37'} onChange={e => setForm(f => ({ ...f, dress_code_main: e.target.value }))} />
-                    <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
-                    <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
-                  </div>
-                </div>
-                <div className="ev-info-edit-row">
-                  <label>Secondary Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" value={form.dress_code_secondary || '#1a1a2e'} onChange={e => setForm(f => ({ ...f, dress_code_secondary: e.target.value }))} />
-                    <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
-                    <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
-                  </div>
-                </div>
-                <div className="ev-info-edit-row">
-                  <label>Accent Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" value={form.dress_code_accent || '#ffffff'} onChange={e => setForm(f => ({ ...f, dress_code_accent: e.target.value }))} />
-                    <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
-                    <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
-                  </div>
-                </div>
-                <div className="ev-info-edit-row">
-                  <label>Notes</label>
-                  <textarea value={form.dress_code_notes || ''} onChange={e => setForm(f => ({ ...f, dress_code_notes: e.target.value }))} rows={3} />
-                </div>
-              </div>
-            ) : (
-              <div className="dress-code-display">
-                {(ev?.dress_code_main || ev?.dress_code_secondary || ev?.dress_code_accent || ev?.dress_code_notes) ? (
-                  <>
-                    <div className="dress-swatches-row">
-                      <div className="dress-swatch-chip">
-                        <span className="dress-swatch-circle" style={{ background: ev.dress_code_main || '#d4af37' }} />
-                        <span>Primary</span>
-                      </div>
-                      <div className="dress-swatch-chip">
-                        <span className="dress-swatch-circle" style={{ background: ev.dress_code_secondary || '#1a1a2e' }} />
-                        <span>Secondary</span>
-                      </div>
-                      <div className="dress-swatch-chip">
-                        <span className="dress-swatch-circle" style={{ background: ev.dress_code_accent || '#ffffff', border: '2px solid rgba(255,255,255,0.22)' }} />
-                        <span>Accent</span>
-                      </div>
+          {/* Dress Code — invitation events only */}
+          {!isContribution && (
+            <div className="ev-info-card">
+              <h3>Dress Code</h3>
+              {editing ? (
+                <div className="ev-info-rows">
+                  <div className="ev-info-edit-row">
+                    <label>Primary Color</label>
+                    <div className="color-picker-wrap">
+                      <input type="color" value={form.dress_code_main || '#d4af37'} onChange={e => setForm(f => ({ ...f, dress_code_main: e.target.value }))} />
+                      <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
+                      <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
                     </div>
-                    {ev?.dress_code_notes && <p className="dress-notes">{ev.dress_code_notes}</p>}
-                  </>
-                ) : (
-                  <p className="ev-info-empty">No dress code specified</p>
-                )}
-              </div>
-            )}
-          </div>
+                  </div>
+                  <div className="ev-info-edit-row">
+                    <label>Secondary Color</label>
+                    <div className="color-picker-wrap">
+                      <input type="color" value={form.dress_code_secondary || '#1a1a2e'} onChange={e => setForm(f => ({ ...f, dress_code_secondary: e.target.value }))} />
+                      <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
+                      <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
+                    </div>
+                  </div>
+                  <div className="ev-info-edit-row">
+                    <label>Accent Color</label>
+                    <div className="color-picker-wrap">
+                      <input type="color" value={form.dress_code_accent || '#ffffff'} onChange={e => setForm(f => ({ ...f, dress_code_accent: e.target.value }))} />
+                      <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
+                      <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
+                    </div>
+                  </div>
+                  <div className="ev-info-edit-row">
+                    <label>Notes</label>
+                    <textarea value={form.dress_code_notes || ''} onChange={e => setForm(f => ({ ...f, dress_code_notes: e.target.value }))} rows={3} />
+                  </div>
+                </div>
+              ) : (
+                <div className="dress-code-display">
+                  {(ev?.dress_code_main || ev?.dress_code_secondary || ev?.dress_code_accent || ev?.dress_code_notes) ? (
+                    <>
+                      <div className="dress-swatches-row">
+                        <div className="dress-swatch-chip">
+                          <span className="dress-swatch-circle" style={{ background: ev.dress_code_main || '#d4af37' }} />
+                          <span>Primary</span>
+                        </div>
+                        <div className="dress-swatch-chip">
+                          <span className="dress-swatch-circle" style={{ background: ev.dress_code_secondary || '#1a1a2e' }} />
+                          <span>Secondary</span>
+                        </div>
+                        <div className="dress-swatch-chip">
+                          <span className="dress-swatch-circle" style={{ background: ev.dress_code_accent || '#ffffff', border: '2px solid rgba(255,255,255,0.22)' }} />
+                          <span>Accent</span>
+                        </div>
+                      </div>
+                      {ev?.dress_code_notes && <p className="dress-notes">{ev.dress_code_notes}</p>}
+                    </>
+                  ) : (
+                    <p className="ev-info-empty">No dress code specified</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Invitations section ── */}
