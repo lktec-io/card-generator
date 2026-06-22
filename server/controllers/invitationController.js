@@ -9,8 +9,6 @@ const { generateStyledQRBuffer }  = require('../utils/qrGenerator');
 const { processCardImage }        = require('../utils/imageProcessor');
 const { eventScopeSQL }           = require('../middleware/authMiddleware');
 
-const CLIENT_URL = process.env.CLIENT_URL || 'https://wedding.nardio.online';
-
 // Ensure the generated/ folder exists at server startup
 const GENERATED_DIR = path.join(__dirname, '..', 'generated');
 if (!fs.existsSync(GENERATED_DIR)) fs.mkdirSync(GENERATED_DIR, { recursive: true });
@@ -31,28 +29,29 @@ async function generateCard(req, res) {
   }
 
   // Optional fields
-  const phone       = (req.body.phone_number || '').trim() || null;
-  const eventId     = req.body.event_id ? parseInt(req.body.event_id, 10) || null : null;
-  const nameColor   = (req.body.name_color   || '#111111').trim();
-  const cnColor     = (req.body.cn_color     || '#222222').trim();
-  const amountColor = (req.body.amount_color || '#222222').trim();
+  const phone   = (req.body.phone_number || '').trim() || null;
+  const eventId = req.body.event_id ? parseInt(req.body.event_id, 10) || null : null;
 
-  let requestedAmount = null;
-  if (req.body.requested_amount) {
-    const parsed = parseFloat(String(req.body.requested_amount).replace(/,/g, ''));
-    if (Number.isFinite(parsed) && parsed >= 0) requestedAmount = parsed;
-  }
+  // Text appearance
+  const nameColor      = (req.body.name_color      || '#111111').trim();
+  const cnColor        = (req.body.cn_color        || '#222222').trim();
+  const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
+  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 40 && nameFontSizeRaw <= 300
+    ? nameFontSizeRaw : 120;
+  const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
+    ? req.body.name_font_weight : '700';
+  const nameTextAlign  = ['left', 'center', 'right'].includes(req.body.name_text_align)
+    ? req.body.name_text_align : 'center';
 
   // Drag-and-drop positions (all in 1080px canvas space, sent as strings from FormData)
   const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
-  const posNameY    = parseNum(req.body.pos_name_y);
-  const posCodeY    = parseNum(req.body.pos_code_y);
-  const posQrLeft   = parseNum(req.body.pos_qr_left);
-  const posQrTop    = parseNum(req.body.pos_qr_top);
-  const posAmountY  = parseNum(req.body.pos_amount_y);
-  const hasPositions = posNameY != null && posCodeY != null && posQrLeft != null && posQrTop != null;
+  const posNameY = parseNum(req.body.pos_name_y);
+  const posCodeY = parseNum(req.body.pos_code_y);
+  const posQrLeft = parseNum(req.body.pos_qr_left);
+  const posQrTop  = parseNum(req.body.pos_qr_top);
+  const hasPositions = posNameY != null;
   const positions = hasPositions
-    ? { nameY: posNameY, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop, amountY: posAmountY }
+    ? { nameY: posNameY, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop }
     : null;
 
   const connection = await pool.getConnection();
@@ -75,9 +74,9 @@ async function generateCard(req, res) {
     // 3 — Insert invitation row
     await connection.execute(
       `INSERT INTO invitations
-         (code, guest_name, phone_number, requested_amount, status, event_id, invitation_uuid)
-       VALUES (?, ?, ?, ?, 'unused', ?, ?)`,
-      [code, guestName, phone, requestedAmount, eventId, uuid]
+         (code, guest_name, phone_number, status, event_id, invitation_uuid)
+       VALUES (?, ?, ?, 'unused', ?, ?)`,
+      [code, guestName, phone, eventId, uuid]
     );
 
     // 4 — Upload original card to Cloudinary
@@ -88,30 +87,21 @@ async function generateCard(req, res) {
       quality:       'auto:best',
     });
 
-    // 5 — Generate styled QR code
-    // Contribution: QR encodes the guest's shareable invite link.
-    // Invitation:   QR encodes the CN code (scanned at entrance).
-    const qrData   = isContribution
-      ? `${CLIENT_URL}/invite/${uuid}`
-      : JSON.stringify({ code, name: guestName });
+    // 5 — Generate QR buffer (invitation only; contribution cards don't render QR)
+    const qrData   = JSON.stringify({ code, name: guestName });
     const qrBuffer = await generateStyledQRBuffer(qrData, 400);
 
-    // 6 — Format amount text for card overlay
-    let amountText = null;
-    if (requestedAmount != null) {
-      amountText = `TZS ${requestedAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-    }
-
-    // 7 — Overlay QR + text onto card image with colour, amount, and optional drag positions
+    // 6 — Overlay text (+ QR for invitation) onto card image
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
+      isContribution,
       nameColor,
       cnColor,
-      amountColor,
-      amount:         amountText,
-      contactName:    event?.contact_name  || null,
-      contactPhone:   event?.contact_phone || null,
+      nameFontSize,
+      nameFontWeight,
+      nameTextAlign,
+      contactName:  event?.contact_name  || null,
+      contactPhone: event?.contact_phone || null,
       positions,
-      isContribution,
     });
 
     // 8 — Save locally for static serving
@@ -490,24 +480,17 @@ async function bulkImport(req, res) {
     const phone = (g.phone_number || '').trim() || null;
     if (!name) { errors.push({ input: g, error: 'Name is required' }); continue; }
 
-    // Optional contribution amount — accepts numbers or numeric strings (e.g. "50,000")
-    let amount = null;
-    if (g.requested_amount !== undefined && g.requested_amount !== null && g.requested_amount !== '') {
-      const parsed = Number(String(g.requested_amount).replace(/,/g, ''));
-      if (Number.isFinite(parsed) && parsed >= 0) amount = parsed;
-    }
-
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
       const code = await getNextCode(connection);
       const uuid = crypto.randomUUID();
       await connection.execute(
-        `INSERT INTO invitations (code, guest_name, phone_number, requested_amount, status, event_id, invitation_uuid) VALUES (?, ?, ?, ?, 'unused', ?, ?)`,
-        [code, name, phone, amount, eventId, uuid]
+        `INSERT INTO invitations (code, guest_name, phone_number, status, event_id, invitation_uuid) VALUES (?, ?, ?, 'unused', ?, ?)`,
+        [code, name, phone, eventId, uuid]
       );
       await connection.commit();
-      created.push({ code, guest_name: name, phone_number: phone, requested_amount: amount, invitation_uuid: uuid });
+      created.push({ code, guest_name: name, phone_number: phone, invitation_uuid: uuid });
     } catch (err) {
       await connection.rollback();
       errors.push({ input: g, error: err.message });
