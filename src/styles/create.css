@@ -505,6 +505,37 @@
   font-family: monospace;
 }
 
+/* ── Text style chips (weight / alignment toggles) ───────────────────── */
+
+.style-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-family: var(--font-main);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  white-space: nowrap;
+  min-height: 28px;
+}
+
+.style-chip:hover { border-color: rgba(212, 175, 55, 0.40); color: var(--text); }
+
+.style-chip.active {
+  border-color: rgba(212, 175, 55, 0.60);
+  background: rgba(212, 175, 55, 0.12);
+  color: var(--gold);
+}
+
+.style-chip--icon {
+  padding: 0.25rem 0.5rem;
+}
+
 /* ── Drag-and-drop canvas ────────────────────────────────────────────── */
 
 .drag-preview-wrap {

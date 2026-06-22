@@ -1,21 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  MdArrowBack, MdCalendarToday, MdLocationOn, MdPalette,
+  MdArrowBack, MdCalendarToday, MdLocationOn,
   MdMap, MdPeople, MdCheckCircle, MdHourglassEmpty,
   MdThumbUp, MdThumbDown, MdDownload, MdShare, MdDelete,
-  MdQrCodeScanner, MdEdit, MdSave, MdClose, MdContentCopy,
+  MdEdit, MdSave, MdClose, MdContentCopy,
   MdOpenInNew, MdVisibility, MdGridView, MdViewList, MdAddPhotoAlternate,
-  MdWarning, MdSms, MdAttachMoney, MdGroups, MdIosShare,
 } from 'react-icons/md';
-import { FaWhatsapp } from 'react-icons/fa';
-import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage, trackInvitationShare } from '../utils/api';
+import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
 import ConfirmModal from '../components/ConfirmModal';
 import '../styles/events.css';
 import '../styles/voice-recorder.css';
-import '../styles/contribution.css';
 
 const EVENT_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
@@ -46,35 +43,6 @@ function StatusBadge({ status }) {
       {status === 'used' ? 'Checked In' : 'Pending'}
     </span>
   );
-}
-
-function formatAmount(n) {
-  const num = Number(n);
-  if (!Number.isFinite(num)) return '0';
-  return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
-
-// Exact Swahili message format from the Contribution Campaign spec —
-// guests see this whether shared by the admin or re-shared by themselves.
-function buildContributionMessage(inv, ev, link) {
-  const amount = inv.requested_amount != null ? formatAmount(inv.requested_amount) : '0';
-  return [
-    `Habari ${inv.guest_name}`,
-    '',
-    'Unaombwa kuchangia katika:',
-    '',
-    ev?.event_name || '',
-    '',
-    'Kiasi kilichopangwa:',
-    '',
-    `TZS ${amount}`,
-    '',
-    'Fungua link yako hapa:',
-    '',
-    link,
-    '',
-    'Asante kwa ushirikiano wako.',
-  ].join('\n');
 }
 
 function inviteLink(inv) {
@@ -112,8 +80,6 @@ export default function EventDetailPage() {
       dress_code_accent:    ev.dress_code_accent     || '#ffffff',
       name_color:           ev.name_color            || '#111111',
       cn_color:             ev.cn_color              || '#222222',
-      amount_color:         ev.amount_color          || '#222222',
-      description:          ev.description           || '',
     };
   }
 
@@ -236,43 +202,6 @@ export default function EventDetailPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(fullMessage)}`, '_blank');
   };
 
-  /* ── Contribution Campaign sharing — WhatsApp / SMS / Copy Link ──
-     Each action also stamps invitations.shared_at (fire-and-forget) so the
-     "Total Shared" Contribution Dashboard metric stays accurate. */
-  const handleShareContribution = (inv, channel) => {
-    const link    = inviteLink(inv);
-    const message = buildContributionMessage(inv, data?.event, link);
-
-    if (channel === 'whatsapp') {
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-    } else if (channel === 'sms') {
-      const phone = (inv.phone_number || '').replace(/[^\d+]/g, '');
-      window.location.href = `sms:${phone}?body=${encodeURIComponent(message)}`;
-    } else if (channel === 'copy') {
-      navigator.clipboard.writeText(message)
-        .then(() => showToast('Message copied successfully!', 'success'))
-        .catch(() => showToast('Failed to copy.', 'error'));
-    }
-
-    trackInvitationShare(inv.id)
-      .then(({ data: d }) => {
-        if (!d?.success) return;
-        setData((prev) => {
-          if (!prev) return prev;
-          const alreadyShared = prev.invitations.find((i) => i.id === inv.id)?.shared_at;
-          return {
-            ...prev,
-            invitations: prev.invitations.map((i) =>
-              i.id === inv.id ? { ...i, shared_at: i.shared_at || new Date().toISOString() } : i),
-            contribution: prev.contribution && !alreadyShared
-              ? { ...prev.contribution, total_shared: (Number(prev.contribution.total_shared) || 0) + 1 }
-              : prev.contribution,
-          };
-        });
-      })
-      .catch(() => {});
-  };
-
   /* ── Copy invite link ── */
   const handleCopyLink = (inv) => {
     const url = inviteLink(inv);
@@ -336,33 +265,6 @@ export default function EventDetailPage() {
     </div>
   );
 
-  /* ── Action buttons for Contribution Campaign invitations ──
-     Contribution cards are rendered dynamically (no static image_url), so
-     "Download" lives on the guest preview page — admins are pointed there.
-     Sharing exposes all three spec'd channels directly. */
-  const ContributionActionButtons = ({ inv }) => (
-    <div className="row-actions">
-      <button className="btn-action btn-share" onClick={() => handleShareContribution(inv, 'whatsapp')} title="Share via WhatsApp">
-        <FaWhatsapp size={14} />
-      </button>
-      <button className="btn-action btn-share" onClick={() => handleShareContribution(inv, 'sms')} title="Share via SMS">
-        <MdSms size={14} />
-      </button>
-      <button className="btn-action btn-copy" onClick={() => handleShareContribution(inv, 'copy')} title="Copy contribution message">
-        <MdContentCopy size={14} />
-      </button>
-      <button className="btn-action btn-open" onClick={() => handleOpen(inv)} title="Open guest view">
-        <MdOpenInNew size={14} />
-      </button>
-      <button className="btn-action btn-preview" onClick={() => handlePreview(inv)} title="Preview & download card">
-        <MdVisibility size={14} />
-      </button>
-      <button className="btn-action btn-delete" onClick={() => openDelModal(inv)} title="Delete">
-        <MdDelete size={14} />
-      </button>
-    </div>
-  );
-
   /* ── Loading / error states ── */
   if (loading) return (
     <div className="events-page page-enter">
@@ -381,11 +283,10 @@ export default function EventDetailPage() {
     </div>
   );
 
-  const ev           = data?.event;
-  const invs         = data?.invitations || [];
-  const stats        = data?.stats || {};
-  const rsvp         = data?.rsvp  || {};
-  const contribution = data?.contribution || {};
+  const ev             = data?.event;
+  const invs           = data?.invitations || [];
+  const stats          = data?.stats || {};
+  const rsvp           = data?.rsvp  || {};
   const isContribution = ev?.event_mode === 'contribution';
 
   return (
@@ -431,24 +332,8 @@ export default function EventDetailPage() {
 
         {/* ── Stats row ── */}
         {isContribution ? (
-          /* ── Contribution Dashboard ── */
-          <div className="cd-stats-grid">
-            <div className="cd-stat-card">
-              <span className="cd-stat-label"><MdGroups size={15} /> Total Records</span>
-              <span className="cd-stat-value">{contribution.total_records ?? 0}</span>
-            </div>
-            <div className="cd-stat-card">
-              <span className="cd-stat-label"><MdAttachMoney size={15} /> Total Requested Amount</span>
-              <span className="cd-stat-value">TZS {formatAmount(contribution.total_requested_amount)}</span>
-            </div>
-            <div className="cd-stat-card">
-              <span className="cd-stat-label"><MdAttachMoney size={15} /> Average Contribution</span>
-              <span className="cd-stat-value">TZS {formatAmount(contribution.avg_contribution)}</span>
-            </div>
-            <div className="cd-stat-card">
-              <span className="cd-stat-label"><MdIosShare size={15} /> Total Shared</span>
-              <span className="cd-stat-value">{contribution.total_shared ?? 0}</span>
-            </div>
+          <div className="ev-stats-row">
+            <div className="ev-mini-stat"><MdPeople size={18}/><span>{invs.length}</span><label>Total Cards</label></div>
           </div>
         ) : (
           <div className="ev-stats-row">
@@ -503,12 +388,6 @@ export default function EventDetailPage() {
                     <label>Contact Phone</label>
                     <input type="tel" value={form.contact_phone || ''} onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))} placeholder="+255754123456" />
                   </div>
-                  {isContribution && (
-                    <div className="ev-info-edit-row">
-                      <label>Description</label>
-                      <textarea rows={3} value={form.description || ''} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Maelezo mafupi kuhusu kampeni hii…" />
-                    </div>
-                  )}
                 </>
               ) : (
                 <>
@@ -527,13 +406,7 @@ export default function EventDetailPage() {
                       <a href={`tel:${ev.contact_phone}`} className="ev-maps-link">{ev.contact_name || ev.contact_phone}</a>
                     </div>
                   )}
-                  {isContribution && ev?.description && (
-                    <div className="ev-info-row ev-description">
-                      <span style={{width:15,textAlign:'center'}}>📝</span>
-                      <span>{ev.description}</span>
-                    </div>
-                  )}
-                  {!ev?.event_date && !ev?.venue && !ev?.description && <p className="ev-info-empty">No details added</p>}
+                  {!ev?.event_date && !ev?.venue && <p className="ev-info-empty">No details added</p>}
                 </>
               )}
             </div>
@@ -628,7 +501,7 @@ export default function EventDetailPage() {
                 </div>
               )}
               <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
-                <MdAddPhotoAlternate size={15} /> {isContribution ? 'Import Contributors' : 'Add Invitations'}
+                <MdAddPhotoAlternate size={15} /> {isContribution ? 'Generate Cards' : 'Add Invitations'}
               </button>
             </div>
           </div>
@@ -637,39 +510,32 @@ export default function EventDetailPage() {
             <div className="events-empty" style={{ padding: '3rem 1rem' }}>
               <MdPeople size={48} style={{ opacity: 0.25 }} />
               <h3>No {isContribution ? 'Contributors' : 'Invitations'} Yet</h3>
-              <p>{isContribution ? 'Import a contributors list (CSV) to start sharing contribution cards.' : 'Add invitations to start tracking guests.'}</p>
+              <p>{isContribution ? 'Generate personalised contribution cards for your guests.' : 'Add invitations to start tracking guests.'}</p>
               <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
-                <MdAddPhotoAlternate size={15} /> {isContribution ? 'Import Contributors' : 'Create First Invitation'}
+                <MdAddPhotoAlternate size={15} /> {isContribution ? 'Generate First Card' : 'Create First Invitation'}
               </button>
             </div>
           ) : isContribution ? (
-            /* ── CONTRIBUTION TABLE — Code / Name / Phone / Amount / Shared ── */
+            /* ── CONTRIBUTION TABLE — Code / Name / Created / Actions ── */
             <div className="table-scroll">
               <table className="inv-table">
                 <thead>
                   <tr>
-                    <th>Code</th><th>Guest Name</th><th>Phone</th><th>Amount</th>
-                    <th>Shared</th><th>Created</th><th>Actions</th>
+                    <th>Card</th><th>Code</th><th>Guest Name</th><th>Created</th><th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invs.map(inv => (
                     <tr key={inv.id}>
-                      <td><span className="code-cell">{inv.code}</span></td>
-                      <td><strong>{inv.guest_name}</strong></td>
-                      <td className="date-cell">{inv.phone_number || '—'}</td>
                       <td>
-                        {inv.requested_amount != null
-                          ? <span className="cd-amount-badge">TZS {formatAmount(inv.requested_amount)}</span>
+                        {inv.image_url
+                          ? <a href={inv.image_url} target="_blank" rel="noreferrer"><img src={inv.image_url} alt={inv.code} className="thumb" /></a>
                           : <span className="no-thumb">—</span>}
                       </td>
-                      <td>
-                        {inv.shared_at
-                          ? <span className="rsvp-mini rsvp-mini--attending">✓ Shared</span>
-                          : <span className="rsvp-mini rsvp-mini--none">—</span>}
-                      </td>
+                      <td><span className="code-cell">{inv.code}</span></td>
+                      <td><strong>{inv.guest_name}</strong></td>
                       <td className="date-cell">{formatDateTime(inv.created_at)}</td>
-                      <td><ContributionActionButtons inv={inv} /></td>
+                      <td><ActionButtons inv={inv} /></td>
                     </tr>
                   ))}
                 </tbody>

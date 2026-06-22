@@ -12,7 +12,7 @@ import '../styles/events.css';
 
 const EVENT_MODES = [
   { key: 'invitation',   label: 'Invitation Event',     hint: 'RSVP, QR Check-in & Attendance Statistics' },
-  { key: 'contribution', label: 'Contribution Campaign', hint: 'Contribution Cards, Amount Tracking & Dashboard' },
+  { key: 'contribution', label: 'Contribution Campaign', hint: 'Personalised card generation — name printed per guest' },
 ];
 
 const EVENT_TYPES = [
@@ -38,10 +38,10 @@ function formatDate(raw) {
 
 const EMPTY_FORM = {
   event_name: '', event_type: 'Wedding', event_mode: 'invitation', event_date: '', event_time: '',
-  venue: '', maps_link: '', contact_name: '', contact_phone: '', description: '',
+  venue: '', maps_link: '', contact_name: '', contact_phone: '',
   dress_code_main: '#d4af37', dress_code_secondary: '#1a1a2e', dress_code_accent: '#ffffff',
   dress_code_notes: '', template_id: null, assigned_to: '',
-  name_color: '#111111', cn_color: '#222222', amount_color: '#222222',
+  name_color: '#111111', cn_color: '#222222',
 };
 
 export default function EventsPage() {
@@ -219,15 +219,6 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              {/* ── Contribution-only: description ── */}
-              {form.event_mode === 'contribution' && (
-                <div className="ef-field ef-field--full">
-                  <label>Description (optional)</label>
-                  <textarea name="description" value={form.description} onChange={handleChange} rows={3}
-                    placeholder="Maelezo mafupi kuhusu kampeni hii ya mchango…" />
-                </div>
-              )}
-
               {/* ── Invitation-only: dress code ── */}
               {form.event_mode === 'invitation' && (
                 <>
@@ -279,37 +270,6 @@ export default function EventsPage() {
                   </select>
                 </div>
               )}
-
-              {/* ── Card text colors (both modes) ── */}
-              <div className="ef-field ef-field--full" style={{ marginTop: '0.25rem' }}>
-                <label>Card Text Colors</label>
-              </div>
-              <div className="ef-row ef-row--3">
-                <div className="ef-field">
-                  <label style={{ fontSize: '0.75rem', opacity: 0.75 }}>Guest Name</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" name="name_color" value={form.name_color || '#111111'} onChange={handleChange} />
-                    <span className="color-swatch" style={{ background: form.name_color || '#111111' }} />
-                    <span className="color-hex">{form.name_color || '#111111'}</span>
-                  </div>
-                </div>
-                <div className="ef-field">
-                  <label style={{ fontSize: '0.75rem', opacity: 0.75 }}>Code (CN)</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" name="cn_color" value={form.cn_color || '#222222'} onChange={handleChange} />
-                    <span className="color-swatch" style={{ background: form.cn_color || '#222222' }} />
-                    <span className="color-hex">{form.cn_color || '#222222'}</span>
-                  </div>
-                </div>
-                <div className="ef-field">
-                  <label style={{ fontSize: '0.75rem', opacity: 0.75 }}>Amount</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" name="amount_color" value={form.amount_color || '#222222'} onChange={handleChange} />
-                    <span className="color-swatch" style={{ background: form.amount_color || '#222222' }} />
-                    <span className="color-hex">{form.amount_color || '#222222'}</span>
-                  </div>
-                </div>
-              </div>
 
               {formError && <p className="ef-error">{formError}</p>}
               <div className="ef-actions">
