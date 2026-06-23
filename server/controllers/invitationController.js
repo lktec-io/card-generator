@@ -36,8 +36,11 @@ async function generateCard(req, res) {
   const nameColor      = (req.body.name_color      || '#111111').trim();
   const cnColor        = (req.body.cn_color        || '#222222').trim();
   const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
-  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 40 && nameFontSizeRaw <= 300
-    ? nameFontSizeRaw : 150;
+  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 12 && nameFontSizeRaw <= 300
+    ? nameFontSizeRaw : 80;
+  const cnFontSizeRaw  = parseInt(req.body.cn_font_size, 10);
+  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw >= 12 && cnFontSizeRaw <= 300
+    ? cnFontSizeRaw : 50;
   const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
     ? req.body.name_font_weight : '700';
   const nameTextAlign  = ['left', 'center', 'right'].includes(req.body.name_text_align)
@@ -105,6 +108,7 @@ async function generateCard(req, res) {
       nameColor,
       cnColor,
       nameFontSize,
+      cnFontSize,
       nameFontWeight,
       nameTextAlign,
       contactName:  event?.contact_name  || null,
@@ -545,8 +549,11 @@ async function renderCard(req, res) {
   const nameColor      = (req.body.name_color || '#111111').trim();
   const cnColor        = (req.body.cn_color   || '#222222').trim();
   const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
-  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 40 && nameFontSizeRaw <= 300
-    ? nameFontSizeRaw : 150;
+  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 12 && nameFontSizeRaw <= 300
+    ? nameFontSizeRaw : 80;
+  const cnFontSizeRaw  = parseInt(req.body.cn_font_size, 10);
+  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw >= 12 && cnFontSizeRaw <= 300
+    ? cnFontSizeRaw : 50;
   const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
     ? req.body.name_font_weight : '700';
 
@@ -577,6 +584,7 @@ async function renderCard(req, res) {
       nameColor,
       cnColor,
       nameFontSize,
+      cnFontSize,
       nameFontWeight,
       contactName,
       contactPhone,
