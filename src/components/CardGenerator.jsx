@@ -4,10 +4,17 @@ import { generateCard, updateEvent } from '../utils/api';
 import {
   MdAutoAwesome, MdDownload, MdAddPhotoAlternate,
   MdExpandMore, MdExpandLess, MdDragIndicator,
-  MdFormatAlignLeft, MdFormatAlignCenter, MdFormatAlignRight,
 } from 'react-icons/md';
 import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
+
+// Must match imageProcessor.js: QR_SIZE(220) + QR_PAD(16)*2
+const QR_BLOCK = 252;
+
+// Fixed typography — not user-configurable; must match server rendering
+const NAME_FONT_SIZE   = 120;
+const NAME_FONT_WEIGHT = '700';
+const NAME_TEXT_ALIGN  = 'center';
 
 export default function CardGenerator({ event = null }) {
   const eventId = event?.id || null;
@@ -22,13 +29,10 @@ export default function CardGenerator({ event = null }) {
   const [guestName,   setGuestName]   = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
-  // ── Text style ───────────────────────────────────────────────────────
-  const [nameColor,      setNameColor]      = useState(event?.name_color || '#111111');
-  const [cnColor,        setCnColor]        = useState(event?.cn_color   || '#222222');
-  const [nameFontSize,   setNameFontSize]   = useState(120);
-  const [nameFontWeight, setNameFontWeight] = useState('700');
-  const [nameTextAlign,  setNameTextAlign]  = useState('center');
-  const [showStyle,      setShowStyle]      = useState(false);
+  // ── Text colors ───────────────────────────────────────────────────────
+  const [nameColor, setNameColor] = useState(event?.name_color || '#111111');
+  const [cnColor,   setCnColor]   = useState(event?.cn_color   || '#222222');
+  const [showStyle, setShowStyle] = useState(false);
 
   // ── Result ──────────────────────────────────────────────────────────
   const [result,   setResult]   = useState(null);
@@ -36,7 +40,7 @@ export default function CardGenerator({ event = null }) {
   const [progress, setProgress] = useState(0);
   const [error,    setError]    = useState('');
 
-  // ── Drag-and-drop overlay ────────────────────────────────────────────
+  // ── Drag overlay ─────────────────────────────────────────────────────
   const overlayRef = useRef(null);
   const [overlayW, setOverlayW] = useState(0);
   const [overlayH, setOverlayH] = useState(0);
@@ -55,18 +59,25 @@ export default function CardGenerator({ event = null }) {
     nameY:  Math.round(canvasH * 0.78),
     codeX:  540,
     codeY:  Math.round(canvasH * 0.86),
-    qrLeft: Math.round((1080 - 202) / 2),
+    qrLeft: Math.round((1080 - QR_BLOCK) / 2),
     qrTop:  Math.round(canvasH * 0.54),
   }), [canvasH]);
 
+  // Initialize pos on first image load only — do NOT reset when result image loads
   useEffect(() => {
     if (!imgSize) { setPos(null); return; }
-    const lc       = event?.layout_config;
-    const defaults = getDefaults();
-    setPos(lc && typeof lc === 'object' && lc.nameY != null ? { ...defaults, ...lc } : defaults);
+    setPos(prev => {
+      if (prev !== null) return prev;
+      const lc       = event?.layout_config;
+      const defaults = getDefaults();
+      return lc && typeof lc === 'object' && lc.nameY != null
+        ? { ...defaults, ...lc }
+        : defaults;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imgSize]);
 
+  // ResizeObserver — reconnects when a new image is uploaded
   useEffect(() => {
     const el = overlayRef.current;
     if (!el) return;
@@ -95,7 +106,7 @@ export default function CardGenerator({ event = null }) {
   const handleDrop = (e) => { e.preventDefault(); setDragOver(false); loadFile(e.dataTransfer.files[0]); };
   const onImgLoad  = (e) => setImgSize({ w: e.target.naturalWidth, h: e.target.naturalHeight });
 
-  // ── Progress ─────────────────────────────────────────────────────────
+  // ── Progress bar ─────────────────────────────────────────────────────
   const finishProgress = () => {
     setProgress(100);
     setTimeout(() => { setProgress(0); setLoading(false); }, 350);
@@ -105,7 +116,7 @@ export default function CardGenerator({ event = null }) {
   const updatePos = (updates) => setPos(p => ({ ...p, ...updates }));
   const clamp     = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-  // ── Generate ─────────────────────────────────────────────────────────
+  // ── Generate / Regenerate ─────────────────────────────────────────────
   const handleGenerate = async () => {
     if (!imageFile)        return setError('Please upload a card image first.');
     if (!guestName.trim()) return setError('Guest name is required.');
@@ -120,9 +131,9 @@ export default function CardGenerator({ event = null }) {
     fd.append('phone_number',     phoneNumber.trim() || '');
     fd.append('name_color',       nameColor);
     fd.append('cn_color',         cnColor);
-    fd.append('name_font_size',   String(nameFontSize));
-    fd.append('name_font_weight', nameFontWeight);
-    fd.append('name_text_align',  nameTextAlign);
+    fd.append('name_font_size',   String(NAME_FONT_SIZE));
+    fd.append('name_font_weight', NAME_FONT_WEIGHT);
+    fd.append('name_text_align',  NAME_TEXT_ALIGN);
     if (eventId) fd.append('event_id', String(eventId));
 
     if (pos) {
@@ -151,7 +162,7 @@ export default function CardGenerator({ event = null }) {
     }
   };
 
-  // Blob download — works cross-origin (Cloudinary URLs ignore the `download` attr)
+  // Blob download — cross-origin safe (Cloudinary URLs ignore HTML `download` attr)
   const handleDownload = async () => {
     if (!result?.image_url) return;
     try {
@@ -182,13 +193,16 @@ export default function CardGenerator({ event = null }) {
     setPos(null);
   };
 
-  // ── Canvas visibility ─────────────────────────────────────────────────
-  const showDragCanvas = !!(imagePreview && !result && !loading);
-  const dragReady      = showDragCanvas && pos && overlayW > 0 && overlayH > 0;
+  // ── Derived display state ─────────────────────────────────────────────
+  // After generation: show the generated card as background; before: show original preview
+  const displayImage = result?.image_url || imagePreview;
 
-  // Scaled element sizes for overlay
-  const qrBoxPx    = Math.max(24, Math.round(202 * scale));
-  const nameFontPx = Math.max(8,  Math.round(nameFontSize * scale));
+  // Drag handles only appear AFTER generation, overlaid on the generated card
+  const dragReady = !!(result && pos && overlayW > 0 && overlayH > 0);
+
+  // Element sizes in overlay pixels
+  const qrBoxPx    = Math.max(24, Math.round(QR_BLOCK * scale));
+  const nameFontPx = Math.max(8,  Math.round(NAME_FONT_SIZE * scale));
   const codeFontPx = Math.max(8,  Math.round(96 * scale));
 
   return (
@@ -201,7 +215,7 @@ export default function CardGenerator({ event = null }) {
         <div className="create-header">
           <span className="create-ornament">— Card Generator —</span>
           <h1>Create Invitation Card</h1>
-          <p>Upload your card design, drag to position, then generate.</p>
+          <p>Upload your card design, enter guest details, then generate.</p>
         </div>
 
         <div className="create-layout">
@@ -241,7 +255,7 @@ export default function CardGenerator({ event = null }) {
             </div>
 
             <div className="form-group">
-              <label htmlFor="cg-phone">Phone Number</label>
+              <label htmlFor="cg-phone">Phone Number <span style={{ opacity: 0.5, fontWeight: 400 }}>(optional)</span></label>
               <input
                 id="cg-phone"
                 type="tel"
@@ -252,87 +266,29 @@ export default function CardGenerator({ event = null }) {
               />
             </div>
 
-            {/* Text style — collapsible */}
+            {/* Text colors only — collapsible */}
             <div className="color-section">
               <button
                 type="button"
                 className="color-section-toggle"
                 onClick={() => setShowStyle(v => !v)}
               >
-                Text Style
+                Text Colors
                 {showStyle ? <MdExpandLess size={18} /> : <MdExpandMore size={18} />}
               </button>
 
               {showStyle && (
                 <div className="color-pickers-grid">
-
-                  {/* Name Color */}
                   <div className="color-picker-row">
                     <span className="color-picker-label">Name Color</span>
                     <input type="color" value={nameColor} onChange={(e) => setNameColor(e.target.value)} />
                     <span className="color-hex-sm">{nameColor}</span>
                   </div>
-
-                  {/* CN Color */}
                   <div className="color-picker-row">
                     <span className="color-picker-label">Code (CN)</span>
                     <input type="color" value={cnColor} onChange={(e) => setCnColor(e.target.value)} />
                     <span className="color-hex-sm">{cnColor}</span>
                   </div>
-
-                  {/* Font Size */}
-                  <div className="color-picker-row" style={{ gap: '0.6rem', alignItems: 'center' }}>
-                    <span className="color-picker-label">Size</span>
-                    <input
-                      type="range"
-                      min="60" max="200" step="10"
-                      value={nameFontSize}
-                      onChange={(e) => setNameFontSize(Number(e.target.value))}
-                      style={{ flex: 1 }}
-                    />
-                    <span className="color-hex-sm" style={{ minWidth: '3ch', textAlign: 'right' }}>{nameFontSize}</span>
-                  </div>
-
-                  {/* Font Weight */}
-                  <div className="color-picker-row" style={{ gap: '0.5rem' }}>
-                    <span className="color-picker-label">Weight</span>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                      {[['normal', 'Normal'], ['700', 'Bold']].map(([val, lbl]) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setNameFontWeight(val)}
-                          className={`style-chip${nameFontWeight === val ? ' active' : ''}`}
-                          style={{ fontWeight: val === '700' ? 700 : 400 }}
-                        >
-                          {lbl}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Text Alignment */}
-                  <div className="color-picker-row" style={{ gap: '0.5rem' }}>
-                    <span className="color-picker-label">Align</span>
-                    <div style={{ display: 'flex', gap: '0.4rem' }}>
-                      {[
-                        ['left',   <MdFormatAlignLeft   key="l" size={16} />],
-                        ['center', <MdFormatAlignCenter key="c" size={16} />],
-                        ['right',  <MdFormatAlignRight  key="r" size={16} />],
-                      ].map(([val, icon]) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setNameTextAlign(val)}
-                          className={`style-chip style-chip--icon${nameTextAlign === val ? ' active' : ''}`}
-                          title={val}
-                        >
-                          {icon}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                 </div>
               )}
             </div>
@@ -358,7 +314,7 @@ export default function CardGenerator({ event = null }) {
             )}
           </div>
 
-          {/* ── Right: drag canvas / result / placeholder ── */}
+          {/* ── Right: preview + drag overlay + result actions ── */}
           <div className="result-panel">
             {loading ? (
               <div className="generate-loading">
@@ -366,29 +322,14 @@ export default function CardGenerator({ event = null }) {
                 <p>Creating your card…</p>
               </div>
 
-            ) : result ? (
-              <div className="result-card fade">
-                <img
-                  src={result.image_url}
-                  alt={result.guest_name}
-                  style={{ width: '100%', borderRadius: 'var(--radius-md)', display: 'block' }}
-                />
-                <div className="result-actions">
-                  <button className="btn-gold" onClick={handleDownload}>
-                    <MdDownload size={17} /> Download PNG
-                  </button>
-                  <button className="btn-outline" onClick={handleReset}>
-                    <FiRefreshCw size={15} /> New Card
-                  </button>
-                </div>
-              </div>
-
-            ) : showDragCanvas ? (
+            ) : displayImage ? (
               <div className="drag-preview-wrap">
-                <p className="drag-hint-label">
-                  <MdDragIndicator size={14} />
-                  Drag QR, Name &amp; Code freely — mouse or finger
-                </p>
+                {result && (
+                  <p className="drag-hint-label">
+                    <MdDragIndicator size={14} />
+                    Drag QR, Name &amp; Code to reposition &mdash; Regenerate to apply
+                  </p>
+                )}
 
                 <div
                   ref={overlayRef}
@@ -396,23 +337,24 @@ export default function CardGenerator({ event = null }) {
                   style={{ position: 'relative', overflow: 'hidden', userSelect: 'none' }}
                 >
                   <img
-                    src={imagePreview}
+                    src={displayImage}
                     alt="Card preview"
                     onLoad={onImgLoad}
                     style={{ width: '100%', display: 'block', borderRadius: 'var(--radius-md)' }}
                     draggable={false}
                   />
 
+                  {/* Drag handles — only after generation, on the generated card */}
                   {dragReady && (
                     <>
-                      {/* QR placeholder — free 2D drag */}
+                      {/* QR block — free X+Y drag */}
                       <Draggable
                         nodeRef={qrRef}
                         position={{ x: pos.qrLeft * scale, y: pos.qrTop * scale }}
                         bounds={{ top: 0, left: 0, right: overlayW - qrBoxPx, bottom: overlayH - qrBoxPx }}
                         onStop={(_, d) => updatePos({
-                          qrLeft: clamp(Math.round(d.x / scale), 0, 1080 - 202),
-                          qrTop:  clamp(Math.round(d.y / scale), 0, canvasH - 202),
+                          qrLeft: clamp(Math.round(d.x / scale), 0, 1080 - QR_BLOCK),
+                          qrTop:  clamp(Math.round(d.y / scale), 0, canvasH - QR_BLOCK),
                         })}
                       >
                         <div
@@ -443,14 +385,14 @@ export default function CardGenerator({ event = null }) {
                           <span className="drag-el-badge">Name</span>
                           <span
                             className="drag-el-text-preview"
-                            style={{ fontSize: nameFontPx, fontWeight: nameFontWeight, color: nameColor }}
+                            style={{ fontSize: nameFontPx, fontWeight: NAME_FONT_WEIGHT, color: nameColor }}
                           >
                             {guestName || 'Guest Name'}
                           </span>
                         </div>
                       </Draggable>
 
-                      {/* Code (CN) — free X+Y drag */}
+                      {/* CN code — free X+Y drag */}
                       <Draggable
                         nodeRef={codeRef}
                         position={{ x: pos.codeX * scale, y: pos.codeY * scale }}
@@ -468,19 +410,38 @@ export default function CardGenerator({ event = null }) {
                           <MdDragIndicator size={Math.max(10, Math.round(14 * scale))} className="drag-el-icon" />
                           <span className="drag-el-badge">CN</span>
                           <span className="drag-el-text-preview" style={{ fontSize: codeFontPx, letterSpacing: '0.2em', color: cnColor }}>
-                            CN-###
+                            {result?.code || 'CN-###'}
                           </span>
                         </div>
                       </Draggable>
                     </>
                   )}
                 </div>
+
+                {/* Action buttons — only shown after generation */}
+                {result && (
+                  <div className="result-actions">
+                    <button className="btn-gold" onClick={handleDownload}>
+                      <MdDownload size={17} /> Download PNG
+                    </button>
+                    <button
+                      className="btn-outline"
+                      onClick={handleGenerate}
+                      disabled={loading || !imageFile}
+                    >
+                      <MdAutoAwesome size={15} /> Regenerate
+                    </button>
+                    <button className="btn-outline" onClick={handleReset}>
+                      <FiRefreshCw size={15} /> New Card
+                    </button>
+                  </div>
+                )}
               </div>
 
             ) : (
               <div className="result-placeholder">
                 <div className="result-placeholder-icon">🎴</div>
-                <p>Upload a card image to start positioning elements</p>
+                <p>Upload a card image to get started</p>
               </div>
             )}
           </div>
