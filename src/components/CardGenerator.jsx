@@ -8,8 +8,8 @@ import {
 import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
-// Must stay in sync with imageProcessor.js: QR_SIZE(220) + QR_PAD(16)*2
-const QR_BLOCK = 252;
+// Must stay in sync with imageProcessor.js: QR_SIZE(170) + QR_PAD(16)*2
+const QR_BLOCK = 202;
 
 export default function CardGenerator({ event = null }) {
   const eventId = event?.id || null;
