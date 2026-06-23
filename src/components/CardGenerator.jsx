@@ -18,15 +18,15 @@ export default function CardGenerator({ event }) {
   const fileInputRef = useRef(null);
 
   // ── Form ───────────────────────────────────────────────────────────────────
-  const [guestName,    setGuestName]    = useState('');
-  const [phone,        setPhone]        = useState('');
-  const [nameColor,    setNameColor]    = useState('#111111');
-  const [cnColor,      setCnColor]      = useState('#222222');
-  // Font sizes are ABSOLUTE OUTPUT PIXELS — same value used in downloaded PNG
-  const [nameFontSize, setNameFontSize] = useState(150);
-  const [cnFontSize,   setCnFontSize]   = useState(100);
-  const [showQR,       setShowQR]       = useState(true);
-  const [showCN,       setShowCN]       = useState(true);
+  const [guestName,       setGuestName]       = useState('');
+  const [phone,           setPhone]           = useState('');
+  const [nameColor,       setNameColor]       = useState('#111111');
+  const [cnColor,         setCnColor]         = useState('#222222');
+  // String state for free input — empty means "use server default (150/100)"
+  const [nameFontSizeStr, setNameFontSizeStr] = useState('');
+  const [cnFontSizeStr,   setCnFontSizeStr]   = useState('');
+  const [showQR,          setShowQR]          = useState(true);
+  const [showCN,          setShowCN]          = useState(true);
 
   // ── Status ─────────────────────────────────────────────────────────────────
   const [loading,     setLoading]     = useState(false);
@@ -35,16 +35,13 @@ export default function CardGenerator({ event }) {
   const [error,       setError]       = useState(null);
 
   // ── Canvas geometry ────────────────────────────────────────────────────────
-  // canvasH: image height in 1080-canvas space (1080 × naturalH/naturalW)
-  // Used ONLY for position proportions — not for font sizing.
-  const [canvasH,      setCanvasH]      = useState(1350);
-  // outputCardW: the actual pixel width the server will produce (max(naturalW, 1200))
-  // This drives preview font scaling to be pixel-accurate.
-  const [outputCardW,  setOutputCardW]  = useState(1200);
-  // overlayW: screen-pixel width of the drag container
-  const [overlayW,     setOverlayW]     = useState(400);
-  // pos: all coordinates in 1080-canvas space (proportional); Y = text baseline
-  const [pos, setPos] = useState(null);
+  const [canvasH,     setCanvasH]     = useState(1350);
+  const [outputCardW, setOutputCardW] = useState(1200);
+  const [overlayW,    setOverlayW]    = useState(400);
+  const [pos,         setPos]         = useState(null);
+  // Natural image pixel dimensions → sent to server so it skips metadata() read
+  const [naturalImgW, setNaturalImgW] = useState(0);
+  const [naturalImgH, setNaturalImgH] = useState(0);
 
   const overlayRef    = useRef(null);
   const nameAnchorRef = useRef(null);
@@ -52,12 +49,14 @@ export default function CardGenerator({ event }) {
   const qrBoxRef      = useRef(null);
 
   // posScale: converts 1080-canvas coords → screen pixels (for drag positions)
-  const posScale   = overlayW / 1080;
-  // fontScale: converts absolute output px → screen pixels (for preview text)
-  // outputCardW is the real card width the server will produce → honest preview
-  const fontScale  = overlayW / outputCardW;
-  const overlayH   = Math.round(canvasH * posScale);
-  const qrBoxPx    = Math.round(QR_BLOCK * posScale);
+  const posScale  = overlayW / 1080;
+  const fontScale = overlayW / outputCardW;
+  const overlayH  = Math.round(canvasH * posScale);
+  const qrBoxPx   = Math.round(QR_BLOCK * posScale);
+
+  // Derived font sizes — null when empty (server uses its built-in default)
+  const nameFontSize = nameFontSizeStr !== '' ? Math.max(1, parseInt(nameFontSizeStr, 10) || 1) : null;
+  const cnFontSize   = cnFontSizeStr   !== '' ? Math.max(1, parseInt(cnFontSizeStr,   10) || 1) : null;
 
   // ── Track overlay width ────────────────────────────────────────────────────
   useEffect(() => {
@@ -83,26 +82,27 @@ export default function CardGenerator({ event }) {
   const onFileChange = (e) => { if (e.target.files?.[0]) handleImageFile(e.target.files[0]); };
 
   // ── Image natural dimensions → geometry ───────────────────────────────────
-  const onImgLoad = (e) => {
+  const onImgLoad = useCallback((e) => {
     const { naturalWidth: nw, naturalHeight: nh } = e.currentTarget;
+    setNaturalImgW(nw);
+    setNaturalImgH(nh);
     const ch  = Math.round(1080 * nh / nw);
-    const ocw = Math.max(nw, 1200); // matches server min-1200 logic
+    const ocw = Math.max(nw, 1200);
     setCanvasH(ch);
     setOutputCardW(ocw);
     const ow = overlayRef.current?.offsetWidth || 400;
     setOverlayW(ow);
-    // Default positions in 1080-canvas space (independent of font sizes)
     setPos(prev => {
-      if (prev) return prev; // keep existing positions on re-render
+      if (prev) return prev;
       const qrTop  = Math.round(ch * 0.52);
       const qrLeft = Math.round((1080 - QR_BLOCK) / 2);
       const nameY  = Math.round(qrTop + QR_BLOCK + ch * 0.06);
       const codeY  = Math.round(nameY + ch * 0.07);
       return { nameX: 540, nameY, codeX: 540, codeY, qrLeft, qrTop };
     });
-  };
+  }, []);
 
-  const updatePos = (patch) => setPos(p => ({ ...p, ...patch }));
+  const updatePos = useCallback((patch) => setPos(p => ({ ...p, ...patch })), []);
 
   // ── Generate ───────────────────────────────────────────────────────────────
   const handleGenerate = async () => {
@@ -116,12 +116,13 @@ export default function CardGenerator({ event }) {
       fd.append('guest_name',     guestName.trim());
       if (phone.trim())           fd.append('phone_number',   phone.trim());
       if (event?.id)              fd.append('event_id',       event.id);
-      fd.append('name_color',     nameColor);
-      fd.append('cn_color',       cnColor);
-      fd.append('name_font_size', nameFontSize);  // absolute px
-      fd.append('cn_font_size',   cnFontSize);    // absolute px
-      fd.append('show_qr',        showQR ? '1' : '0');
-      fd.append('show_cn',        showCN ? '1' : '0');
+      fd.append('name_color',    nameColor);
+      fd.append('cn_color',      cnColor);
+      if (nameFontSize !== null) fd.append('name_font_size', nameFontSize);
+      if (cnFontSize   !== null) fd.append('cn_font_size',   cnFontSize);
+      fd.append('show_qr',       showQR ? '1' : '0');
+      fd.append('show_cn',       showCN ? '1' : '0');
+      if (naturalImgW > 0) { fd.append('natural_w', naturalImgW); fd.append('natural_h', naturalImgH); }
       if (pos) {
         fd.append('pos_name_x',  pos.nameX);
         fd.append('pos_name_y',  pos.nameY);
@@ -152,12 +153,13 @@ export default function CardGenerator({ event }) {
       fd.append('image',          imageFile);
       fd.append('code',           result.code);
       fd.append('guest_name',     guestName.trim());
-      fd.append('name_color',     nameColor);
-      fd.append('cn_color',       cnColor);
-      fd.append('name_font_size', nameFontSize);  // absolute px
-      fd.append('cn_font_size',   cnFontSize);    // absolute px
-      fd.append('show_qr',        showQR ? '1' : '0');
-      fd.append('show_cn',        showCN ? '1' : '0');
+      fd.append('name_color',    nameColor);
+      fd.append('cn_color',      cnColor);
+      if (nameFontSize !== null) fd.append('name_font_size', nameFontSize);
+      if (cnFontSize   !== null) fd.append('cn_font_size',   cnFontSize);
+      fd.append('show_qr',       showQR ? '1' : '0');
+      fd.append('show_cn',       showCN ? '1' : '0');
+      if (naturalImgW > 0) { fd.append('natural_w', naturalImgW); fd.append('natural_h', naturalImgH); }
       if (pos) {
         fd.append('pos_name_x',  pos.nameX);
         fd.append('pos_name_y',  pos.nameY);
@@ -183,25 +185,24 @@ export default function CardGenerator({ event }) {
   };
 
   // ── Drag stop handlers ─────────────────────────────────────────────────────
-  // Anchor top-left at (d.x, d.y); center at (d.x + ANCHOR_R, d.y + ANCHOR_R)
-  const onNameStop = (_, d) => updatePos({
+  const onNameStop = useCallback((_, d) => updatePos({
     nameX: Math.round((d.x + ANCHOR_R) / posScale),
     nameY: Math.round((d.y + ANCHOR_R) / posScale),
-  });
-  const onCnStop = (_, d) => updatePos({
+  }), [posScale, updatePos]);
+  const onCnStop = useCallback((_, d) => updatePos({
     codeX: Math.round((d.x + ANCHOR_R) / posScale),
     codeY: Math.round((d.y + ANCHOR_R) / posScale),
-  });
-  const onQrStop = (_, d) => updatePos({
+  }), [posScale, updatePos]);
+  const onQrStop = useCallback((_, d) => updatePos({
     qrLeft: Math.max(0, Math.round(d.x / posScale)),
     qrTop:  Math.max(0, Math.round(d.y / posScale)),
-  });
+  }), [posScale, updatePos]);
 
   const dragReady = !!(imagePreview && pos && overlayW > 50);
 
-  // Preview font size in screen pixels (honest: same ratio as in output PNG)
-  const previewNamePx = Math.max(4, Math.round(nameFontSize * fontScale));
-  const previewCnPx   = Math.max(3, Math.round(cnFontSize   * fontScale));
+  // Preview font sizes — null means empty input → fall back to defaults for accurate preview
+  const previewNamePx = Math.max(4, Math.round((nameFontSize ?? 150) * fontScale));
+  const previewCnPx   = Math.max(3, Math.round((cnFontSize   ?? 100) * fontScale));
 
   return (
     <div className="create-page">
@@ -266,14 +267,15 @@ export default function CardGenerator({ event }) {
             />
           </div>
 
-          {/* Font sizes — absolute output pixels, free input (only > 0 enforced) */}
+          {/* Font sizes — free input, empty = use server defaults (150 / 100) */}
           <div className="font-size-row">
             <div className="font-size-field">
               <label>Name Size (px)</label>
               <input
                 type="number"
-                value={nameFontSize}
-                onChange={e => { const v = parseInt(e.target.value, 10); if (v > 0) setNameFontSize(v); }}
+                value={nameFontSizeStr}
+                placeholder="Enter Name Size"
+                onChange={e => setNameFontSizeStr(e.target.value)}
               />
             </div>
             {!isContribution && (
@@ -281,8 +283,9 @@ export default function CardGenerator({ event }) {
                 <label>CN Size (px)</label>
                 <input
                   type="number"
-                  value={cnFontSize}
-                  onChange={e => { const v = parseInt(e.target.value, 10); if (v > 0) setCnFontSize(v); }}
+                  value={cnFontSizeStr}
+                  placeholder="Enter CN Size"
+                  onChange={e => setCnFontSizeStr(e.target.value)}
                 />
               </div>
             )}

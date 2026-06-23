@@ -157,6 +157,8 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
     contactName    = null,
     contactPhone   = null,
     positions      = null,
+    naturalW       = 0,  // client-provided dimensions; skip metadata() when set
+    naturalH       = 0,
   } = opts;
 
   const hideQR = isContribution || skipQR;
@@ -164,9 +166,15 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
 
   // ── Load card — normalise to min 1200px wide ──────────────────────────────
   let card = sharp(cardBuffer);
-  const meta = await card.metadata();
-  let cardW = meta.width;
-  let cardH = meta.height;
+  let cardW, cardH;
+  if (naturalW >= 1 && naturalH >= 1) {
+    cardW = naturalW;
+    cardH = naturalH;
+  } else {
+    const meta = await card.metadata();
+    cardW = meta.width;
+    cardH = meta.height;
+  }
 
   if (cardW < 1200) {
     const u = 1200 / cardW;

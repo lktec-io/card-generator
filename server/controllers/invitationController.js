@@ -13,6 +13,25 @@ const { eventScopeSQL }           = require('../middleware/authMiddleware');
 const GENERATED_DIR = path.join(__dirname, '..', 'generated');
 if (!fs.existsSync(GENERATED_DIR)) fs.mkdirSync(GENERATED_DIR, { recursive: true });
 
+// ── In-memory QR cache (avoids regenerating the same QR on the download step) ──
+const _qrCache = new Map();
+const QR_CACHE_TTL = 300_000; // 5 minutes
+
+function _getQR(key) {
+  const e = _qrCache.get(key);
+  if (!e) return null;
+  if (Date.now() - e.t > QR_CACHE_TTL) { _qrCache.delete(key); return null; }
+  return e.b;
+}
+
+function _setQR(key, buf) {
+  _qrCache.set(key, { b: buf, t: Date.now() });
+  if (_qrCache.size > 200) {
+    const cutoff = Date.now() - QR_CACHE_TTL;
+    for (const [k, v] of _qrCache) { if (v.t < cutoff) _qrCache.delete(k); }
+  }
+}
+
 // ── generateCard ──────────────────────────────────────────────────────────────
 
 async function generateCard(req, res) {
@@ -90,13 +109,16 @@ async function generateCard(req, res) {
       [code, guestName, phone, eventId, uuid]
     );
 
-    // 4 — Generate QR buffer
+    // 4 — Generate QR buffer (400px is enough quality; smaller = faster PNG encode)
     console.time(`[timer:${code}] qr-generate`);
     const qrData   = JSON.stringify({ code, name: guestName });
-    const qrBuffer = await generateStyledQRBuffer(qrData, 800);
+    let qrBuffer   = _getQR(qrData);
+    if (!qrBuffer) { qrBuffer = await generateStyledQRBuffer(qrData, 400); _setQR(qrData, qrBuffer); }
     console.timeEnd(`[timer:${code}] qr-generate`);
 
     // 5 — Overlay QR + text onto card image
+    const naturalW = parseInt(req.body.natural_w, 10) || 0;
+    const naturalH = parseInt(req.body.natural_h, 10) || 0;
     console.time(`[timer:${code}] processCardImage`);
     const isContribution = event?.event_mode === 'contribution';
     finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
@@ -104,7 +126,7 @@ async function generateCard(req, res) {
       nameFontSize, cnFontSize, nameFontWeight, nameTextAlign,
       contactName:  event?.contact_name  || null,
       contactPhone: event?.contact_phone || null,
-      positions,
+      positions, naturalW, naturalH,
     });
     console.timeEnd(`[timer:${code}] processCardImage`);
 
@@ -583,21 +605,20 @@ async function renderCard(req, res) {
     ? { nameX: posNameX, nameY: posNameY, codeX: posCodeX, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop }
     : null;
 
+  const naturalW = parseInt(req.body.natural_w, 10) || 0;
+  const naturalH = parseInt(req.body.natural_h, 10) || 0;
+
   try {
-    const qrData   = JSON.stringify({ code, name: guestName });
-    const qrBuffer = await generateStyledQRBuffer(qrData, 800);
+    const qrData  = JSON.stringify({ code, name: guestName });
+    // Reuse cached QR from the generate step; regenerate only if cache missed
+    let qrBuffer  = _getQR(qrData);
+    if (!qrBuffer) { qrBuffer = await generateStyledQRBuffer(qrData, 400); _setQR(qrData, qrBuffer); }
 
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
-      skipQR,
-      skipCN,
-      nameColor,
-      cnColor,
-      nameFontSize,
-      cnFontSize,
-      nameFontWeight,
-      contactName,
-      contactPhone,
-      positions,
+      skipQR, skipCN, nameColor, cnColor,
+      nameFontSize, cnFontSize, nameFontWeight,
+      contactName, contactPhone,
+      positions, naturalW, naturalH,
     });
 
     res.setHeader('Content-Type', 'image/png');
