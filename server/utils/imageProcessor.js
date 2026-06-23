@@ -1,20 +1,22 @@
 const sharp     = require('sharp');
 const { Resvg } = require('@resvg/resvg-js');
 
-// ─── 1080-canvas-space constants ─────────────────────────────────────────────
-const QR_SIZE       = 170;   // QR core size in 1080-canvas units (scales with card)
-const QR_PAD        = 16;    // padding around QR (scales with card)
+// QR constants (position-only; font sizes are absolute output pixels)
+const QR_SIZE       = 170;
+const QR_PAD        = 16;
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 202 canvas units
 const BOTTOM_MARGIN = 150;
 
-// Default font sizes in OUTPUT PIXELS (absolute — no cardScale multiplication)
+// Default font sizes — absolute output pixels, matched by CardGenerator defaults
 const DEFAULT_NAME_FONT = 150;
 const DEFAULT_CN_FONT   = 100;
 
 function xmlEsc(s) {
   return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function resolveAlign(align, cardW) {
@@ -23,63 +25,101 @@ function resolveAlign(align, cardW) {
   return { textAnchor: 'middle', cx: Math.round(cardW / 2) };
 }
 
-// ─── MANUAL mode: full-card SVG per text element ──────────────────────────────
-// y = text BASELINE in card-pixel space (matches SVG default; preview SVG uses same)
+// ─── INLINE-ATTRIBUTE SVG builder ────────────────────────────────────────────
+// Uses presentation attributes directly on <text> — NOT a CSS class.
+// Resvg does NOT reliably apply CSS <style> block rules; inline attrs always work.
+// y = text BASELINE (SVG default).
 
-function buildElementSVG(cardW, cardH, text, cx, y, fontStyle, color, textAnchor = 'middle') {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${cardH}">
-  <style>.t { ${fontStyle} }</style>
-  <text x="${cx}" y="${y}" text-anchor="${textAnchor}" class="t" fill="${xmlEsc(color)}">${xmlEsc(text)}</text>
-</svg>`;
+function buildTextSVG(cardW, cardH, text, cx, y, {
+  fontSize,              // px — absolute output pixels, no scaling
+  fontWeight = '700',
+  fontFamily = 'Georgia, serif',
+  letterSpacing = '2',
+  fill,
+  textAnchor = 'middle',
+}) {
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${cardH}">` +
+    `<text` +
+    ` x="${cx}" y="${y}"` +
+    ` text-anchor="${textAnchor}"` +
+    ` font-family="${xmlEsc(fontFamily)}"` +
+    ` font-size="${fontSize}"` +
+    ` font-weight="${fontWeight}"` +
+    ` letter-spacing="${letterSpacing}"` +
+    ` fill="${xmlEsc(fill)}"` +
+    `>${xmlEsc(text)}</text>` +
+    `</svg>`
+  );
 }
 
-// ─── AUTO mode SVGs (fallback when no positions provided) ─────────────────────
+// ─── AUTO mode fallback SVGs (used when no drag positions are provided) ───────
 
 function buildAutoInviteSVG(cardW, guestName, code, opts) {
-  const nameColor      = opts.nameColor      || '#111111';
-  const cnColor        = opts.cnColor        || '#222222';
-  const nameFontPx     = opts.nameFontPx     || 88;     // already in card pixels
-  const cnFontPx       = opts.cnFontPx       || 56;
-  const nameFontWeight = opts.nameFontWeight || '700';
-  const nameTextAlign  = opts.nameTextAlign  || 'center';
-  const contactName    = opts.contactName    || null;
-  const contactPhone   = opts.contactPhone   || null;
-  const skipCN         = opts.skipCN         || false;
+  const {
+    nameColor   = '#111111',
+    cnColor     = '#222222',
+    nameFontPx  = 150,
+    cnFontPx    = 100,
+    nameFontWeight = '700',
+    nameTextAlign  = 'center',
+    contactName = null,
+    contactPhone = null,
+    skipCN      = false,
+  } = opts;
 
-  const hasContact  = !!(contactName || contactPhone);
-  const line2H      = skipCN ? 0 : cnFontPx + 20;
-  const line3H      = hasContact ? 50 : 0;
-  const svgH        = nameFontPx + line2H + line3H + 20;
+  const hasContact = !!(contactName || contactPhone);
+  const line2H     = skipCN ? 0 : cnFontPx + 20;
+  const line3H     = hasContact ? 50 : 0;
+  const svgH       = nameFontPx + line2H + line3H + 20;
   const contactText = [contactName, contactPhone].filter(Boolean).join('  |  ');
   const { textAnchor, cx } = resolveAlign(nameTextAlign, cardW);
+  const contactFontPx = Math.round(Math.min(cnFontPx * 0.55, 48));
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${svgH}">
-  <style>
-    .name    { font: ${nameFontWeight} ${nameFontPx}px Georgia, 'Times New Roman', serif; letter-spacing: 2px; }
-    .code    { font: 600 ${cnFontPx}px Georgia, 'Times New Roman', serif; letter-spacing: 5px; }
-    .contact { font: 400 ${Math.round(cnFontPx * 0.55)}px Poppins, sans-serif; letter-spacing: 1px; }
-  </style>
-  <text x="${cx}" y="${nameFontPx}" text-anchor="${textAnchor}" class="name" fill="${xmlEsc(nameColor)}">${xmlEsc(guestName)}</text>
-  ${!skipCN ? `<text x="50%" y="${nameFontPx + cnFontPx + 20}" text-anchor="middle" class="code" fill="${xmlEsc(cnColor)}">${xmlEsc(code)}</text>` : ''}
-  ${hasContact ? `<text x="50%" y="${nameFontPx + line2H + 45}" text-anchor="middle" class="contact" fill="#666666">${xmlEsc(contactText)}</text>` : ''}
-</svg>`;
+  let svg =
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${svgH}">` +
+    `<text x="${cx}" y="${nameFontPx}" text-anchor="${textAnchor}"` +
+    ` font-family="Georgia, serif" font-size="${nameFontPx}" font-weight="${nameFontWeight}"` +
+    ` letter-spacing="2" fill="${xmlEsc(nameColor)}">${xmlEsc(guestName)}</text>`;
+
+  if (!skipCN) {
+    svg +=
+      `<text x="${Math.round(cardW / 2)}" y="${nameFontPx + cnFontPx + 20}" text-anchor="middle"` +
+      ` font-family="Georgia, serif" font-size="${cnFontPx}" font-weight="600"` +
+      ` letter-spacing="5" fill="${xmlEsc(cnColor)}">${xmlEsc(code)}</text>`;
+  }
+
+  if (hasContact) {
+    svg +=
+      `<text x="${Math.round(cardW / 2)}" y="${nameFontPx + line2H + 45}" text-anchor="middle"` +
+      ` font-family="Georgia, serif" font-size="${contactFontPx}" font-weight="400"` +
+      ` letter-spacing="1" fill="#666666">${xmlEsc(contactText)}</text>`;
+  }
+
+  svg += `</svg>`;
+  return svg;
 }
 
 function buildAutoContribSVG(cardW, guestName, opts) {
-  const nameColor      = opts.nameColor      || '#111111';
-  const nameFontPx     = opts.nameFontPx     || 88;
-  const nameFontWeight = opts.nameFontWeight || '700';
-  const nameTextAlign  = opts.nameTextAlign  || 'center';
+  const {
+    nameColor      = '#111111',
+    nameFontPx     = 150,
+    nameFontWeight = '700',
+    nameTextAlign  = 'center',
+  } = opts;
   const { textAnchor, cx } = resolveAlign(nameTextAlign, cardW);
   const svgH = nameFontPx + 20;
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${svgH}">
-  <style>.name { font: ${nameFontWeight} ${nameFontPx}px Georgia, 'Times New Roman', serif; letter-spacing: 2px; }</style>
-  <text x="${cx}" y="${nameFontPx}" text-anchor="${textAnchor}" class="name" fill="${xmlEsc(nameColor)}">${xmlEsc(guestName)}</text>
-</svg>`;
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${cardW}" height="${svgH}">` +
+    `<text x="${cx}" y="${nameFontPx}" text-anchor="${textAnchor}"` +
+    ` font-family="Georgia, serif" font-size="${nameFontPx}" font-weight="${nameFontWeight}"` +
+    ` letter-spacing="2" fill="${xmlEsc(nameColor)}">${xmlEsc(guestName)}</text>` +
+    `</svg>`
+  );
 }
 
 function rasterise(svgStr) {
@@ -89,7 +129,6 @@ function rasterise(svgStr) {
   }).render().asPng();
 }
 
-// Build padded QR resized to correct card-pixel dimensions
 async function buildPaddedQR(qrBuffer, cardScale) {
   const qrPx  = Math.round(QR_SIZE  * cardScale);
   const padPx = Math.round(QR_PAD   * cardScale);
@@ -102,35 +141,17 @@ async function buildPaddedQR(qrBuffer, cardScale) {
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
-/**
- * @param {Buffer}      cardBuffer
- * @param {Buffer}      qrBuffer
- * @param {string}      guestName
- * @param {string}      code
- * @param {object}      [opts]
- * @param {boolean}     [opts.isContribution]
- * @param {boolean}     [opts.skipQR]
- * @param {boolean}     [opts.skipCN]
- * @param {string}      [opts.nameColor]
- * @param {string}      [opts.cnColor]
- * @param {number}      [opts.nameFontSize]   canvas-space units (1080-ref)
- * @param {number}      [opts.cnFontSize]     canvas-space units (1080-ref)
- * @param {string}      [opts.nameFontWeight]
- * @param {string}      [opts.nameTextAlign]
- * @param {string|null} [opts.contactName]
- * @param {string|null} [opts.contactPhone]
- * @param {object|null} [opts.positions]  { nameX, nameY, codeX, codeY, qrLeft, qrTop }
- *                                         all in 1080-canvas space; Y = text baseline
- */
 async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}) {
+  const t0 = Date.now();
+
   const {
     isContribution = false,
     skipQR         = false,
     skipCN         = false,
     nameColor      = '#111111',
     cnColor        = '#222222',
-    nameFontSize   = DEFAULT_NAME_FONT,
-    cnFontSize     = DEFAULT_CN_FONT,
+    nameFontSize   = DEFAULT_NAME_FONT,   // ABSOLUTE output pixels
+    cnFontSize     = DEFAULT_CN_FONT,     // ABSOLUTE output pixels
     nameFontWeight = '700',
     nameTextAlign  = 'center',
     contactName    = null,
@@ -141,7 +162,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
   const hideQR = isContribution || skipQR;
   const hideCN = isContribution || skipCN;
 
-  // ── Load & normalise card (min 1200px wide) ───────────────────────────────
+  // ── Load card — normalise to min 1200px wide ──────────────────────────────
   let card = sharp(cardBuffer);
   const meta = await card.metadata();
   let cardW = meta.width;
@@ -154,42 +175,60 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
     card  = card.resize(cardW, cardH, { kernel: 'lanczos3' });
   }
 
-  // cardScale converts 1080-canvas units → actual card pixels
+  // cardScale: for POSITION coordinates only (1080-canvas → actual card px)
   const cardScale = cardW / 1080;
 
-  // Font sizes are ABSOLUTE output pixels — user-selected value rendered directly,
-  // no cardScale multiplication (WYSIWYG: preview and download use the same px value)
+  // Font sizes: ABSOLUTE output pixels — no cardScale multiplication
   const nameFontPx = Math.round(nameFontSize);
   const cnFontPx   = Math.round(cnFontSize);
 
-  const nameStyle  = `font: ${nameFontWeight} ${nameFontPx}px Georgia, 'Times New Roman', serif; letter-spacing: 2px;`;
-  const cnStyle    = `font: 600 ${cnFontPx}px Georgia, 'Times New Roman', serif; letter-spacing: 5px;`;
+  // ── Debug log: exact values entering SVG generation ──────────────────────
+  console.log('[imageProcessor] render params:', {
+    cardWidth:              cardW,
+    cardHeight:             cardH,
+    cardScale:              cardScale.toFixed(3),
+    nameFontSize_received:  nameFontSize,
+    cnFontSize_received:    cnFontSize,
+    nameFontPx_in_SVG:      nameFontPx,
+    cnFontPx_in_SVG:        cnFontPx,
+    mode:                   positions ? 'MANUAL' : 'AUTO',
+    hideQR,
+    hideCN,
+  });
 
   const { textAnchor: nameAnchor, cx: nameCX } = resolveAlign(nameTextAlign, cardW);
-
   let composites;
 
   if (positions) {
     // ── MANUAL mode ──────────────────────────────────────────────────────────
     const { nameX, nameY, codeX, codeY, qrLeft, qrTop } = positions;
 
-    // Convert 1080-canvas coords → card pixels
     const scaledNameCX    = nameX != null ? Math.round(nameX * cardScale) : nameCX;
     const effectiveAnchor = nameX != null ? 'middle' : nameAnchor;
     const scaledNameY     = Math.round(nameY * cardScale);
+    const clampedNameY    = Math.max(nameFontPx, Math.min(scaledNameY, cardH + Math.round(nameFontPx * 0.3)));
 
-    // Clamp Y so text is on card (baseline must be ≥ font height)
-    const clampedNameY = Math.max(nameFontPx, Math.min(scaledNameY, cardH + Math.round(nameFontPx * 0.3)));
+    console.log('[imageProcessor] name SVG:', {
+      cx: scaledNameCX, y: clampedNameY,
+      'font-size': nameFontPx,
+      fontFamily: 'Georgia, serif',
+    });
 
-    const namePNG = rasterise(buildElementSVG(
-      cardW, cardH, guestName,
-      scaledNameCX, clampedNameY,
-      nameStyle, nameColor, effectiveAnchor,
-    ));
+    console.time('[timer] svg-name');
+    const namePNG = rasterise(buildTextSVG(cardW, cardH, guestName, scaledNameCX, clampedNameY, {
+      fontSize: nameFontPx,
+      fontWeight: nameFontWeight,
+      letterSpacing: '2',
+      fill: nameColor,
+      textAnchor: effectiveAnchor,
+    }));
+    console.timeEnd('[timer] svg-name');
     composites = [{ input: namePNG, top: 0, left: 0 }];
 
     if (!hideQR && qrLeft != null && qrTop != null) {
+      console.time('[timer] qr-scale');
       const paddedQR     = await buildPaddedQR(qrBuffer, cardScale);
+      console.timeEnd('[timer] qr-scale');
       const scaledQrLeft = Math.max(0, Math.round(qrLeft * cardScale));
       const scaledQrTop  = Math.max(0, Math.round(qrTop  * cardScale));
       composites.unshift({ input: paddedQR, top: scaledQrTop, left: scaledQrLeft });
@@ -200,18 +239,32 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
       const scaledCodeY  = Math.round(codeY * cardScale);
       const clampedCodeY = Math.max(cnFontPx, Math.min(scaledCodeY, cardH + Math.round(cnFontPx * 0.3)));
 
-      const codePNG = rasterise(buildElementSVG(cardW, cardH, code, scaledCodeCX, clampedCodeY, cnStyle, cnColor));
+      console.log('[imageProcessor] CN SVG:', {
+        cx: scaledCodeCX, y: clampedCodeY,
+        'font-size': cnFontPx,
+      });
+
+      console.time('[timer] svg-cn');
+      const codePNG = rasterise(buildTextSVG(cardW, cardH, code, scaledCodeCX, clampedCodeY, {
+        fontSize: cnFontPx,
+        fontWeight: '600',
+        letterSpacing: '5',
+        fill: cnColor,
+      }));
+      console.timeEnd('[timer] svg-cn');
       composites.push({ input: codePNG, top: 0, left: 0 });
 
       const hasContact = !!(contactName || contactPhone);
       if (hasContact) {
-        const contactText  = [contactName, contactPhone].filter(Boolean).join('  |  ');
-        const contactFontPx = Math.round(Math.min(cnFontPx * 0.55, 40));
-        const contactStyle  = `font: 400 ${contactFontPx}px Poppins, sans-serif; letter-spacing: 1px;`;
-        const contactY     = clampedCodeY + Math.round(cnFontPx * 1.3);
-        const contactPNG   = rasterise(buildElementSVG(
-          cardW, cardH, contactText, Math.round(cardW / 2), contactY, contactStyle, '#666666',
-        ));
+        const contactText   = [contactName, contactPhone].filter(Boolean).join('  |  ');
+        const contactFontPx = Math.round(Math.min(cnFontPx * 0.55, 48));
+        const contactY      = clampedCodeY + Math.round(cnFontPx * 1.3);
+        const contactPNG    = rasterise(buildTextSVG(cardW, cardH, contactText, Math.round(cardW / 2), contactY, {
+          fontSize: contactFontPx,
+          fontWeight: '400',
+          letterSpacing: '1',
+          fill: '#666666',
+        }));
         composites.push({ input: contactPNG, top: 0, left: 0 });
       }
     }
@@ -223,7 +276,6 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
       const png  = rasterise(svg);
       const svgH = nameFontPx + 20;
       composites = [{ input: png, top: Math.max(0, cardH - svgH - BOTTOM_MARGIN), left: 0 }];
-
     } else {
       const scaledQrBlock = Math.round(QR_BLOCK * cardScale);
       const textSVG  = buildAutoInviteSVG(cardW, guestName, code, {
@@ -233,10 +285,9 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
       const textPNG  = rasterise(textSVG);
       const svgHMatch = textSVG.match(/height="(\d+)"/);
       const textH    = svgHMatch ? Number(svgHMatch[1]) : nameFontPx + cnFontPx + 80;
-
-      const qrX  = Math.floor((cardW - scaledQrBlock) / 2);
-      const qrY  = Math.max(0, cardH - scaledQrBlock - textH - BOTTOM_MARGIN);
-      const textY = qrY + scaledQrBlock + 4;
+      const qrX      = Math.floor((cardW - scaledQrBlock) / 2);
+      const qrY      = Math.max(0, cardH - scaledQrBlock - textH - BOTTOM_MARGIN);
+      const textY    = qrY + scaledQrBlock + 4;
 
       composites = [{ input: textPNG, top: Math.max(0, textY), left: 0 }];
 
@@ -247,12 +298,16 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
     }
   }
 
-  console.log(`[processCardImage] ${cardW}×${cardH} cardScale=${cardScale.toFixed(3)} | namePx=${nameFontPx} cnPx=${cnFontPx} | ${positions ? 'MANUAL' : 'AUTO'} | hideQR=${hideQR} hideCN=${hideCN}`);
-
-  return card
+  console.time('[timer] sharp-composite');
+  const result = await card
     .composite(composites)
     .png({ compressionLevel: 3 })
     .toBuffer();
+  console.timeEnd('[timer] sharp-composite');
+
+  console.log(`[imageProcessor] total=${Date.now() - t0}ms | output=${result.length} bytes`);
+
+  return result;
 }
 
 module.exports = { processCardImage };

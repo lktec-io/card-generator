@@ -89,10 +89,13 @@ async function generateCard(req, res) {
     );
 
     // 5 — Generate QR buffer
+    console.time(`[timer:${code}] qr-generate`);
     const qrData   = JSON.stringify({ code, name: guestName });
     const qrBuffer = await generateStyledQRBuffer(qrData, 800);
+    console.timeEnd(`[timer:${code}] qr-generate`);
 
     // 6 — Overlay QR + text onto card image
+    console.time(`[timer:${code}] processCardImage`);
     const isContribution = event?.event_mode === 'contribution';
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
       isContribution,
@@ -108,20 +111,23 @@ async function generateCard(req, res) {
       contactPhone: event?.contact_phone || null,
       positions,
     });
+    console.timeEnd(`[timer:${code}] processCardImage`);
 
-    // 8 — Save locally for static serving
+    // 7 — Save locally for static serving
     const localFile = path.join(GENERATED_DIR, `${code}.png`);
     fs.writeFileSync(localFile, finalBuffer);
 
-    // 9 — Upload final card to Cloudinary
+    // 8 — Upload final card to Cloudinary
+    console.time(`[timer:${code}] cloudinary-upload`);
     const finalUpload = await uploadBuffer(finalBuffer, {
       public_id:     `wedding-qr/generated/card_${code}`,
       resource_type: 'image',
       overwrite:     true,
       quality:       'auto:best',
     });
+    console.timeEnd(`[timer:${code}] cloudinary-upload`);
 
-    // 10 — Persist image URL in DB
+    // 9 — Persist image URL in DB
     await connection.execute(
       `UPDATE invitations SET image_url = ? WHERE code = ?`,
       [finalUpload.secure_url, code]
@@ -129,7 +135,7 @@ async function generateCard(req, res) {
 
     await connection.commit();
 
-    console.log(`[generateCard] Created: ${code} for "${guestName}"`);
+    console.log(`[generateCard] Created: ${code} for "${guestName}" | nameFontSize=${nameFontSize}px cnFontSize=${cnFontSize}px`);
 
     return res.status(201).json({
       success:         true,

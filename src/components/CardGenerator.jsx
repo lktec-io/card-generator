@@ -399,13 +399,13 @@ export default function CardGenerator({ event }) {
                       </Draggable>
                     )}
 
-                    {/* SVG text preview — pixel-accurate font sizes via fontScale */}
+                    {/* SVG text preview — same font-family as server (Georgia, serif) */}
                     <svg className="drag-canvas-svg" style={{ zIndex: 6 }} aria-hidden="true">
                       <text
                         x={pos.nameX * posScale}
                         y={pos.nameY * posScale}
                         textAnchor="middle"
-                        fontFamily="Georgia, 'Times New Roman', serif"
+                        fontFamily="Georgia, serif"
                         fontSize={previewNamePx}
                         fontWeight="700"
                         fill={nameColor}
@@ -420,7 +420,7 @@ export default function CardGenerator({ event }) {
                           x={pos.codeX * posScale}
                           y={pos.codeY * posScale}
                           textAnchor="middle"
-                          fontFamily="Georgia, 'Times New Roman', serif"
+                          fontFamily="Georgia, serif"
                           fontSize={previewCnPx}
                           fontWeight="600"
                           fill={cnColor}
