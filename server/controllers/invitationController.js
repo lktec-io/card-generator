@@ -44,14 +44,17 @@ async function generateCard(req, res) {
     ? req.body.name_text_align : 'center';
 
   // Drag-and-drop positions (all in 1080px canvas space, sent as strings from FormData)
+  // nameX/codeX = SVG anchor; nameY/codeY = TOP of text element (server adds ascender for baseline)
   const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
-  const posNameY = parseNum(req.body.pos_name_y);
-  const posCodeY = parseNum(req.body.pos_code_y);
+  const posNameX  = parseNum(req.body.pos_name_x);
+  const posNameY  = parseNum(req.body.pos_name_y);
+  const posCodeX  = parseNum(req.body.pos_code_x);
+  const posCodeY  = parseNum(req.body.pos_code_y);
   const posQrLeft = parseNum(req.body.pos_qr_left);
   const posQrTop  = parseNum(req.body.pos_qr_top);
   const hasPositions = posNameY != null;
   const positions = hasPositions
-    ? { nameY: posNameY, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop }
+    ? { nameX: posNameX, nameY: posNameY, codeX: posCodeX, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop }
     : null;
 
   const connection = await pool.getConnection();
@@ -59,13 +62,12 @@ async function generateCard(req, res) {
   try {
     await connection.beginTransaction();
 
-    // 1 — Fetch event for mode + contact info (if event_id provided)
+    // 1 — Fetch event for contact info (if event_id provided)
     let event = null;
     if (eventId) {
       const [[ev]] = await connection.execute('SELECT * FROM events WHERE id = ?', [eventId]);
       event = ev || null;
     }
-    const isContribution = event?.event_mode === 'contribution';
 
     // 2 — Reserve a unique code
     const code = await getNextCode(connection);
@@ -87,13 +89,12 @@ async function generateCard(req, res) {
       quality:       'auto:best',
     });
 
-    // 5 — Generate QR buffer (invitation only; contribution cards don't render QR)
+    // 5 — Generate QR buffer
     const qrData   = JSON.stringify({ code, name: guestName });
     const qrBuffer = await generateStyledQRBuffer(qrData, 400);
 
-    // 6 — Overlay text (+ QR for invitation) onto card image
+    // 6 — Overlay QR + text onto card image
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
-      isContribution,
       nameColor,
       cnColor,
       nameFontSize,
@@ -124,7 +125,7 @@ async function generateCard(req, res) {
 
     await connection.commit();
 
-    console.log(`[generateCard] Created: ${code} for "${guestName}" (${isContribution ? 'contribution' : 'invitation'})`);
+    console.log(`[generateCard] Created: ${code} for "${guestName}"`);
 
     return res.status(201).json({
       success:         true,
@@ -186,15 +187,6 @@ async function verifyCode(req, res) {
     }
 
     const inv = rows[0];
-
-    if (inv.event_mode === 'contribution') {
-      return res.status(200).json({
-        success: false,
-        type:    'not_applicable',
-        message: 'This code belongs to a Contribution Campaign — QR check-in is not applicable here.',
-        name:    inv.guest_name,
-      });
-    }
 
     // If a scoped user is logged in, ensure the code belongs to one of their events
     if (req.user && req.user.role !== 'super_admin' && inv.event_id) {
@@ -528,7 +520,68 @@ async function trackShare(req, res) {
   }
 }
 
+// ── renderCard ────────────────────────────────────────────────────────────────
+// Composites image + text + QR at given positions; returns PNG buffer directly.
+// No DB writes, no Cloudinary — pure render used for the download step.
+
+async function renderCard(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'Card image is required.' });
+  }
+
+  const code      = (req.body.code       || '').trim();
+  const guestName = (req.body.guest_name || '').trim();
+  if (!code || !guestName) {
+    return res.status(400).json({ success: false, message: 'code and guest_name are required.' });
+  }
+
+  const nameColor      = (req.body.name_color || '#111111').trim();
+  const cnColor        = (req.body.cn_color   || '#222222').trim();
+  const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
+  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 40 && nameFontSizeRaw <= 300
+    ? nameFontSizeRaw : 120;
+  const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
+    ? req.body.name_font_weight : '700';
+
+  const contactName  = (req.body.contact_name  || '').trim() || null;
+  const contactPhone = (req.body.contact_phone || '').trim() || null;
+
+  const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+  const posNameX  = parseNum(req.body.pos_name_x);
+  const posNameY  = parseNum(req.body.pos_name_y);
+  const posCodeX  = parseNum(req.body.pos_code_x);
+  const posCodeY  = parseNum(req.body.pos_code_y);
+  const posQrLeft = parseNum(req.body.pos_qr_left);
+  const posQrTop  = parseNum(req.body.pos_qr_top);
+  const positions = posNameY != null
+    ? { nameX: posNameX, nameY: posNameY, codeX: posCodeX, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop }
+    : null;
+
+  try {
+    const qrData   = JSON.stringify({ code, name: guestName });
+    const qrBuffer = await generateStyledQRBuffer(qrData, 400);
+
+    const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
+      nameColor,
+      cnColor,
+      nameFontSize,
+      nameFontWeight,
+      contactName,
+      contactPhone,
+      positions,
+    });
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `attachment; filename="${code}.png"`);
+    return res.send(finalBuffer);
+
+  } catch (err) {
+    console.error('[renderCard]', err);
+    return res.status(500).json({ success: false, message: 'Render failed. Please try again.' });
+  }
+}
+
 module.exports = {
-  generateCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations,
+  generateCard, renderCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations,
   reserveCode, verifyManual, bulkImport, trackShare,
 };

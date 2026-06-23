@@ -45,10 +45,8 @@ function parseCSV(text) {
 
 /* ── Template download ──────────────────────────────────────────────────── */
 
-function downloadTemplate(isContribution) {
-  const csv = isContribution
-    ? 'Guest Name\nJohn Doe\nJane Smith\n'
-    : 'Guest Name,Phone Number\nJohn Doe,+255712345678\nJane Smith,+255723456789\n';
+function downloadTemplate() {
+  const csv  = 'Guest Name,Phone Number\nJohn Doe,+255712345678\nJane Smith,+255723456789\n';
   const blob = new Blob([csv], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -152,9 +150,6 @@ export default function ImportPage() {
     setParsed(prev => ({ ...prev, rows: prev.rows.filter((_, i) => i !== idx) }));
   };
 
-  const selectedEvent = events.find(ev => String(ev.id) === String(eventId));
-  const isContribution = selectedEvent?.event_mode === 'contribution';
-
   return (
     <div className="import-page page-enter">
       <div className="import-container">
@@ -166,7 +161,7 @@ export default function ImportPage() {
             <h1>Import Guests</h1>
             <p>Upload a CSV or Excel file to create invitations in bulk</p>
           </div>
-          <button className="btn-outline" onClick={() => downloadTemplate(isContribution)}>
+          <button className="btn-outline" onClick={() => downloadTemplate()}>
             <MdDownload size={15} /> Download Template
           </button>
         </div>
@@ -246,7 +241,7 @@ export default function ImportPage() {
                   <tr>
                     <th>#</th>
                     <th>Guest Name</th>
-                    {!isContribution && <th>Phone</th>}
+                    <th>Phone</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -258,7 +253,7 @@ export default function ImportPage() {
                         <strong>{row.guest_name}</strong>
                         {!row.guest_name && <span className="import-missing">Missing name</span>}
                       </td>
-                      {!isContribution && <td className="import-phone">{row.phone_number || '—'}</td>}
+                      <td className="import-phone">{row.phone_number || '—'}</td>
                       <td>
                         <button
                           className="import-remove-btn"
@@ -317,7 +312,7 @@ export default function ImportPage() {
             <h3>How it works</h3>
             <ol>
               <li>Download the CSV template above</li>
-              <li>{isContribution ? 'Fill in Guest Name column only' : 'Fill in Guest Name and Phone Number columns'}</li>
+              <li>Fill in Guest Name and Phone Number columns</li>
               <li>Save as CSV (.csv) or Excel (.xlsx)</li>
               <li>Select the event and upload the file</li>
               <li>Review the preview and click Import</li>

@@ -21,7 +21,7 @@ const audioUpload = multer({
 });
 
 const {
-  generateCard, verifyCode, getStats,
+  generateCard, renderCard, verifyCode, getStats,
   deleteInvitation, deleteAllInvitations, reserveCode, verifyManual, bulkImport, trackShare,
 } = require('../controllers/invitationController');
 
@@ -43,6 +43,7 @@ router.get('/templates', listTemplates);
 router.post('/reserve',       reserveCode);
 router.post('/import',        requireManager, bulkImport);
 router.post('/generate',      upload.single('image'), generateCard);
+router.post('/render',        upload.single('image'), renderCard);
 router.post('/verify',        optionalAuth, verifyCode);
 router.post('/verify/manual', optionalAuth, verifyManual);
 router.get( '/stats',         getStats);

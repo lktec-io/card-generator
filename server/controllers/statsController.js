@@ -1,11 +1,19 @@
 const pool = require('../config/db');
 const { invitationScopeSQL, eventScopeSQL } = require('../middleware/authMiddleware');
 
+// Mirror of userController's userScopeSQL so total_users matches listUsers count
+function userScopeSQL(user) {
+  if (!user || user.role === 'super_admin') return { where: '', params: [] };
+  if (user.role === 'admin' && user.id) {
+    return { where: 'WHERE created_by = ?', params: [user.id] };
+  }
+  return { where: 'WHERE 1=0', params: [] };
+}
+
 async function getGlobalStats(req, res) {
-  const iScope = invitationScopeSQL(req.user);
-  const eScope = eventScopeSQL(req.user);
-  const isSuperAdmin = !req.user || req.user.role === 'super_admin';
-  const isAdmin      = req.user?.role === 'admin' || req.user?.role === 'super_admin';
+  const iScope    = invitationScopeSQL(req.user);
+  const eScope    = eventScopeSQL(req.user);
+  const isAdmin   = req.user?.role === 'admin' || req.user?.role === 'super_admin';
 
   try {
     const [[inv]] = await pool.execute(
@@ -69,15 +77,14 @@ async function getGlobalStats(req, res) {
       attendance_rate:   attendanceRate,
     };
 
-    // Admin-level extras — scoped appropriately
+    // Admin-level extra — scoped to match UsersPage count
     if (isAdmin) {
-      const [[{ total_users }]] = await pool.execute('SELECT COUNT(*) AS total_users FROM users');
-      const [[{ total_campaigns }]] = await pool.execute(
-        `SELECT COUNT(*) AS total_campaigns FROM events e WHERE e.event_mode = 'contribution' ${eScope.where}`,
-        eScope.params
+      const uScope = userScopeSQL(req.user);
+      const [[{ total_users }]] = await pool.execute(
+        `SELECT COUNT(*) AS total_users FROM users ${uScope.where}`,
+        uScope.params
       );
-      stats.total_users     = Number(total_users);
-      stats.total_campaigns = Number(total_campaigns);
+      stats.total_users = Number(total_users);
     }
 
     res.json({

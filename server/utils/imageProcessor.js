@@ -166,10 +166,13 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, options =
 
   if (positions) {
     // ── MANUAL mode: each element at absolute canvas-scaled coordinates ──────
-    const { nameY, codeY, qrLeft, qrTop } = positions;
+    const { nameX, nameY, codeX, codeY, qrLeft, qrTop } = positions;
 
-    const scaledNameY = Math.round(nameY * cardScale);
-    const namePNG = rasterise(buildElementSVG(cardW, cardH, guestName, nameCX, scaledNameY, nameStyle, nameColor, nameAnchor));
+    // nameX/codeX are optional center-X in 1080px space; fall back to resolved alignment
+    const scaledNameCX    = nameX != null ? Math.round(nameX * cardScale) : nameCX;
+    const effectiveAnchor = nameX != null ? 'middle' : nameAnchor;
+    const scaledNameY     = Math.round(nameY * cardScale);
+    const namePNG = rasterise(buildElementSVG(cardW, cardH, guestName, scaledNameCX, scaledNameY, nameStyle, nameColor, effectiveAnchor));
 
     composites = [{ input: namePNG, top: 0, left: 0 }];
 
@@ -186,9 +189,10 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, options =
 
       const scaledQrLeft = Math.round(qrLeft * cardScale);
       const scaledQrTop  = Math.round(qrTop  * cardScale);
+      const scaledCodeCX = codeX != null ? Math.round(codeX * cardScale) : Math.round(cardW / 2);
       const scaledCodeY  = Math.round(codeY  * cardScale);
 
-      const codePNG = rasterise(buildElementSVG(cardW, cardH, code, Math.round(cardW / 2), scaledCodeY, CN_FONT_STYLE, cnColor));
+      const codePNG = rasterise(buildElementSVG(cardW, cardH, code, scaledCodeCX, scaledCodeY, CN_FONT_STYLE, cnColor));
 
       composites.unshift({ input: paddedQR, top: Math.max(0, scaledQrTop), left: Math.max(0, scaledQrLeft) });
       composites.push({ input: codePNG, top: 0, left: 0 });
