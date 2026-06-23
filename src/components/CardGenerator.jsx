@@ -10,8 +10,7 @@ import { FiRefreshCw } from 'react-icons/fi';
 import '../styles/create.css';
 
 export default function CardGenerator({ event = null }) {
-  const eventId        = event?.id || null;
-  const isContribution = event?.event_mode === 'contribution';
+  const eventId = event?.id || null;
 
   // ── Upload ─────────────────────────────────────────────────────────
   const [imageFile,    setImageFile]    = useState(null);
@@ -116,27 +115,23 @@ export default function CardGenerator({ event = null }) {
     setProgress(15);
 
     const fd = new FormData();
-    fd.append('image',             imageFile);
-    fd.append('guest_name',        guestName.trim());
-    fd.append('name_color',        nameColor);
-    fd.append('name_font_size',    String(nameFontSize));
-    fd.append('name_font_weight',  nameFontWeight);
-    fd.append('name_text_align',   nameTextAlign);
-    if (!isContribution) {
-      fd.append('phone_number', phoneNumber.trim() || '');
-      fd.append('cn_color',     cnColor);
-    }
+    fd.append('image',            imageFile);
+    fd.append('guest_name',       guestName.trim());
+    fd.append('phone_number',     phoneNumber.trim() || '');
+    fd.append('name_color',       nameColor);
+    fd.append('cn_color',         cnColor);
+    fd.append('name_font_size',   String(nameFontSize));
+    fd.append('name_font_weight', nameFontWeight);
+    fd.append('name_text_align',  nameTextAlign);
     if (eventId) fd.append('event_id', String(eventId));
 
     if (pos) {
-      fd.append('pos_name_x', String(Math.round(pos.nameX)));
-      fd.append('pos_name_y', String(Math.round(pos.nameY)));
-      if (!isContribution) {
-        fd.append('pos_code_x',  String(Math.round(pos.codeX)));
-        fd.append('pos_code_y',  String(Math.round(pos.codeY)));
-        fd.append('pos_qr_left', String(Math.round(pos.qrLeft)));
-        fd.append('pos_qr_top',  String(Math.round(pos.qrTop)));
-      }
+      fd.append('pos_name_x',  String(Math.round(pos.nameX)));
+      fd.append('pos_name_y',  String(Math.round(pos.nameY)));
+      fd.append('pos_code_x',  String(Math.round(pos.codeX)));
+      fd.append('pos_code_y',  String(Math.round(pos.codeY)));
+      fd.append('pos_qr_left', String(Math.round(pos.qrLeft)));
+      fd.append('pos_qr_top',  String(Math.round(pos.qrTop)));
     }
 
     try {
@@ -205,7 +200,7 @@ export default function CardGenerator({ event = null }) {
       <div className="create-page page-enter">
         <div className="create-header">
           <span className="create-ornament">— Card Generator —</span>
-          <h1>{isContribution ? 'Create Contribution Card' : 'Create Invitation Card'}</h1>
+          <h1>Create Invitation Card</h1>
           <p>Upload your card design, drag to position, then generate.</p>
         </div>
 
@@ -245,19 +240,17 @@ export default function CardGenerator({ event = null }) {
               />
             </div>
 
-            {!isContribution && (
-              <div className="form-group">
-                <label htmlFor="cg-phone">Phone Number</label>
-                <input
-                  id="cg-phone"
-                  type="tel"
-                  placeholder="e.g. +255712345678"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  maxLength={30}
-                />
-              </div>
-            )}
+            <div className="form-group">
+              <label htmlFor="cg-phone">Phone Number</label>
+              <input
+                id="cg-phone"
+                type="tel"
+                placeholder="e.g. +255712345678"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                maxLength={30}
+              />
+            </div>
 
             {/* Text style — collapsible */}
             <div className="color-section">
@@ -273,21 +266,19 @@ export default function CardGenerator({ event = null }) {
               {showStyle && (
                 <div className="color-pickers-grid">
 
-                  {/* Font Color */}
+                  {/* Name Color */}
                   <div className="color-picker-row">
-                    <span className="color-picker-label">Color</span>
+                    <span className="color-picker-label">Name Color</span>
                     <input type="color" value={nameColor} onChange={(e) => setNameColor(e.target.value)} />
                     <span className="color-hex-sm">{nameColor}</span>
                   </div>
 
-                  {/* CN Color — invitation only */}
-                  {!isContribution && (
-                    <div className="color-picker-row">
-                      <span className="color-picker-label">Code (CN)</span>
-                      <input type="color" value={cnColor} onChange={(e) => setCnColor(e.target.value)} />
-                      <span className="color-hex-sm">{cnColor}</span>
-                    </div>
-                  )}
+                  {/* CN Color */}
+                  <div className="color-picker-row">
+                    <span className="color-picker-label">Code (CN)</span>
+                    <input type="color" value={cnColor} onChange={(e) => setCnColor(e.target.value)} />
+                    <span className="color-hex-sm">{cnColor}</span>
+                  </div>
 
                   {/* Font Size */}
                   <div className="color-picker-row" style={{ gap: '0.6rem', alignItems: 'center' }}>
@@ -396,9 +387,7 @@ export default function CardGenerator({ event = null }) {
               <div className="drag-preview-wrap">
                 <p className="drag-hint-label">
                   <MdDragIndicator size={14} />
-                  {isContribution
-                    ? 'Drag Name anywhere on the card — mouse or finger'
-                    : 'Drag QR, Name & Code freely — mouse or finger'}
+                  Drag QR, Name &amp; Code freely — mouse or finger
                 </p>
 
                 <div
@@ -416,26 +405,24 @@ export default function CardGenerator({ event = null }) {
 
                   {dragReady && (
                     <>
-                      {/* QR placeholder — invitation only, free 2D drag */}
-                      {!isContribution && (
-                        <Draggable
-                          nodeRef={qrRef}
-                          position={{ x: pos.qrLeft * scale, y: pos.qrTop * scale }}
-                          bounds={{ top: 0, left: 0, right: overlayW - qrBoxPx, bottom: overlayH - qrBoxPx }}
-                          onStop={(_, d) => updatePos({
-                            qrLeft: clamp(Math.round(d.x / scale), 0, 1080 - 202),
-                            qrTop:  clamp(Math.round(d.y / scale), 0, canvasH - 202),
-                          })}
+                      {/* QR placeholder — free 2D drag */}
+                      <Draggable
+                        nodeRef={qrRef}
+                        position={{ x: pos.qrLeft * scale, y: pos.qrTop * scale }}
+                        bounds={{ top: 0, left: 0, right: overlayW - qrBoxPx, bottom: overlayH - qrBoxPx }}
+                        onStop={(_, d) => updatePos({
+                          qrLeft: clamp(Math.round(d.x / scale), 0, 1080 - 202),
+                          qrTop:  clamp(Math.round(d.y / scale), 0, canvasH - 202),
+                        })}
+                      >
+                        <div
+                          ref={qrRef}
+                          className="drag-el drag-el--qr"
+                          style={{ position: 'absolute', top: 0, left: 0, width: qrBoxPx, height: qrBoxPx }}
                         >
-                          <div
-                            ref={qrRef}
-                            className="drag-el drag-el--qr"
-                            style={{ position: 'absolute', top: 0, left: 0, width: qrBoxPx, height: qrBoxPx }}
-                          >
-                            <span className="drag-el-qr-label">QR</span>
-                          </div>
-                        </Draggable>
-                      )}
+                          <span className="drag-el-qr-label">QR</span>
+                        </div>
+                      </Draggable>
 
                       {/* Guest Name — free X+Y drag */}
                       <Draggable
@@ -463,30 +450,28 @@ export default function CardGenerator({ event = null }) {
                         </div>
                       </Draggable>
 
-                      {/* Code (CN) — invitation only, free X+Y drag */}
-                      {!isContribution && (
-                        <Draggable
-                          nodeRef={codeRef}
-                          position={{ x: pos.codeX * scale, y: pos.codeY * scale }}
-                          bounds={{ top: 0, left: 0, right: overlayW, bottom: overlayH - 24 }}
-                          onStop={(_, d) => updatePos({
-                            codeX: clamp(Math.round(d.x / scale), 0, 1080),
-                            codeY: clamp(Math.round(d.y / scale), 0, canvasH),
-                          })}
+                      {/* Code (CN) — free X+Y drag */}
+                      <Draggable
+                        nodeRef={codeRef}
+                        position={{ x: pos.codeX * scale, y: pos.codeY * scale }}
+                        bounds={{ top: 0, left: 0, right: overlayW, bottom: overlayH - 24 }}
+                        onStop={(_, d) => updatePos({
+                          codeX: clamp(Math.round(d.x / scale), 0, 1080),
+                          codeY: clamp(Math.round(d.y / scale), 0, canvasH),
+                        })}
+                      >
+                        <div
+                          ref={codeRef}
+                          className="drag-el drag-el--text"
+                          style={{ position: 'absolute', top: 0, left: 0 }}
                         >
-                          <div
-                            ref={codeRef}
-                            className="drag-el drag-el--text"
-                            style={{ position: 'absolute', top: 0, left: 0 }}
-                          >
-                            <MdDragIndicator size={Math.max(10, Math.round(14 * scale))} className="drag-el-icon" />
-                            <span className="drag-el-badge">CN</span>
-                            <span className="drag-el-text-preview" style={{ fontSize: codeFontPx, letterSpacing: '0.2em', color: cnColor }}>
-                              CN-###
-                            </span>
-                          </div>
-                        </Draggable>
-                      )}
+                          <MdDragIndicator size={Math.max(10, Math.round(14 * scale))} className="drag-el-icon" />
+                          <span className="drag-el-badge">CN</span>
+                          <span className="drag-el-text-preview" style={{ fontSize: codeFontPx, letterSpacing: '0.2em', color: cnColor }}>
+                            CN-###
+                          </span>
+                        </div>
+                      </Draggable>
                     </>
                   )}
                 </div>

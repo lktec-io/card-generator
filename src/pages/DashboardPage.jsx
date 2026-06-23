@@ -210,10 +210,7 @@ export default function DashboardPage() {
               sub={`${stats?.checked_in ?? 0} of ${stats?.total_invitations ?? 0} attended`}
             />
             {isAdmin() && stats?.total_users !== undefined && (
-              <StatCard icon={<MdPeople size={22}/>} label="Total Users"     value={stats.total_users}     color="#c084fc" />
-            )}
-            {isAdmin() && stats?.total_campaigns !== undefined && (
-              <StatCard icon={<MdEvent size={22}/>}  label="Campaigns"       value={stats.total_campaigns}  color="#fb923c" />
+              <StatCard icon={<MdPeople size={22}/>} label="Total Users" value={stats.total_users} color="#c084fc" />
             )}
           </div>
 
