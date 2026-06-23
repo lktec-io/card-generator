@@ -35,12 +35,13 @@ async function generateCard(req, res) {
   // Text appearance
   const nameColor      = (req.body.name_color      || '#111111').trim();
   const cnColor        = (req.body.cn_color        || '#222222').trim();
+  // Font sizes are ABSOLUTE OUTPUT PIXELS (user-selected, no server-side scaling)
   const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
-  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 12 && nameFontSizeRaw <= 300
-    ? nameFontSizeRaw : 80;
+  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 20 && nameFontSizeRaw <= 800
+    ? nameFontSizeRaw : 150;
   const cnFontSizeRaw  = parseInt(req.body.cn_font_size, 10);
-  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw >= 12 && cnFontSizeRaw <= 300
-    ? cnFontSizeRaw : 50;
+  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw >= 20 && cnFontSizeRaw <= 800
+    ? cnFontSizeRaw : 100;
   const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
     ? req.body.name_font_weight : '700';
   const nameTextAlign  = ['left', 'center', 'right'].includes(req.body.name_text_align)
@@ -86,14 +87,6 @@ async function generateCard(req, res) {
        VALUES (?, ?, ?, 'unused', ?, ?)`,
       [code, guestName, phone, eventId, uuid]
     );
-
-    // 4 — Upload original card to Cloudinary
-    await uploadBuffer(req.file.buffer, {
-      public_id:     `wedding-qr/originals/original_${code}`,
-      resource_type: 'image',
-      overwrite:     true,
-      quality:       'auto:best',
-    });
 
     // 5 — Generate QR buffer
     const qrData   = JSON.stringify({ code, name: guestName });
@@ -150,11 +143,16 @@ async function generateCard(req, res) {
 
   } catch (err) {
     await connection.rollback();
-    console.error('[generateCard]', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to generate invitation. Please try again.',
-    });
+    const msg = err?.message || String(err);
+    console.error('[generateCard] ERROR:', msg, '\n', err?.stack || '');
+    const userMsg = msg.includes('Input image exceeds pixel limit')
+      ? 'Image is too large. Please reduce the image size and try again.'
+      : msg.includes('ECONNRESET') || msg.includes('timeout')
+        ? 'Upload timed out. Please check your internet connection and try again.'
+        : msg.includes('upload') || msg.includes('cloudinary')
+          ? 'Image upload failed. Please try again.'
+          : 'Failed to generate invitation. Please try again.';
+    return res.status(500).json({ success: false, message: userMsg });
   } finally {
     connection.release();
   }
@@ -549,11 +547,11 @@ async function renderCard(req, res) {
   const nameColor      = (req.body.name_color || '#111111').trim();
   const cnColor        = (req.body.cn_color   || '#222222').trim();
   const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
-  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 12 && nameFontSizeRaw <= 300
-    ? nameFontSizeRaw : 80;
+  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 20 && nameFontSizeRaw <= 800
+    ? nameFontSizeRaw : 150;
   const cnFontSizeRaw  = parseInt(req.body.cn_font_size, 10);
-  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw >= 12 && cnFontSizeRaw <= 300
-    ? cnFontSizeRaw : 50;
+  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw >= 20 && cnFontSizeRaw <= 800
+    ? cnFontSizeRaw : 100;
   const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
     ? req.body.name_font_weight : '700';
 

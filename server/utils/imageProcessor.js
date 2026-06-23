@@ -7,9 +7,9 @@ const QR_PAD        = 16;    // padding around QR (scales with card)
 const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 202 canvas units
 const BOTTOM_MARGIN = 150;
 
-// Default font sizes in 1080-canvas space (matched by client defaults)
-const DEFAULT_NAME_FONT = 80;
-const DEFAULT_CN_FONT   = 50;
+// Default font sizes in OUTPUT PIXELS (absolute — no cardScale multiplication)
+const DEFAULT_NAME_FONT = 150;
+const DEFAULT_CN_FONT   = 100;
 
 function xmlEsc(s) {
   return String(s)
@@ -157,9 +157,10 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
   // cardScale converts 1080-canvas units → actual card pixels
   const cardScale = cardW / 1080;
 
-  // Font sizes in actual card pixels
-  const nameFontPx = Math.round(nameFontSize * cardScale);
-  const cnFontPx   = Math.round(cnFontSize   * cardScale);
+  // Font sizes are ABSOLUTE output pixels — user-selected value rendered directly,
+  // no cardScale multiplication (WYSIWYG: preview and download use the same px value)
+  const nameFontPx = Math.round(nameFontSize);
+  const cnFontPx   = Math.round(cnFontSize);
 
   const nameStyle  = `font: ${nameFontWeight} ${nameFontPx}px Georgia, 'Times New Roman', serif; letter-spacing: 2px;`;
   const cnStyle    = `font: 600 ${cnFontPx}px Georgia, 'Times New Roman', serif; letter-spacing: 5px;`;

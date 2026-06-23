@@ -3,8 +3,9 @@ import Draggable from 'react-draggable';
 import { generateCard, renderCard } from '../utils/api';
 import '../styles/create.css';
 
+// QR block: 170px core + 16px padding each side = 202 canvas units (positions only)
+const QR_BLOCK  = 202;
 const ANCHOR_R  = 7;   // half of 14px anchor dot
-const QR_BLOCK  = 202; // canvas-space units (170 QR + 16 pad × 2)
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
@@ -22,8 +23,9 @@ export default function CardGenerator({ event }) {
   const [phone,        setPhone]        = useState('');
   const [nameColor,    setNameColor]    = useState('#111111');
   const [cnColor,      setCnColor]      = useState('#222222');
-  const [nameFontSize, setNameFontSize] = useState(80);
-  const [cnFontSize,   setCnFontSize]   = useState(50);
+  // Font sizes are ABSOLUTE OUTPUT PIXELS — same value used in downloaded PNG
+  const [nameFontSize, setNameFontSize] = useState(150);
+  const [cnFontSize,   setCnFontSize]   = useState(100);
   const [showQR,       setShowQR]       = useState(true);
   const [showCN,       setShowCN]       = useState(true);
 
@@ -34,11 +36,15 @@ export default function CardGenerator({ event }) {
   const [error,       setError]       = useState(null);
 
   // ── Canvas geometry ────────────────────────────────────────────────────────
-  // canvasH: image height in 1080-canvas space (1080 × imgH/imgW)
-  const [canvasH,  setCanvasH]  = useState(1350);
-  // overlayW: actual screen-pixel width of the drag container div
-  const [overlayW, setOverlayW] = useState(400);
-  // pos: element positions in 1080-canvas space; nameY/codeY = text baseline
+  // canvasH: image height in 1080-canvas space (1080 × naturalH/naturalW)
+  // Used ONLY for position proportions — not for font sizing.
+  const [canvasH,      setCanvasH]      = useState(1350);
+  // outputCardW: the actual pixel width the server will produce (max(naturalW, 1200))
+  // This drives preview font scaling to be pixel-accurate.
+  const [outputCardW,  setOutputCardW]  = useState(1200);
+  // overlayW: screen-pixel width of the drag container
+  const [overlayW,     setOverlayW]     = useState(400);
+  // pos: all coordinates in 1080-canvas space (proportional); Y = text baseline
   const [pos, setPos] = useState(null);
 
   const overlayRef    = useRef(null);
@@ -46,11 +52,15 @@ export default function CardGenerator({ event }) {
   const cnAnchorRef   = useRef(null);
   const qrBoxRef      = useRef(null);
 
-  const scale    = overlayW / 1080;
-  const overlayH = Math.round(canvasH * scale);
-  const qrBoxPx  = Math.round(QR_BLOCK * scale);
+  // posScale: converts 1080-canvas coords → screen pixels (for drag positions)
+  const posScale   = overlayW / 1080;
+  // fontScale: converts absolute output px → screen pixels (for preview text)
+  // outputCardW is the real card width the server will produce → honest preview
+  const fontScale  = overlayW / outputCardW;
+  const overlayH   = Math.round(canvasH * posScale);
+  const qrBoxPx    = Math.round(QR_BLOCK * posScale);
 
-  // ── Measure overlay width ──────────────────────────────────────────────────
+  // ── Track overlay width ────────────────────────────────────────────────────
   useEffect(() => {
     const el = overlayRef.current;
     if (!el) return;
@@ -73,21 +83,22 @@ export default function CardGenerator({ event }) {
 
   const onFileChange = (e) => { if (e.target.files?.[0]) handleImageFile(e.target.files[0]); };
 
-  // ── Image load → derive canvasH + set default positions ───────────────────
+  // ── Image natural dimensions → geometry ───────────────────────────────────
   const onImgLoad = (e) => {
     const { naturalWidth: nw, naturalHeight: nh } = e.currentTarget;
-    const ch = Math.round(1080 * nh / nw);
+    const ch  = Math.round(1080 * nh / nw);
+    const ocw = Math.max(nw, 1200); // matches server min-1200 logic
     setCanvasH(ch);
+    setOutputCardW(ocw);
     const ow = overlayRef.current?.offsetWidth || 400;
     setOverlayW(ow);
-    // positions in 1080-canvas space; Y = text baseline
-    // only set defaults if pos is still null (don't overwrite on re-render)
+    // Default positions in 1080-canvas space (independent of font sizes)
     setPos(prev => {
-      if (prev) return prev;
+      if (prev) return prev; // keep existing positions on re-render
       const qrTop  = Math.round(ch * 0.52);
       const qrLeft = Math.round((1080 - QR_BLOCK) / 2);
-      const nameY  = Math.round(qrTop + QR_BLOCK + 80 * 1.4);
-      const codeY  = Math.round(nameY + 80 * 1.7);
+      const nameY  = Math.round(qrTop + QR_BLOCK + ch * 0.06);
+      const codeY  = Math.round(nameY + ch * 0.07);
       return { nameX: 540, nameY, codeX: 540, codeY, qrLeft, qrTop };
     });
   };
@@ -108,8 +119,8 @@ export default function CardGenerator({ event }) {
       if (event?.id)              fd.append('event_id',       event.id);
       fd.append('name_color',     nameColor);
       fd.append('cn_color',       cnColor);
-      fd.append('name_font_size', nameFontSize);
-      fd.append('cn_font_size',   cnFontSize);
+      fd.append('name_font_size', nameFontSize);  // absolute px
+      fd.append('cn_font_size',   cnFontSize);    // absolute px
       fd.append('show_qr',        showQR ? '1' : '0');
       fd.append('show_cn',        showCN ? '1' : '0');
       if (pos) {
@@ -124,7 +135,9 @@ export default function CardGenerator({ event }) {
       if (!data.success) throw new Error(data.message || 'Generation failed');
       setResult(data);
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Generation failed. Please try again.');
+      const msg = err.response?.data?.message || err.message || 'Generation failed. Please try again.';
+      setError(msg);
+      console.error('[CardGenerator] generate failed:', msg);
     } finally {
       setLoading(false);
     }
@@ -142,8 +155,8 @@ export default function CardGenerator({ event }) {
       fd.append('guest_name',     guestName.trim());
       fd.append('name_color',     nameColor);
       fd.append('cn_color',       cnColor);
-      fd.append('name_font_size', nameFontSize);
-      fd.append('cn_font_size',   cnFontSize);
+      fd.append('name_font_size', nameFontSize);  // absolute px
+      fd.append('cn_font_size',   cnFontSize);    // absolute px
       fd.append('show_qr',        showQR ? '1' : '0');
       fd.append('show_cn',        showCN ? '1' : '0');
       if (pos) {
@@ -162,29 +175,34 @@ export default function CardGenerator({ event }) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch {
-      setError('Download failed. Please try again.');
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Download failed. Please try again.';
+      setError(msg);
     } finally {
       setDownloading(false);
     }
   };
 
   // ── Drag stop handlers ─────────────────────────────────────────────────────
-  // Anchor div top-left = (d.x, d.y); center = (d.x + ANCHOR_R, d.y + ANCHOR_R)
+  // Anchor top-left at (d.x, d.y); center at (d.x + ANCHOR_R, d.y + ANCHOR_R)
   const onNameStop = (_, d) => updatePos({
-    nameX: Math.round((d.x + ANCHOR_R) / scale),
-    nameY: Math.round((d.y + ANCHOR_R) / scale),
+    nameX: Math.round((d.x + ANCHOR_R) / posScale),
+    nameY: Math.round((d.y + ANCHOR_R) / posScale),
   });
   const onCnStop = (_, d) => updatePos({
-    codeX: Math.round((d.x + ANCHOR_R) / scale),
-    codeY: Math.round((d.y + ANCHOR_R) / scale),
+    codeX: Math.round((d.x + ANCHOR_R) / posScale),
+    codeY: Math.round((d.y + ANCHOR_R) / posScale),
   });
   const onQrStop = (_, d) => updatePos({
-    qrLeft: Math.max(0, Math.round(d.x / scale)),
-    qrTop:  Math.max(0, Math.round(d.y / scale)),
+    qrLeft: Math.max(0, Math.round(d.x / posScale)),
+    qrTop:  Math.max(0, Math.round(d.y / posScale)),
   });
 
   const dragReady = !!(imagePreview && pos && overlayW > 50);
+
+  // Preview font size in screen pixels (honest: same ratio as in output PNG)
+  const previewNamePx = Math.max(4, Math.round(nameFontSize * fontScale));
+  const previewCnPx   = Math.max(3, Math.round(cnFontSize   * fontScale));
 
   return (
     <div className="create-page">
@@ -206,7 +224,7 @@ export default function CardGenerator({ event }) {
         {/* ══ LEFT: Form ═══════════════════════════════════════════════════ */}
         <div className="form-panel">
 
-          {/* Upload area */}
+          {/* Upload */}
           <div
             className={`upload-box${dragOver ? ' drag-over' : ''}`}
             onClick={() => fileInputRef.current?.click()}
@@ -224,13 +242,7 @@ export default function CardGenerator({ event }) {
                 </>
               )}
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={onFileChange}
-          />
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFileChange} />
 
           {/* Guest name */}
           <div className="form-group">
@@ -255,25 +267,25 @@ export default function CardGenerator({ event }) {
             />
           </div>
 
-          {/* Font sizes */}
+          {/* Font sizes — absolute output pixels */}
           <div className="font-size-row">
             <div className="font-size-field">
-              <label>Name Size</label>
+              <label>Name Size (px)</label>
               <input
                 type="number"
-                min={12} max={200}
+                min={20} max={800}
                 value={nameFontSize}
-                onChange={e => setNameFontSize(clamp(parseInt(e.target.value, 10) || 80, 12, 200))}
+                onChange={e => setNameFontSize(clamp(parseInt(e.target.value, 10) || 150, 20, 800))}
               />
             </div>
             {!isContribution && (
               <div className="font-size-field">
-                <label>CN Size</label>
+                <label>CN Size (px)</label>
                 <input
                   type="number"
-                  min={12} max={200}
+                  min={20} max={800}
                   value={cnFontSize}
-                  onChange={e => setCnFontSize(clamp(parseInt(e.target.value, 10) || 50, 12, 200))}
+                  onChange={e => setCnFontSize(clamp(parseInt(e.target.value, 10) || 100, 20, 800))}
                 />
               </div>
             )}
@@ -303,7 +315,7 @@ export default function CardGenerator({ event }) {
             )}
           </div>
 
-          {/* Visibility toggles */}
+          {/* Show/hide toggles */}
           {!isContribution && (
             <div className="toggle-row">
               <label className="toggle-label">
@@ -317,7 +329,7 @@ export default function CardGenerator({ event }) {
             </div>
           )}
 
-          {/* Error message */}
+          {/* Error */}
           {error && (
             <div style={{
               background: 'rgba(239,68,68,0.12)',
@@ -353,7 +365,7 @@ export default function CardGenerator({ event }) {
         <div className="drag-preview-wrap">
           {imagePreview ? (
             <>
-              {/* Dot legend */}
+              {/* Legend */}
               <div className="drag-hint-label">
                 <span><span className="legend-dot" style={{ background: '#3b82f6' }} />Name</span>
                 {!isContribution && showCN && (
@@ -369,41 +381,32 @@ export default function CardGenerator({ event }) {
                 className="drag-canvas-container"
                 style={{ touchAction: 'none' }}
               >
-                <img
-                  src={imagePreview}
-                  alt="Card"
-                  onLoad={onImgLoad}
-                  draggable={false}
-                />
+                <img src={imagePreview} alt="Card" onLoad={onImgLoad} draggable={false} />
 
                 {dragReady && (
                   <>
-                    {/* QR placeholder box */}
+                    {/* QR placeholder box (positions use posScale) */}
                     {!isContribution && showQR && (
                       <Draggable
                         nodeRef={qrBoxRef}
-                        position={{ x: pos.qrLeft * scale, y: pos.qrTop * scale }}
+                        position={{ x: pos.qrLeft * posScale, y: pos.qrTop * posScale }}
                         bounds={{ top: 0, left: 0, right: overlayW - qrBoxPx, bottom: overlayH - qrBoxPx }}
                         onStop={onQrStop}
                       >
-                        <div
-                          ref={qrBoxRef}
-                          className="drag-qr-box"
-                          style={{ width: qrBoxPx, height: qrBoxPx }}
-                        >
+                        <div ref={qrBoxRef} className="drag-qr-box" style={{ width: qrBoxPx, height: qrBoxPx }}>
                           QR
                         </div>
                       </Draggable>
                     )}
 
-                    {/* SVG text preview — purely visual, no pointer events */}
+                    {/* SVG text preview — pixel-accurate font sizes via fontScale */}
                     <svg className="drag-canvas-svg" style={{ zIndex: 6 }} aria-hidden="true">
                       <text
-                        x={pos.nameX * scale}
-                        y={pos.nameY * scale}
+                        x={pos.nameX * posScale}
+                        y={pos.nameY * posScale}
                         textAnchor="middle"
                         fontFamily="Georgia, 'Times New Roman', serif"
-                        fontSize={Math.max(6, Math.round(nameFontSize * scale))}
+                        fontSize={previewNamePx}
                         fontWeight="700"
                         fill={nameColor}
                         letterSpacing="2"
@@ -414,11 +417,11 @@ export default function CardGenerator({ event }) {
 
                       {!isContribution && showCN && (
                         <text
-                          x={pos.codeX * scale}
-                          y={pos.codeY * scale}
+                          x={pos.codeX * posScale}
+                          y={pos.codeY * posScale}
                           textAnchor="middle"
                           fontFamily="Georgia, 'Times New Roman', serif"
-                          fontSize={Math.max(4, Math.round(cnFontSize * scale))}
+                          fontSize={previewCnPx}
                           fontWeight="600"
                           fill={cnColor}
                           letterSpacing="4"
@@ -432,7 +435,7 @@ export default function CardGenerator({ event }) {
                     {/* Name anchor dot — center = text baseline center */}
                     <Draggable
                       nodeRef={nameAnchorRef}
-                      position={{ x: pos.nameX * scale - ANCHOR_R, y: pos.nameY * scale - ANCHOR_R }}
+                      position={{ x: pos.nameX * posScale - ANCHOR_R, y: pos.nameY * posScale - ANCHOR_R }}
                       bounds={{ top: -ANCHOR_R, left: -ANCHOR_R, right: overlayW - ANCHOR_R, bottom: overlayH - ANCHOR_R }}
                       onStop={onNameStop}
                     >
@@ -445,7 +448,7 @@ export default function CardGenerator({ event }) {
                     {!isContribution && showCN && (
                       <Draggable
                         nodeRef={cnAnchorRef}
-                        position={{ x: pos.codeX * scale - ANCHOR_R, y: pos.codeY * scale - ANCHOR_R }}
+                        position={{ x: pos.codeX * posScale - ANCHOR_R, y: pos.codeY * posScale - ANCHOR_R }}
                         bounds={{ top: -ANCHOR_R, left: -ANCHOR_R, right: overlayW - ANCHOR_R, bottom: overlayH - ANCHOR_R }}
                         onStop={onCnStop}
                       >
