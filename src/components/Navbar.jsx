@@ -10,6 +10,13 @@ import {
 import { isAdmin, isSuperAdmin, isEventManager, canManage, getRole, getUserName } from '../utils/auth';
 import '../styles/components.css';
 
+// Super admin: platform owner — no operational access
+const SUPER_ADMIN_LINKS = [
+  { to: '/',      end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard' },
+  { to: '/users', end: false, icon: <MdPeople size={16} />,             label: 'Users'     },
+  { to: '/admin', end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'     },
+];
+
 const ADMIN_LINKS = [
   { to: '/',        end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard'    },
   { to: '/events',  end: false, icon: <MdEvent size={16} />,              label: 'Events'       },
@@ -47,8 +54,8 @@ export default function Navbar() {
 
   const role   = getRole();
   const name   = getUserName();
-  const links  = isSuperAdmin() || isAdmin() ? ADMIN_LINKS : isEventManager() ? MANAGER_LINKS : VERIFIER_LINKS;
-  const logoTo = isAdmin() ? '/' : canManage() ? '/events' : '/verify';
+  const links  = isSuperAdmin() ? SUPER_ADMIN_LINKS : isAdmin() ? ADMIN_LINKS : isEventManager() ? MANAGER_LINKS : VERIFIER_LINKS;
+  const logoTo = isSuperAdmin() || isAdmin() ? '/' : canManage() ? '/events' : '/verify';
 
   const handleLogout = () => {
     close();

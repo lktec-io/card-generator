@@ -19,9 +19,9 @@ const sharp     = require('sharp');
 const { Resvg } = require('@resvg/resvg-js');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const QR_SIZE       = 170;
+const QR_SIZE       = 220;
 const QR_PAD        = 16;
-const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 202px padded box
+const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 252px padded box
 const BOTTOM_MARGIN = 150;
 
 function xmlEsc(s) {

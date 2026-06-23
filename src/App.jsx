@@ -12,7 +12,7 @@ import PublicInvitePage         from './pages/PublicInvitePage';
 import ImportPage               from './pages/ImportPage';
 import UsersPage                from './pages/UsersPage';
 import { ToastProvider }        from './context/ToastContext';
-import { isLoggedIn, isAdmin, canManage } from './utils/auth';
+import { isLoggedIn, isAdmin, canManage, getRole } from './utils/auth';
 import './styles/global.css';
 import './App.css';
 
@@ -26,9 +26,18 @@ function AdminRoute({ children }) {
   return children;
 }
 
-function ManagerRoute({ children }) {
-  if (!isLoggedIn())  return <Navigate to="/login"  replace />;
-  if (!canManage())   return <Navigate to="/verify" replace />;
+// Operational routes: admin or event_manager only; super_admin → dashboard
+function OperationalRoute({ children }) {
+  if (!isLoggedIn())               return <Navigate to="/login" replace />;
+  if (getRole() === 'super_admin') return <Navigate to="/"      replace />;
+  if (!canManage())                return <Navigate to="/verify" replace />;
+  return children;
+}
+
+// Field routes: any logged-in non-super_admin user (managers, verifiers)
+function FieldRoute({ children }) {
+  if (!isLoggedIn())               return <Navigate to="/login" replace />;
+  if (getRole() === 'super_admin') return <Navigate to="/"      replace />;
   return children;
 }
 
@@ -47,22 +56,22 @@ function AppShell() {
           {/* Public */}
           <Route path="/login"         element={<LoginPage />} />
           <Route path="/invite/:uuid"  element={<PublicInvitePage />} />
-          <Route path="/display/:uuid" element={<ManagerRoute><PublicInvitePage isPreview /></ManagerRoute>} />
+          <Route path="/display/:uuid" element={<FieldRoute><PublicInvitePage isPreview /></FieldRoute>} />
 
-          {/* Manager+ */}
-          <Route path="/verify"  element={<ManagerRoute><VerifyPage /></ManagerRoute>} />
-          <Route path="/history" element={<ManagerRoute><VerificationHistoryPage /></ManagerRoute>} />
+          {/* Field routes — logged-in non-super_admin (admin, event_manager, verifier) */}
+          <Route path="/verify"  element={<FieldRoute><VerifyPage /></FieldRoute>} />
+          <Route path="/history" element={<FieldRoute><VerificationHistoryPage /></FieldRoute>} />
 
-          {/* Admin only */}
+          {/* Admin only (admin + super_admin) */}
           <Route path="/"       element={<AdminRoute><DashboardPage /></AdminRoute>} />
           <Route path="/admin"  element={<AdminRoute><AdminPage /></AdminRoute>} />
           <Route path="/users"  element={<AdminRoute><UsersPage /></AdminRoute>} />
 
-          {/* Manager+ (admin or event_manager) */}
-          <Route path="/events"     element={<ManagerRoute><EventsPage /></ManagerRoute>} />
-          <Route path="/events/:id" element={<ManagerRoute><EventDetailPage /></ManagerRoute>} />
-          <Route path="/create"     element={<ManagerRoute><CreatePage /></ManagerRoute>} />
-          <Route path="/import"     element={<ManagerRoute><ImportPage /></ManagerRoute>} />
+          {/* Operational routes — admin or event_manager only (NOT super_admin) */}
+          <Route path="/events"     element={<OperationalRoute><EventsPage /></OperationalRoute>} />
+          <Route path="/events/:id" element={<OperationalRoute><EventDetailPage /></OperationalRoute>} />
+          <Route path="/create"     element={<OperationalRoute><CreatePage /></OperationalRoute>} />
+          <Route path="/import"     element={<OperationalRoute><ImportPage /></OperationalRoute>} />
         </Routes>
       </main>
     </>

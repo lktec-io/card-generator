@@ -16,6 +16,10 @@ if (!fs.existsSync(GENERATED_DIR)) fs.mkdirSync(GENERATED_DIR, { recursive: true
 // ── generateCard ──────────────────────────────────────────────────────────────
 
 async function generateCard(req, res) {
+  if (req.user?.role === 'super_admin') {
+    return res.status(403).json({ success: false, message: 'Platform administrators cannot generate invitations.' });
+  }
+
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'Card image is required.' });
   }
@@ -81,19 +85,11 @@ async function generateCard(req, res) {
       [code, guestName, phone, eventId, uuid]
     );
 
-    // 4 — Upload original card to Cloudinary
-    await uploadBuffer(req.file.buffer, {
-      public_id:     `wedding-qr/originals/original_${code}`,
-      resource_type: 'image',
-      overwrite:     true,
-      quality:       'auto:best',
-    });
-
-    // 5 — Generate QR buffer
+    // 4 — Generate QR buffer
     const qrData   = JSON.stringify({ code, name: guestName });
     const qrBuffer = await generateStyledQRBuffer(qrData, 400);
 
-    // 6 — Overlay QR + text onto card image
+    // 5 — Composite QR + text onto card image
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
       nameColor,
       cnColor,
@@ -105,11 +101,11 @@ async function generateCard(req, res) {
       positions,
     });
 
-    // 8 — Save locally for static serving
+    // 6 — Save locally for static serving
     const localFile = path.join(GENERATED_DIR, `${code}.png`);
     fs.writeFileSync(localFile, finalBuffer);
 
-    // 9 — Upload final card to Cloudinary
+    // 7 — Upload final card to Cloudinary
     const finalUpload = await uploadBuffer(finalBuffer, {
       public_id:     `wedding-qr/generated/card_${code}`,
       resource_type: 'image',
@@ -117,7 +113,7 @@ async function generateCard(req, res) {
       quality:       'auto:best',
     });
 
-    // 10 — Persist image URL in DB
+    // 8 — Persist image URL in DB
     await connection.execute(
       `UPDATE invitations SET image_url = ? WHERE code = ?`,
       [finalUpload.secure_url, code]

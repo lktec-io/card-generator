@@ -7,7 +7,7 @@ import {
   MdHistory,
 } from 'react-icons/md';
 import { getGlobalStats, listEvents } from '../utils/api';
-import { isAdmin } from '../utils/auth';
+import { isAdmin, isSuperAdmin } from '../utils/auth';
 import '../styles/dashboard.css';
 
 /* ── Reusable stat card ───────────────────────────────────────────────── */
@@ -175,14 +175,16 @@ export default function DashboardPage() {
           <h1>Dashboard</h1>
           <p>Live overview across all events</p>
         </div>
-        <div className="dash-header-actions">
-          <button className="btn-gold" onClick={() => navigate('/events')}>
-            <MdEvent size={16} /> New Event
-          </button>
-          <button className="btn-outline" onClick={() => navigate('/create')}>
-            <MdAddPhotoAlternate size={16} /> Create Cards
-          </button>
-        </div>
+        {!isSuperAdmin() && (
+          <div className="dash-header-actions">
+            <button className="btn-gold" onClick={() => navigate('/events')}>
+              <MdEvent size={16} /> New Event
+            </button>
+            <button className="btn-outline" onClick={() => navigate('/create')}>
+              <MdAddPhotoAlternate size={16} /> Create Cards
+            </button>
+          </div>
+        )}
       </div>
 
       {error && <p className="dash-error">{error}</p>}
@@ -362,25 +364,27 @@ export default function DashboardPage() {
 
           </div>
 
-          {/* ── Quick actions ── */}
-          <div className="dash-quick-actions">
-            <button className="dash-quick-btn" onClick={() => navigate('/create')}>
-              <MdAddPhotoAlternate size={24} />
-              <span>Create Invitation</span>
-            </button>
-            <button className="dash-quick-btn" onClick={() => navigate('/verify')}>
-              <MdQrCodeScanner size={24} />
-              <span>Scan &amp; Verify</span>
-            </button>
-            <button className="dash-quick-btn" onClick={() => navigate('/history')}>
-              <MdCheckCircle size={24} />
-              <span>Check-in History</span>
-            </button>
-            <button className="dash-quick-btn" onClick={() => navigate('/events')}>
-              <MdEvent size={24} />
-              <span>Manage Events</span>
-            </button>
-          </div>
+          {/* ── Quick actions (operational roles only) ── */}
+          {!isSuperAdmin() && (
+            <div className="dash-quick-actions">
+              <button className="dash-quick-btn" onClick={() => navigate('/create')}>
+                <MdAddPhotoAlternate size={24} />
+                <span>Create Invitation</span>
+              </button>
+              <button className="dash-quick-btn" onClick={() => navigate('/verify')}>
+                <MdQrCodeScanner size={24} />
+                <span>Scan &amp; Verify</span>
+              </button>
+              <button className="dash-quick-btn" onClick={() => navigate('/history')}>
+                <MdCheckCircle size={24} />
+                <span>Check-in History</span>
+              </button>
+              <button className="dash-quick-btn" onClick={() => navigate('/events')}>
+                <MdEvent size={24} />
+                <span>Manage Events</span>
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

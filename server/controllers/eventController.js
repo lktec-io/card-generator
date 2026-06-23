@@ -69,6 +69,10 @@ async function listEvents(req, res) {
 
 // POST /events
 async function createEvent(req, res) {
+  if (req.user?.role === 'super_admin') {
+    return res.status(403).json({ success: false, message: 'Platform administrators cannot create events.' });
+  }
+
   const {
     event_name, event_type, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
