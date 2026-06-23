@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   MdArrowBack, MdCalendarToday, MdLocationOn,
   MdMap, MdPeople, MdCheckCircle, MdHourglassEmpty,
@@ -18,6 +18,12 @@ const EVENT_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
   'Graduation', 'Conference', 'Church Event', 'Corporate Event',
 ];
+
+const TYPE_COLORS = {
+  'Wedding': '#d4af37', 'Birthday': '#a78bfa', 'Kitchen Party': '#fb923c',
+  'Sendoff': '#34d399', 'Graduation': '#60a5fa', 'Conference': '#f87171',
+  'Church Event': '#fbbf24', 'Corporate Event': '#94a3b8',
+};
 
 function formatDate(raw) {
   if (!raw) return '—';
@@ -59,12 +65,13 @@ export default function EventDetailPage() {
   const [saving,        setSaving]        = useState(false);
   const [delInvId,      setDelInvId]      = useState(null);
   const [delInv,        setDelInv]        = useState(null);
-  const [voiceMsgs,     setVoiceMsgs]     = useState([]);
-  const [loadingVoice,  setLoadingVoice]  = useState(false);
-  const [deletingVmId,  setDeletingVmId]  = useState(null);
-  const [deleteVmModal, setDeleteVmModal] = useState(null);
-  const [invView,       setInvView]       = useState(() => localStorage.getItem('invView') || 'list');
+  const [voiceMsgs,      setVoiceMsgs]      = useState([]);
+  const [loadingVoice,   setLoadingVoice]   = useState(false);
+  const [deletingVmId,   setDeletingVmId]   = useState(null);  // id being deleted
+  const [deleteVmModal,  setDeleteVmModal]  = useState(null);  // vm object | null  // full inv object for modal
+  const [invView,  setInvView]  = useState(() => localStorage.getItem('invView') || 'list');
 
+  // Provide color defaults so the pickers always save a value, even for old events
   function initForm(ev) {
     return {
       ...ev,
@@ -115,6 +122,7 @@ export default function EventDetailPage() {
     localStorage.setItem('invView', v);
   };
 
+  /* ── Save event edits ── */
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -129,6 +137,7 @@ export default function EventDetailPage() {
     }
   };
 
+  /* ── Blob download — direct file, not new tab ── */
   const handleDownload = async (inv) => {
     if (!inv.image_url) { showToast('No card image available.', 'info'); return; }
     try {
@@ -137,7 +146,7 @@ export default function EventDetailPage() {
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href     = url;
-      a.download = `${inv.code}-${(inv.guest_name || '').replace(/\s+/g, '-')}.png`;
+      a.download = `${inv.code}-${(inv.guest_name || '').replace(/\s+/g, '-')}.jpg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -147,6 +156,7 @@ export default function EventDetailPage() {
     }
   };
 
+  /* ── Native share → WhatsApp fallback ── */
   const handleShare = async (inv) => {
     const url   = inviteLink(inv);
     const ev    = data?.event;
@@ -162,6 +172,7 @@ export default function EventDetailPage() {
     };
     const emoji = TYPE_EMOJI[ev?.event_type || ''] || '🎉';
 
+    // Build compact details line (no empty lines between date/time/venue)
     const details = [
       date  ? `📅 ${date}`  : null,
       time  ? `🕒 ${time}`  : null,
@@ -180,6 +191,7 @@ export default function EventDetailPage() {
 
     if (navigator.share) {
       try {
+        // Strip URL from text to prevent duplication (browser appends url param separately)
         const textOnly = fullMessage.replace(url, '').trimEnd();
         await navigator.share({ title: `Mwaliko — ${name}`, text: textOnly, url });
         return;
@@ -190,6 +202,7 @@ export default function EventDetailPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(fullMessage)}`, '_blank');
   };
 
+  /* ── Copy invite link ── */
   const handleCopyLink = (inv) => {
     const url = inviteLink(inv);
     navigator.clipboard.writeText(url)
@@ -197,7 +210,10 @@ export default function EventDetailPage() {
       .catch(() => showToast('Failed to copy.', 'error'));
   };
 
-  const handleOpen    = (inv) => window.open(inviteLink(inv), '_blank');
+  /* ── Open guest view ── */
+  const handleOpen = (inv) => window.open(inviteLink(inv), '_blank');
+
+  /* ── Admin preview (with banner) ── */
   const handlePreview = (inv) => {
     const base = window.location.origin;
     const url  = inv.invitation_uuid
@@ -206,6 +222,7 @@ export default function EventDetailPage() {
     window.open(url, '_blank');
   };
 
+  /* ── Delete invitation ── */
   const openDelModal  = (inv) => { setDelInvId(inv.id); setDelInv(inv); };
   const closeDelModal = () => { setDelInvId(null); setDelInv(null); };
 
@@ -224,29 +241,31 @@ export default function EventDetailPage() {
     }
   };
 
+  /* ── Action buttons shared between list and grid ── */
   const ActionButtons = ({ inv }) => (
     <div className="row-actions">
       <button className="btn-action btn-download" onClick={() => handleDownload(inv)} disabled={!inv.image_url} title="Download card">
         <MdDownload size={14} />
       </button>
-      <button className="btn-action btn-share"   onClick={() => handleShare(inv)}    title="Share">
+      <button className="btn-action btn-share"   onClick={() => handleShare(inv)}   title="Share">
         <MdShare size={14} />
       </button>
       <button className="btn-action btn-copy"    onClick={() => handleCopyLink(inv)} title="Copy invite link">
         <MdContentCopy size={14} />
       </button>
-      <button className="btn-action btn-open"    onClick={() => handleOpen(inv)}     title="Open guest view">
+      <button className="btn-action btn-open"    onClick={() => handleOpen(inv)}    title="Open guest view">
         <MdOpenInNew size={14} />
       </button>
-      <button className="btn-action btn-preview" onClick={() => handlePreview(inv)}  title="Admin preview">
+      <button className="btn-action btn-preview" onClick={() => handlePreview(inv)} title="Admin preview">
         <MdVisibility size={14} />
       </button>
-      <button className="btn-action btn-delete"  onClick={() => openDelModal(inv)}   title="Delete">
+      <button className="btn-action btn-delete"  onClick={() => openDelModal(inv)}  title="Delete">
         <MdDelete size={14} />
       </button>
     </div>
   );
 
+  /* ── Loading / error states ── */
   if (loading) return (
     <div className="events-page page-enter">
       <div className="events-container">
@@ -264,10 +283,11 @@ export default function EventDetailPage() {
     </div>
   );
 
-  const ev   = data?.event;
-  const invs = data?.invitations || [];
-  const stats = data?.stats || {};
-  const rsvp  = data?.rsvp  || {};
+  const ev             = data?.event;
+  const invs           = data?.invitations || [];
+  const stats          = data?.stats || {};
+  const rsvp           = data?.rsvp  || {};
+  const isContribution = ev?.event_mode === 'contribution';
 
   return (
     <div className="events-page page-enter">
@@ -311,18 +331,24 @@ export default function EventDetailPage() {
         </div>
 
         {/* ── Stats row ── */}
-        <div className="ev-stats-row">
-          <div className="ev-mini-stat"><MdPeople size={18}/><span>{stats.total ?? 0}</span><label>Invited</label></div>
-          <div className="ev-mini-stat ev-mini--green"><MdCheckCircle size={18}/><span>{stats.checked_in ?? 0}</span><label>Checked In</label></div>
-          <div className="ev-mini-stat"><MdHourglassEmpty size={18}/><span>{stats.pending ?? 0}</span><label>Pending</label></div>
-          <div className="ev-mini-stat ev-mini--green"><MdThumbUp size={18}/><span>{rsvp.attending ?? 0}</span><label>RSVP Yes</label></div>
-          <div className="ev-mini-stat ev-mini--red"><MdThumbDown size={18}/><span>{rsvp.declined ?? 0}</span><label>RSVP No</label></div>
-        </div>
+        {isContribution ? (
+          <div className="ev-stats-row">
+            <div className="ev-mini-stat"><MdPeople size={18}/><span>{invs.length}</span><label>Total Cards</label></div>
+          </div>
+        ) : (
+          <div className="ev-stats-row">
+            <div className="ev-mini-stat"><MdPeople size={18}/><span>{stats.total ?? 0}</span><label>Invited</label></div>
+            <div className="ev-mini-stat ev-mini--green"><MdCheckCircle size={18}/><span>{stats.checked_in ?? 0}</span><label>Checked In</label></div>
+            <div className="ev-mini-stat"><MdHourglassEmpty size={18}/><span>{stats.pending ?? 0}</span><label>Pending</label></div>
+            <div className="ev-mini-stat ev-mini--green"><MdThumbUp size={18}/><span>{rsvp.attending ?? 0}</span><label>RSVP Yes</label></div>
+            <div className="ev-mini-stat ev-mini--red"><MdThumbDown size={18}/><span>{rsvp.declined ?? 0}</span><label>RSVP No</label></div>
+          </div>
+        )}
 
         {/* ── Event info ── */}
         <div className="ev-info-grid">
           <div className="ev-info-card">
-            <h3>Event Details</h3>
+            <h3>{isContribution ? 'Campaign Details' : 'Event Details'}</h3>
             <div className="ev-info-rows">
               {editing ? (
                 <>
@@ -336,18 +362,24 @@ export default function EventDetailPage() {
                     <label>Date</label>
                     <input type="date" value={(form.event_date || '').split('T')[0]} onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} />
                   </div>
-                  <div className="ev-info-edit-row">
-                    <label>Time</label>
-                    <input value={form.event_time || ''} onChange={e => setForm(f => ({ ...f, event_time: e.target.value }))} placeholder="e.g. 5:00 PM" />
-                  </div>
-                  <div className="ev-info-edit-row">
-                    <label>Venue</label>
-                    <input value={form.venue || ''} onChange={e => setForm(f => ({ ...f, venue: e.target.value }))} placeholder="Venue" />
-                  </div>
-                  <div className="ev-info-edit-row">
-                    <label>Maps Link</label>
-                    <input value={form.maps_link || ''} onChange={e => setForm(f => ({ ...f, maps_link: e.target.value }))} placeholder="Google Maps URL" />
-                  </div>
+                  {!isContribution && (
+                    <div className="ev-info-edit-row">
+                      <label>Time</label>
+                      <input value={form.event_time || ''} onChange={e => setForm(f => ({ ...f, event_time: e.target.value }))} placeholder="e.g. 5:00 PM" />
+                    </div>
+                  )}
+                  {!isContribution && (
+                    <div className="ev-info-edit-row">
+                      <label>Venue</label>
+                      <input value={form.venue || ''} onChange={e => setForm(f => ({ ...f, venue: e.target.value }))} placeholder="Venue" />
+                    </div>
+                  )}
+                  {!isContribution && (
+                    <div className="ev-info-edit-row">
+                      <label>Maps Link</label>
+                      <input value={form.maps_link || ''} onChange={e => setForm(f => ({ ...f, maps_link: e.target.value }))} placeholder="Google Maps URL" />
+                    </div>
+                  )}
                   <div className="ev-info-edit-row">
                     <label>Contact Name</label>
                     <input value={form.contact_name || ''} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Event Coordinator" />
@@ -359,10 +391,10 @@ export default function EventDetailPage() {
                 </>
               ) : (
                 <>
-                  {ev?.event_date   && <div className="ev-info-row"><MdCalendarToday size={15}/><span>{formatDate(ev.event_date)}</span></div>}
-                  {ev?.event_time   && <div className="ev-info-row"><span style={{width:15,textAlign:'center'}}>🕒</span><span>{ev.event_time}</span></div>}
-                  {ev?.venue        && <div className="ev-info-row"><MdLocationOn size={15}/><span>{ev.venue}</span></div>}
-                  {ev?.maps_link    && (
+                  {ev?.event_date && <div className="ev-info-row"><MdCalendarToday size={15}/><span>{formatDate(ev.event_date)}</span></div>}
+                  {!isContribution && ev?.event_time && <div className="ev-info-row"><span style={{width:15,textAlign:'center'}}>🕒</span><span>{ev.event_time}</span></div>}
+                  {!isContribution && ev?.venue && <div className="ev-info-row"><MdLocationOn size={15}/><span>{ev.venue}</span></div>}
+                  {!isContribution && ev?.maps_link && (
                     <div className="ev-info-row">
                       <MdMap size={15}/>
                       <a href={ev.maps_link} target="_blank" rel="noreferrer" className="ev-maps-link">Open Directions</a>
@@ -380,66 +412,68 @@ export default function EventDetailPage() {
             </div>
           </div>
 
-          {/* Dress Code */}
-          <div className="ev-info-card">
-            <h3>Dress Code</h3>
-            {editing ? (
-              <div className="ev-info-rows">
-                <div className="ev-info-edit-row">
-                  <label>Primary Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" value={form.dress_code_main || '#d4af37'} onChange={e => setForm(f => ({ ...f, dress_code_main: e.target.value }))} />
-                    <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
-                    <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
-                  </div>
-                </div>
-                <div className="ev-info-edit-row">
-                  <label>Secondary Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" value={form.dress_code_secondary || '#1a1a2e'} onChange={e => setForm(f => ({ ...f, dress_code_secondary: e.target.value }))} />
-                    <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
-                    <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
-                  </div>
-                </div>
-                <div className="ev-info-edit-row">
-                  <label>Accent Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" value={form.dress_code_accent || '#ffffff'} onChange={e => setForm(f => ({ ...f, dress_code_accent: e.target.value }))} />
-                    <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
-                    <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
-                  </div>
-                </div>
-                <div className="ev-info-edit-row">
-                  <label>Notes</label>
-                  <textarea value={form.dress_code_notes || ''} onChange={e => setForm(f => ({ ...f, dress_code_notes: e.target.value }))} rows={3} />
-                </div>
-              </div>
-            ) : (
-              <div className="dress-code-display">
-                {(ev?.dress_code_main || ev?.dress_code_secondary || ev?.dress_code_accent || ev?.dress_code_notes) ? (
-                  <>
-                    <div className="dress-swatches-row">
-                      <div className="dress-swatch-chip">
-                        <span className="dress-swatch-circle" style={{ background: ev.dress_code_main || '#d4af37' }} />
-                        <span>Primary</span>
-                      </div>
-                      <div className="dress-swatch-chip">
-                        <span className="dress-swatch-circle" style={{ background: ev.dress_code_secondary || '#1a1a2e' }} />
-                        <span>Secondary</span>
-                      </div>
-                      <div className="dress-swatch-chip">
-                        <span className="dress-swatch-circle" style={{ background: ev.dress_code_accent || '#ffffff', border: '2px solid rgba(255,255,255,0.22)' }} />
-                        <span>Accent</span>
-                      </div>
+          {/* Dress Code — invitation events only */}
+          {!isContribution && (
+            <div className="ev-info-card">
+              <h3>Dress Code</h3>
+              {editing ? (
+                <div className="ev-info-rows">
+                  <div className="ev-info-edit-row">
+                    <label>Primary Color</label>
+                    <div className="color-picker-wrap">
+                      <input type="color" value={form.dress_code_main || '#d4af37'} onChange={e => setForm(f => ({ ...f, dress_code_main: e.target.value }))} />
+                      <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
+                      <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
                     </div>
-                    {ev?.dress_code_notes && <p className="dress-notes">{ev.dress_code_notes}</p>}
-                  </>
-                ) : (
-                  <p className="ev-info-empty">No dress code specified</p>
-                )}
-              </div>
-            )}
-          </div>
+                  </div>
+                  <div className="ev-info-edit-row">
+                    <label>Secondary Color</label>
+                    <div className="color-picker-wrap">
+                      <input type="color" value={form.dress_code_secondary || '#1a1a2e'} onChange={e => setForm(f => ({ ...f, dress_code_secondary: e.target.value }))} />
+                      <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
+                      <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
+                    </div>
+                  </div>
+                  <div className="ev-info-edit-row">
+                    <label>Accent Color</label>
+                    <div className="color-picker-wrap">
+                      <input type="color" value={form.dress_code_accent || '#ffffff'} onChange={e => setForm(f => ({ ...f, dress_code_accent: e.target.value }))} />
+                      <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
+                      <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
+                    </div>
+                  </div>
+                  <div className="ev-info-edit-row">
+                    <label>Notes</label>
+                    <textarea value={form.dress_code_notes || ''} onChange={e => setForm(f => ({ ...f, dress_code_notes: e.target.value }))} rows={3} />
+                  </div>
+                </div>
+              ) : (
+                <div className="dress-code-display">
+                  {(ev?.dress_code_main || ev?.dress_code_secondary || ev?.dress_code_accent || ev?.dress_code_notes) ? (
+                    <>
+                      <div className="dress-swatches-row">
+                        <div className="dress-swatch-chip">
+                          <span className="dress-swatch-circle" style={{ background: ev.dress_code_main || '#d4af37' }} />
+                          <span>Primary</span>
+                        </div>
+                        <div className="dress-swatch-chip">
+                          <span className="dress-swatch-circle" style={{ background: ev.dress_code_secondary || '#1a1a2e' }} />
+                          <span>Secondary</span>
+                        </div>
+                        <div className="dress-swatch-chip">
+                          <span className="dress-swatch-circle" style={{ background: ev.dress_code_accent || '#ffffff', border: '2px solid rgba(255,255,255,0.22)' }} />
+                          <span>Accent</span>
+                        </div>
+                      </div>
+                      {ev?.dress_code_notes && <p className="dress-notes">{ev.dress_code_notes}</p>}
+                    </>
+                  ) : (
+                    <p className="ev-info-empty">No dress code specified</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Invitations section ── */}
@@ -447,24 +481,27 @@ export default function EventDetailPage() {
           <div className="ev-inv-head">
             <h2>Invitations ({invs.length})</h2>
             <div className="ev-inv-toolbar">
-              <div className="view-toggle">
-                <button
-                  className={`view-toggle-btn${invView === 'list' ? ' active' : ''}`}
-                  onClick={() => switchInvView('list')}
-                  title="List view"
-                >
-                  <MdViewList size={18} />
-                </button>
-                <button
-                  className={`view-toggle-btn${invView === 'grid' ? ' active' : ''}`}
-                  onClick={() => switchInvView('grid')}
-                  title="Grid view"
-                >
-                  <MdGridView size={18} />
-                </button>
-              </div>
+              {/* View toggle — not applicable to Contribution Campaigns (one table format) */}
+              {!isContribution && (
+                <div className="view-toggle">
+                  <button
+                    className={`view-toggle-btn${invView === 'list' ? ' active' : ''}`}
+                    onClick={() => switchInvView('list')}
+                    title="List view"
+                  >
+                    <MdViewList size={18} />
+                  </button>
+                  <button
+                    className={`view-toggle-btn${invView === 'grid' ? ' active' : ''}`}
+                    onClick={() => switchInvView('grid')}
+                    title="Grid view"
+                  >
+                    <MdGridView size={18} />
+                  </button>
+                </div>
+              )}
               <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
-                <MdAddPhotoAlternate size={15} /> Add Invitations
+                <MdAddPhotoAlternate size={15} /> {isContribution ? 'Generate Cards' : 'Add Invitations'}
               </button>
             </div>
           </div>
@@ -472,11 +509,37 @@ export default function EventDetailPage() {
           {invs.length === 0 ? (
             <div className="events-empty" style={{ padding: '3rem 1rem' }}>
               <MdPeople size={48} style={{ opacity: 0.25 }} />
-              <h3>No Invitations Yet</h3>
-              <p>Add invitations to start tracking guests.</p>
+              <h3>No {isContribution ? 'Contributors' : 'Invitations'} Yet</h3>
+              <p>{isContribution ? 'Generate personalised contribution cards for your guests.' : 'Add invitations to start tracking guests.'}</p>
               <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
-                <MdAddPhotoAlternate size={15} /> Create First Invitation
+                <MdAddPhotoAlternate size={15} /> {isContribution ? 'Generate First Card' : 'Create First Invitation'}
               </button>
+            </div>
+          ) : isContribution ? (
+            /* ── CONTRIBUTION TABLE — Code / Name / Created / Actions ── */
+            <div className="table-scroll">
+              <table className="inv-table">
+                <thead>
+                  <tr>
+                    <th>Card</th><th>Code</th><th>Guest Name</th><th>Created</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invs.map(inv => (
+                    <tr key={inv.id}>
+                      <td>
+                        {inv.image_url
+                          ? <a href={inv.image_url} target="_blank" rel="noreferrer"><img src={inv.image_url} alt={inv.code} className="thumb" /></a>
+                          : <span className="no-thumb">—</span>}
+                      </td>
+                      <td><span className="code-cell">{inv.code}</span></td>
+                      <td><strong>{inv.guest_name}</strong></td>
+                      <td className="date-cell">{formatDateTime(inv.created_at)}</td>
+                      <td><ActionButtons inv={inv} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : invView === 'list' ? (
             /* ── LIST VIEW ── */
@@ -520,12 +583,14 @@ export default function EventDetailPage() {
             <div className="inv-grid">
               {invs.map(inv => (
                 <div key={inv.id} className="inv-grid-card">
+                  {/* Card image */}
                   <div className="inv-grid-img">
                     {inv.image_url
                       ? <img src={inv.image_url} alt={inv.code} />
                       : <div className="inv-grid-no-img"><MdAddPhotoAlternate size={28} /></div>
                     }
                   </div>
+                  {/* Info */}
                   <div className="inv-grid-body">
                     <p className="inv-grid-name">{inv.guest_name}</p>
                     <div className="inv-grid-meta">
@@ -545,7 +610,8 @@ export default function EventDetailPage() {
           )}
         </div>
 
-        {/* ── Voice Messages section ── */}
+        {/* ── Voice Messages section — Invitation Events only ── */}
+        {!isContribution && (
         <div className="ev-inv-section" style={{ marginTop: '1.5rem' }}>
           <div className="ev-inv-head">
             <h2>Ujumbe wa Sauti ({voiceMsgs.length})</h2>
@@ -598,6 +664,7 @@ export default function EventDetailPage() {
             </div>
           )}
         </div>
+        )}
 
       </div>
 

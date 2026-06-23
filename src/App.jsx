@@ -10,9 +10,9 @@ import EventDetailPage          from './pages/EventDetailPage';
 import VerificationHistoryPage  from './pages/VerificationHistoryPage';
 import PublicInvitePage         from './pages/PublicInvitePage';
 import ImportPage               from './pages/ImportPage';
-import UsersPage                from './pages/UsersPage';
+import UsersPage                    from './pages/UsersPage';
 import { ToastProvider }        from './context/ToastContext';
-import { isLoggedIn, isAdmin, canManage, getRole } from './utils/auth';
+import { isLoggedIn, isAdmin, canManage, getAccessType } from './utils/auth';
 import './styles/global.css';
 import './App.css';
 
@@ -26,18 +26,17 @@ function AdminRoute({ children }) {
   return children;
 }
 
-// Operational routes: admin or event_manager only; super_admin → dashboard
-function OperationalRoute({ children }) {
-  if (!isLoggedIn())               return <Navigate to="/login" replace />;
-  if (getRole() === 'super_admin') return <Navigate to="/"      replace />;
-  if (!canManage())                return <Navigate to="/verify" replace />;
+function ManagerRoute({ children }) {
+  if (!isLoggedIn())  return <Navigate to="/login"  replace />;
+  if (!canManage())   return <Navigate to="/verify" replace />;
   return children;
 }
 
-// Field routes: any logged-in non-super_admin user (managers, verifiers)
-function FieldRoute({ children }) {
-  if (!isLoggedIn())               return <Navigate to="/login" replace />;
-  if (getRole() === 'super_admin') return <Navigate to="/"      replace />;
+// Blocks contribution-only users from invitation-specific routes
+function InvitationRoute({ children }) {
+  if (!isLoggedIn())                      return <Navigate to="/login"   replace />;
+  if (!canManage())                       return <Navigate to="/login"   replace />;
+  if (getAccessType() === 'contribution') return <Navigate to="/events"  replace />;
   return children;
 }
 
@@ -56,22 +55,22 @@ function AppShell() {
           {/* Public */}
           <Route path="/login"         element={<LoginPage />} />
           <Route path="/invite/:uuid"  element={<PublicInvitePage />} />
-          <Route path="/display/:uuid" element={<FieldRoute><PublicInvitePage isPreview /></FieldRoute>} />
+          <Route path="/display/:uuid" element={<ManagerRoute><PublicInvitePage isPreview /></ManagerRoute>} />
 
-          {/* Field routes — logged-in non-super_admin (admin, event_manager, verifier) */}
-          <Route path="/verify"  element={<FieldRoute><VerifyPage /></FieldRoute>} />
-          <Route path="/history" element={<FieldRoute><VerificationHistoryPage /></FieldRoute>} />
+          {/* Invitation-only (blocked for contribution-only users) */}
+          <Route path="/verify"  element={<InvitationRoute><VerifyPage /></InvitationRoute>} />
+          <Route path="/history" element={<InvitationRoute><VerificationHistoryPage /></InvitationRoute>} />
 
-          {/* Admin only (admin + super_admin) */}
+          {/* Admin only */}
           <Route path="/"       element={<AdminRoute><DashboardPage /></AdminRoute>} />
           <Route path="/admin"  element={<AdminRoute><AdminPage /></AdminRoute>} />
           <Route path="/users"  element={<AdminRoute><UsersPage /></AdminRoute>} />
 
-          {/* Operational routes — admin or event_manager only (NOT super_admin) */}
-          <Route path="/events"     element={<OperationalRoute><EventsPage /></OperationalRoute>} />
-          <Route path="/events/:id" element={<OperationalRoute><EventDetailPage /></OperationalRoute>} />
-          <Route path="/create"     element={<OperationalRoute><CreatePage /></OperationalRoute>} />
-          <Route path="/import"     element={<OperationalRoute><ImportPage /></OperationalRoute>} />
+          {/* Manager+ (admin or event_manager) */}
+          <Route path="/events"     element={<ManagerRoute><EventsPage /></ManagerRoute>} />
+          <Route path="/events/:id" element={<ManagerRoute><EventDetailPage /></ManagerRoute>} />
+          <Route path="/create"     element={<ManagerRoute><CreatePage /></ManagerRoute>} />
+          <Route path="/import"     element={<ManagerRoute><ImportPage /></ManagerRoute>} />
         </Routes>
       </main>
     </>

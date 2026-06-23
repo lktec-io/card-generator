@@ -10,6 +10,11 @@ import { isAdmin } from '../utils/auth';
 import ConfirmModal from '../components/ConfirmModal';
 import '../styles/events.css';
 
+const EVENT_MODES = [
+  { key: 'invitation',   label: 'Invitation Event',     hint: 'RSVP, QR Check-in & Attendance Statistics' },
+  { key: 'contribution', label: 'Contribution Campaign', hint: 'Personalised card generation — name printed per guest' },
+];
+
 const EVENT_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
   'Graduation', 'Conference', 'Church Event', 'Corporate Event',
@@ -26,6 +31,11 @@ const TYPE_COLORS = {
   'Corporate Event':'#94a3b8',
 };
 
+function formatDate(raw) {
+  if (!raw) return null;
+  return new Date(raw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 const EMPTY_FORM = {
   event_name: '', event_type: 'Wedding', event_mode: 'invitation', event_date: '', event_time: '',
   venue: '', maps_link: '', contact_name: '', contact_phone: '',
@@ -33,11 +43,6 @@ const EMPTY_FORM = {
   dress_code_notes: '', template_id: null, assigned_to: '',
   name_color: '#111111', cn_color: '#222222',
 };
-
-function formatDate(raw) {
-  if (!raw) return null;
-  return new Date(raw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 export default function EventsPage() {
   const [events,     setEvents]     = useState([]);
@@ -137,12 +142,33 @@ export default function EventsPage() {
             </div>
             <form onSubmit={handleCreate} className="event-form">
 
-              {/* ── Name + type ── */}
+              {/* ── Mode selector ── */}
+              <div className="ef-field ef-field--full">
+                <label>Event Category *</label>
+                <div className="tg-cats">
+                  {EVENT_MODES.map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      className={`tg-cat-btn${form.event_mode === m.key ? ' active' : ''}`}
+                      onClick={() => setForm(f => ({ ...f, event_mode: m.key }))}
+                      title={m.hint}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="cte-hint" style={{ marginTop: '0.35rem' }}>
+                  {EVENT_MODES.find(m => m.key === form.event_mode)?.hint}
+                </p>
+              </div>
+
+              {/* ── Name + type (both modes) ── */}
               <div className="ef-row">
                 <div className="ef-field ef-field--wide">
-                  <label>Event Name *</label>
+                  <label>{form.event_mode === 'contribution' ? 'Campaign Name *' : 'Event Name *'}</label>
                   <input name="event_name" value={form.event_name} onChange={handleChange}
-                    placeholder="e.g. John & Jane Wedding"
+                    placeholder={form.event_mode === 'contribution' ? 'e.g. Harusi ya Amina & Juma' : 'e.g. John & Jane Wedding'}
                     required />
                 </div>
                 <div className="ef-field">
@@ -153,31 +179,35 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              {/* ── Date + time ── */}
+              {/* ── Date (both modes) ── */}
               <div className="ef-row">
                 <div className="ef-field">
                   <label>Date</label>
                   <input name="event_date" type="date" value={form.event_date} onChange={handleChange} />
                 </div>
-                <div className="ef-field">
-                  <label>Time</label>
-                  <input name="event_time" type="text" value={form.event_time} onChange={handleChange} placeholder="e.g. 5:00 PM" />
-                </div>
+                {form.event_mode === 'invitation' && (
+                  <div className="ef-field">
+                    <label>Time</label>
+                    <input name="event_time" type="text" value={form.event_time} onChange={handleChange} placeholder="e.g. 5:00 PM" />
+                  </div>
+                )}
               </div>
 
-              {/* ── Venue + maps ── */}
-              <div className="ef-row">
-                <div className="ef-field ef-field--wide">
-                  <label>Venue</label>
-                  <input name="venue" value={form.venue} onChange={handleChange} placeholder="Venue name or address" />
+              {/* ── Invitation-only: venue + maps ── */}
+              {form.event_mode === 'invitation' && (
+                <div className="ef-row">
+                  <div className="ef-field ef-field--wide">
+                    <label>Venue</label>
+                    <input name="venue" value={form.venue} onChange={handleChange} placeholder="Venue name or address" />
+                  </div>
+                  <div className="ef-field ef-field--full">
+                    <label>Google Maps Link</label>
+                    <input name="maps_link" value={form.maps_link} onChange={handleChange} placeholder="https://maps.google.com/..." />
+                  </div>
                 </div>
-                <div className="ef-field ef-field--full">
-                  <label>Google Maps Link</label>
-                  <input name="maps_link" value={form.maps_link} onChange={handleChange} placeholder="https://maps.google.com/..." />
-                </div>
-              </div>
+              )}
 
-              {/* ── Contact ── */}
+              {/* ── Contact (both modes) ── */}
               <div className="ef-row">
                 <div className="ef-field">
                   <label>Contact Name</label>
@@ -189,40 +219,44 @@ export default function EventsPage() {
                 </div>
               </div>
 
-              {/* ── Dress code ── */}
-              <div className="ef-row ef-row--3">
-                <div className="ef-field">
-                  <label>Primary Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" name="dress_code_main" value={form.dress_code_main || '#d4af37'} onChange={handleChange} />
-                    <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
-                    <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
+              {/* ── Invitation-only: dress code ── */}
+              {form.event_mode === 'invitation' && (
+                <>
+                  <div className="ef-row ef-row--3">
+                    <div className="ef-field">
+                      <label>Primary Color</label>
+                      <div className="color-picker-wrap">
+                        <input type="color" name="dress_code_main" value={form.dress_code_main || '#d4af37'} onChange={handleChange} />
+                        <span className="color-swatch" style={{ background: form.dress_code_main || '#d4af37' }} />
+                        <span className="color-hex">{form.dress_code_main || '#d4af37'}</span>
+                      </div>
+                    </div>
+                    <div className="ef-field">
+                      <label>Secondary Color</label>
+                      <div className="color-picker-wrap">
+                        <input type="color" name="dress_code_secondary" value={form.dress_code_secondary || '#1a1a2e'} onChange={handleChange} />
+                        <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
+                        <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
+                      </div>
+                    </div>
+                    <div className="ef-field">
+                      <label>Accent Color</label>
+                      <div className="color-picker-wrap">
+                        <input type="color" name="dress_code_accent" value={form.dress_code_accent || '#ffffff'} onChange={handleChange} />
+                        <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
+                        <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="ef-field">
-                  <label>Secondary Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" name="dress_code_secondary" value={form.dress_code_secondary || '#1a1a2e'} onChange={handleChange} />
-                    <span className="color-swatch" style={{ background: form.dress_code_secondary || '#1a1a2e' }} />
-                    <span className="color-hex">{form.dress_code_secondary || '#1a1a2e'}</span>
+                  <div className="ef-field ef-field--full">
+                    <label>Dress Code Notes</label>
+                    <textarea name="dress_code_notes" value={form.dress_code_notes} onChange={handleChange} rows={2}
+                      placeholder="e.g. Ladies: Royal Blue gowns. Gentlemen: Black suit." />
                   </div>
-                </div>
-                <div className="ef-field">
-                  <label>Accent Color</label>
-                  <div className="color-picker-wrap">
-                    <input type="color" name="dress_code_accent" value={form.dress_code_accent || '#ffffff'} onChange={handleChange} />
-                    <span className="color-swatch" style={{ background: form.dress_code_accent || '#ffffff' }} />
-                    <span className="color-hex">{form.dress_code_accent || '#ffffff'}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="ef-field ef-field--full">
-                <label>Dress Code Notes</label>
-                <textarea name="dress_code_notes" value={form.dress_code_notes} onChange={handleChange} rows={2}
-                  placeholder="e.g. Ladies: Royal Blue gowns. Gentlemen: Black suit." />
-              </div>
+                </>
+              )}
 
-              {/* ── Assign (admin only) ── */}
+              {/* ── Assign (admin only, both modes) ── */}
               {isAdmin() && usersList.length > 0 && (
                 <div className="ef-field ef-field--full">
                   <label>Assign To (optional)</label>
@@ -241,7 +275,7 @@ export default function EventsPage() {
               <div className="ef-actions">
                 <button type="button" className="btn-outline" onClick={() => setShowForm(false)}>Cancel</button>
                 <button type="submit" className="btn-gold" disabled={saving}>
-                  {saving ? 'Creating…' : 'Create Event'}
+                  {saving ? 'Creating…' : form.event_mode === 'contribution' ? 'Create Campaign' : 'Create Event'}
                 </button>
               </div>
             </form>

@@ -6,6 +6,8 @@ const VALID_TYPES = [
   'Graduation', 'Conference', 'Church Event', 'Corporate Event',
 ];
 
+const VALID_MODES = ['invitation', 'contribution'];
+
 function sanitize(v) { return (typeof v === 'string' && v.trim()) ? v.trim() : null; }
 
 function parseLayoutConfig(v) {
@@ -18,6 +20,7 @@ function parseLayoutConfig(v) {
 }
 
 // Accepts any date format (ISO datetime, YYYY-MM-DD, etc.) and returns YYYY-MM-DD or null.
+// MySQL DATE columns reject ISO timestamps like "2026-06-17T22:00:00.000Z".
 function formatMySQLDate(v) {
   if (!v) return null;
   try {
@@ -28,15 +31,18 @@ function formatMySQLDate(v) {
 }
 
 // Visibility check — mirrors eventScopeSQL logic for individual row access.
+// Used in getEvent and updateEvent to avoid leaking other managers' events.
 function canSeeEvent(event, user) {
   if (!user || user.role === 'super_admin') return true;
   if (user.role === 'admin') return event.created_by === user.id;
   if (user.role === 'event_manager') {
     return event.created_by === user.id || event.assigned_to === user.id;
   }
+  // verifier / gate_staff
   return event.assigned_to === user.id;
 }
 
+// Returns whether the current user can assign events (admin-level operation).
 function canAssign(user) {
   return user?.role === 'admin' || user?.role === 'super_admin';
 }
@@ -44,6 +50,11 @@ function canAssign(user) {
 // GET /events
 async function listEvents(req, res) {
   const scope = eventScopeSQL(req.user);
+  // Filter events by the user's access_type (from JWT — set at login)
+  const at = req.user?.access_type;
+  const accessFilter = at === 'invitation'   ? "AND e.event_mode = 'invitation'"
+                     : at === 'contribution' ? "AND e.event_mode = 'contribution'"
+                     : '';
   try {
     const [events] = await pool.execute(
       `SELECT
@@ -55,7 +66,7 @@ async function listEvents(req, res) {
        FROM events e
        LEFT JOIN invitations    i ON i.event_id = e.id
        LEFT JOIN rsvp_responses r ON r.event_id = e.id
-       WHERE 1=1 ${scope.where}
+       WHERE 1=1 ${scope.where} ${accessFilter}
        GROUP BY e.id
        ORDER BY e.created_at DESC`,
       scope.params
@@ -69,15 +80,11 @@ async function listEvents(req, res) {
 
 // POST /events
 async function createEvent(req, res) {
-  if (req.user?.role === 'super_admin') {
-    return res.status(403).json({ success: false, message: 'Platform administrators cannot create events.' });
-  }
-
   const {
-    event_name, event_type, event_date, event_time, venue,
+    event_name, event_type, event_mode, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id, assigned_to,
-    name_color, cn_color, layout_config,
+    name_color, cn_color, amount_color, description, layout_config,
   } = req.body;
 
   if (!sanitize(event_name)) {
@@ -85,13 +92,16 @@ async function createEvent(req, res) {
   }
 
   const safeType   = VALID_TYPES.includes(event_type) ? event_type : 'Wedding';
+  const safeMode   = VALID_MODES.includes(event_mode) ? event_mode : 'invitation';
   const createdBy  = req.user?.id || null;
   const assignedTo = (canAssign(req.user) && assigned_to)
     ? (parseInt(assigned_to, 10) || null)
     : null;
 
-  const safeNameColor    = /^#[0-9a-fA-F]{6}$/.test(name_color) ? name_color : '#111111';
-  const safeCnColor      = /^#[0-9a-fA-F]{6}$/.test(cn_color)   ? cn_color   : '#222222';
+  const safeNameColor   = /^#[0-9a-fA-F]{6}$/.test(name_color)   ? name_color   : '#111111';
+  const safeCnColor     = /^#[0-9a-fA-F]{6}$/.test(cn_color)     ? cn_color     : '#222222';
+  const safeAmountColor = /^#[0-9a-fA-F]{6}$/.test(amount_color) ? amount_color : '#222222';
+  const safeDescription = sanitize(description);
   const safeLayoutConfig = parseLayoutConfig(layout_config);
 
   try {
@@ -102,18 +112,19 @@ async function createEvent(req, res) {
          (event_name, event_type, event_mode, event_date, event_time, venue,
           dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
           maps_link, contact_name, contact_phone, template_id,
-          name_color, cn_color, created_by, assigned_to, layout_config)
-       VALUES (?, ?, 'invitation', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          name_color, cn_color, amount_color, created_by, assigned_to,
+          description, layout_config)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        sanitize(event_name), safeType,
+        sanitize(event_name), safeType, safeMode,
         formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
         safeTemplateId,
-        safeNameColor, safeCnColor,
+        safeNameColor, safeCnColor, safeAmountColor,
         createdBy, assignedTo,
-        safeLayoutConfig,
+        safeDescription, safeLayoutConfig,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [result.insertId]);
@@ -140,6 +151,7 @@ async function getEvent(req, res) {
 
     const [invitations] = await pool.execute(
       `SELECT i.id, i.code, i.invitation_uuid, i.guest_name, i.phone_number,
+              i.requested_amount, i.shared_at,
               i.status, i.image_url, i.created_at, i.used_at,
               r.response          AS rsvp_response,
               r.voice_message_url AS rsvp_voice_url
@@ -166,7 +178,17 @@ async function getEvent(req, res) {
     const rsvp = { attending: 0, declined: 0, pending: 0 };
     rsvpRows.forEach(r => { rsvp[r.response] = Number(r.count); });
 
-    res.json({ success: true, event, invitations, stats, rsvp });
+    const [[contribution]] = await pool.execute(
+      `SELECT
+         COUNT(*)                        AS total_records,
+         COALESCE(SUM(requested_amount), 0) AS total_requested_amount,
+         COALESCE(AVG(requested_amount), 0) AS avg_contribution,
+         COUNT(shared_at)                AS total_shared
+       FROM invitations WHERE event_id = ?`,
+      [id]
+    );
+
+    res.json({ success: true, event, invitations, stats, rsvp, contribution });
   } catch (err) {
     console.error('[getEvent]', err);
     res.status(500).json({ success: false, message: 'Failed to fetch event.' });
@@ -179,10 +201,10 @@ async function updateEvent(req, res) {
   if (!id) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
 
   const {
-    event_name, event_type, event_date, event_time, venue,
+    event_name, event_type, event_mode, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id, assigned_to,
-    name_color, cn_color, layout_config,
+    name_color, cn_color, amount_color, description, layout_config,
   } = req.body;
 
   if (!sanitize(event_name)) {
@@ -190,6 +212,7 @@ async function updateEvent(req, res) {
   }
 
   const safeType = VALID_TYPES.includes(event_type) ? event_type : 'Wedding';
+  const safeMode = VALID_MODES.includes(event_mode) ? event_mode : 'invitation';
 
   try {
     const [[existing]] = await pool.execute('SELECT * FROM events WHERE id = ?', [id]);
@@ -199,33 +222,35 @@ async function updateEvent(req, res) {
       return res.status(404).json({ success: false, message: 'Event not found.' });
     }
 
-    const safeTemplateId = template_id ? parseInt(template_id, 10) || null : null;
-    const newAssignedTo  = (canAssign(req.user) && assigned_to !== undefined)
+    const safeTemplateId  = template_id ? parseInt(template_id, 10) || null : null;
+    const newAssignedTo   = (canAssign(req.user) && assigned_to !== undefined)
       ? (parseInt(assigned_to, 10) || null)
       : existing.assigned_to;
 
-    const safeNameColor    = /^#[0-9a-fA-F]{6}$/.test(name_color) ? name_color : (existing.name_color || '#111111');
-    const safeCnColor      = /^#[0-9a-fA-F]{6}$/.test(cn_color)   ? cn_color   : (existing.cn_color   || '#222222');
+    const safeNameColor   = /^#[0-9a-fA-F]{6}$/.test(name_color)   ? name_color   : (existing.name_color   || '#111111');
+    const safeCnColor     = /^#[0-9a-fA-F]{6}$/.test(cn_color)     ? cn_color     : (existing.cn_color     || '#222222');
+    const safeAmountColor = /^#[0-9a-fA-F]{6}$/.test(amount_color) ? amount_color : (existing.amount_color || '#222222');
+    const safeDescription  = description !== undefined ? sanitize(description) : existing.description;
     const safeLayoutConfig = layout_config !== undefined
       ? parseLayoutConfig(layout_config)
       : (existing.layout_config ? JSON.stringify(existing.layout_config) : null);
 
     await pool.execute(
       `UPDATE events SET
-         event_name = ?, event_type = ?, event_date = ?, event_time = ?, venue = ?,
+         event_name = ?, event_type = ?, event_mode = ?, event_date = ?, event_time = ?, venue = ?,
          dress_code_main = ?, dress_code_secondary = ?, dress_code_accent = ?,
          dress_code_notes = ?, maps_link = ?, contact_name = ?, contact_phone = ?,
-         template_id = ?, name_color = ?, cn_color = ?,
-         assigned_to = ?, layout_config = ?
+         template_id = ?, name_color = ?, cn_color = ?, amount_color = ?,
+         assigned_to = ?, description = ?, layout_config = ?
        WHERE id = ?`,
       [
-        sanitize(event_name), safeType,
+        sanitize(event_name), safeType, safeMode,
         formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
         sanitize(dress_code_main), sanitize(dress_code_secondary),
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
-        safeTemplateId, safeNameColor, safeCnColor,
-        newAssignedTo, safeLayoutConfig, id,
+        safeTemplateId, safeNameColor, safeCnColor, safeAmountColor,
+        newAssignedTo, safeDescription, safeLayoutConfig, id,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [id]);
@@ -236,7 +261,7 @@ async function updateEvent(req, res) {
   }
 }
 
-// DELETE /events/:id
+// DELETE /events/:id  — admin-only at route level; no scope check needed
 async function deleteEvent(req, res) {
   const id = parseInt(req.params.id, 10);
   try {

@@ -7,7 +7,7 @@ import {
   MdHistory,
 } from 'react-icons/md';
 import { getGlobalStats, listEvents } from '../utils/api';
-import { isAdmin, isSuperAdmin } from '../utils/auth';
+import { isAdmin } from '../utils/auth';
 import '../styles/dashboard.css';
 
 /* ── Reusable stat card ───────────────────────────────────────────────── */
@@ -175,16 +175,14 @@ export default function DashboardPage() {
           <h1>Dashboard</h1>
           <p>Live overview across all events</p>
         </div>
-        {!isSuperAdmin() && (
-          <div className="dash-header-actions">
-            <button className="btn-gold" onClick={() => navigate('/events')}>
-              <MdEvent size={16} /> New Event
-            </button>
-            <button className="btn-outline" onClick={() => navigate('/create')}>
-              <MdAddPhotoAlternate size={16} /> Create Cards
-            </button>
-          </div>
-        )}
+        <div className="dash-header-actions">
+          <button className="btn-gold" onClick={() => navigate('/events')}>
+            <MdEvent size={16} /> New Event
+          </button>
+          <button className="btn-outline" onClick={() => navigate('/create')}>
+            <MdAddPhotoAlternate size={16} /> Create Cards
+          </button>
+        </div>
       </div>
 
       {error && <p className="dash-error">{error}</p>}
@@ -212,7 +210,10 @@ export default function DashboardPage() {
               sub={`${stats?.checked_in ?? 0} of ${stats?.total_invitations ?? 0} attended`}
             />
             {isAdmin() && stats?.total_users !== undefined && (
-              <StatCard icon={<MdPeople size={22}/>} label="Total Users" value={stats.total_users} color="#c084fc" />
+              <StatCard icon={<MdPeople size={22}/>} label="Total Users"     value={stats.total_users}     color="#c084fc" />
+            )}
+            {isAdmin() && stats?.total_campaigns !== undefined && (
+              <StatCard icon={<MdEvent size={22}/>}  label="Campaigns"       value={stats.total_campaigns}  color="#fb923c" />
             )}
           </div>
 
@@ -364,27 +365,25 @@ export default function DashboardPage() {
 
           </div>
 
-          {/* ── Quick actions (operational roles only) ── */}
-          {!isSuperAdmin() && (
-            <div className="dash-quick-actions">
-              <button className="dash-quick-btn" onClick={() => navigate('/create')}>
-                <MdAddPhotoAlternate size={24} />
-                <span>Create Invitation</span>
-              </button>
-              <button className="dash-quick-btn" onClick={() => navigate('/verify')}>
-                <MdQrCodeScanner size={24} />
-                <span>Scan &amp; Verify</span>
-              </button>
-              <button className="dash-quick-btn" onClick={() => navigate('/history')}>
-                <MdCheckCircle size={24} />
-                <span>Check-in History</span>
-              </button>
-              <button className="dash-quick-btn" onClick={() => navigate('/events')}>
-                <MdEvent size={24} />
-                <span>Manage Events</span>
-              </button>
-            </div>
-          )}
+          {/* ── Quick actions ── */}
+          <div className="dash-quick-actions">
+            <button className="dash-quick-btn" onClick={() => navigate('/create')}>
+              <MdAddPhotoAlternate size={24} />
+              <span>Create Invitation</span>
+            </button>
+            <button className="dash-quick-btn" onClick={() => navigate('/verify')}>
+              <MdQrCodeScanner size={24} />
+              <span>Scan &amp; Verify</span>
+            </button>
+            <button className="dash-quick-btn" onClick={() => navigate('/history')}>
+              <MdCheckCircle size={24} />
+              <span>Check-in History</span>
+            </button>
+            <button className="dash-quick-btn" onClick={() => navigate('/events')}>
+              <MdEvent size={24} />
+              <span>Manage Events</span>
+            </button>
+          </div>
         </>
       )}
     </div>

@@ -19,7 +19,9 @@ export function getUserName()     { return decodeToken()?.name  ?? null; }
 export function isSuperAdmin()    { return getRole() === 'super_admin'; }
 export function isAdmin()         { const r = getRole(); return r === 'admin' || r === 'super_admin'; }
 export function isEventManager()  { return getRole() === 'event_manager'; }
-export function isVerifier()      { return getRole() === 'verifier'; }
+export function isVerifier()      { const r = getRole(); return r === 'verifier' || r === 'gate_staff'; }
+export function isGateStaff()     { return getRole() === 'gate_staff'; }
 export function canManage()       { return isAdmin() || isEventManager(); }
+export function getAccessType()   { return decodeToken()?.access_type ?? 'both'; }
 
 export function isLoggedIn()      { return !!localStorage.getItem('wqr_token'); }

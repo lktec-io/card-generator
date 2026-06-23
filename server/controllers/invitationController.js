@@ -16,10 +16,6 @@ if (!fs.existsSync(GENERATED_DIR)) fs.mkdirSync(GENERATED_DIR, { recursive: true
 // ── generateCard ──────────────────────────────────────────────────────────────
 
 async function generateCard(req, res) {
-  if (req.user?.role === 'super_admin') {
-    return res.status(403).json({ success: false, message: 'Platform administrators cannot generate invitations.' });
-  }
-
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'Card image is required.' });
   }
@@ -63,12 +59,13 @@ async function generateCard(req, res) {
   try {
     await connection.beginTransaction();
 
-    // 1 — Fetch event for contact info (if event_id provided)
+    // 1 — Fetch event for mode + contact info (if event_id provided)
     let event = null;
     if (eventId) {
       const [[ev]] = await connection.execute('SELECT * FROM events WHERE id = ?', [eventId]);
       event = ev || null;
     }
+    const isContribution = event?.event_mode === 'contribution';
 
     // 2 — Reserve a unique code
     const code = await getNextCode(connection);
@@ -82,12 +79,21 @@ async function generateCard(req, res) {
       [code, guestName, phone, eventId, uuid]
     );
 
-    // 4 — Generate QR buffer
+    // 4 — Upload original card to Cloudinary
+    await uploadBuffer(req.file.buffer, {
+      public_id:     `wedding-qr/originals/original_${code}`,
+      resource_type: 'image',
+      overwrite:     true,
+      quality:       'auto:best',
+    });
+
+    // 5 — Generate QR buffer (invitation only; contribution cards don't render QR)
     const qrData   = JSON.stringify({ code, name: guestName });
     const qrBuffer = await generateStyledQRBuffer(qrData, 400);
 
-    // 5 — Composite QR + text onto card image
+    // 6 — Overlay text (+ QR for invitation) onto card image
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
+      isContribution,
       nameColor,
       cnColor,
       nameFontSize,
@@ -98,11 +104,11 @@ async function generateCard(req, res) {
       positions,
     });
 
-    // 6 — Save locally for static serving
+    // 8 — Save locally for static serving
     const localFile = path.join(GENERATED_DIR, `${code}.png`);
     fs.writeFileSync(localFile, finalBuffer);
 
-    // 7 — Upload final card to Cloudinary
+    // 9 — Upload final card to Cloudinary
     const finalUpload = await uploadBuffer(finalBuffer, {
       public_id:     `wedding-qr/generated/card_${code}`,
       resource_type: 'image',
@@ -110,7 +116,7 @@ async function generateCard(req, res) {
       quality:       'auto:best',
     });
 
-    // 8 — Persist image URL in DB
+    // 10 — Persist image URL in DB
     await connection.execute(
       `UPDATE invitations SET image_url = ? WHERE code = ?`,
       [finalUpload.secure_url, code]
@@ -118,7 +124,7 @@ async function generateCard(req, res) {
 
     await connection.commit();
 
-    console.log(`[generateCard] Created: ${code} for "${guestName}"`);
+    console.log(`[generateCard] Created: ${code} for "${guestName}" (${isContribution ? 'contribution' : 'invitation'})`);
 
     return res.status(201).json({
       success:         true,
@@ -180,6 +186,15 @@ async function verifyCode(req, res) {
     }
 
     const inv = rows[0];
+
+    if (inv.event_mode === 'contribution') {
+      return res.status(200).json({
+        success: false,
+        type:    'not_applicable',
+        message: 'This code belongs to a Contribution Campaign — QR check-in is not applicable here.',
+        name:    inv.guest_name,
+      });
+    }
 
     // If a scoped user is logged in, ensure the code belongs to one of their events
     if (req.user && req.user.role !== 'super_admin' && inv.event_id) {
@@ -375,6 +390,15 @@ async function verifyManual(req, res) {
     }
 
     const inv = rows[0];
+
+    if (inv.event_mode === 'contribution') {
+      return res.status(200).json({
+        success: false,
+        type:    'not_applicable',
+        message: 'This code belongs to a Contribution Campaign — check-in is not applicable here.',
+        name:    inv.guest_name,
+      });
+    }
 
     // If a scoped user is logged in, ensure the code belongs to one of their events
     if (req.user && req.user.role !== 'super_admin' && inv.event_id) {
