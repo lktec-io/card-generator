@@ -37,14 +37,17 @@ async function generateCard(req, res) {
   const cnColor        = (req.body.cn_color        || '#222222').trim();
   const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
   const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 40 && nameFontSizeRaw <= 300
-    ? nameFontSizeRaw : 120;
+    ? nameFontSizeRaw : 150;
   const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
     ? req.body.name_font_weight : '700';
   const nameTextAlign  = ['left', 'center', 'right'].includes(req.body.name_text_align)
     ? req.body.name_text_align : 'center';
 
-  // Drag-and-drop positions (all in 1080px canvas space, sent as strings from FormData)
-  // nameX/codeX = SVG anchor; nameY/codeY = TOP of text element (server adds ascender for baseline)
+  // Visibility toggles
+  const skipQR = req.body.show_qr === '0' || req.body.show_qr === 'false';
+  const skipCN = req.body.show_cn === '0' || req.body.show_cn === 'false';
+
+  // Drag-and-drop positions (all in 1080px canvas space)
   const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
   const posNameX  = parseNum(req.body.pos_name_x);
   const posNameY  = parseNum(req.body.pos_name_y);
@@ -91,10 +94,14 @@ async function generateCard(req, res) {
 
     // 5 — Generate QR buffer
     const qrData   = JSON.stringify({ code, name: guestName });
-    const qrBuffer = await generateStyledQRBuffer(qrData, 400);
+    const qrBuffer = await generateStyledQRBuffer(qrData, 800);
 
     // 6 — Overlay QR + text onto card image
+    const isContribution = event?.event_mode === 'contribution';
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
+      isContribution,
+      skipQR,
+      skipCN,
       nameColor,
       cnColor,
       nameFontSize,
@@ -539,12 +546,15 @@ async function renderCard(req, res) {
   const cnColor        = (req.body.cn_color   || '#222222').trim();
   const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
   const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 40 && nameFontSizeRaw <= 300
-    ? nameFontSizeRaw : 120;
+    ? nameFontSizeRaw : 150;
   const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
     ? req.body.name_font_weight : '700';
 
   const contactName  = (req.body.contact_name  || '').trim() || null;
   const contactPhone = (req.body.contact_phone || '').trim() || null;
+
+  const skipQR = req.body.show_qr === '0' || req.body.show_qr === 'false';
+  const skipCN = req.body.show_cn === '0' || req.body.show_cn === 'false';
 
   const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
   const posNameX  = parseNum(req.body.pos_name_x);
@@ -559,9 +569,11 @@ async function renderCard(req, res) {
 
   try {
     const qrData   = JSON.stringify({ code, name: guestName });
-    const qrBuffer = await generateStyledQRBuffer(qrData, 400);
+    const qrBuffer = await generateStyledQRBuffer(qrData, 800);
 
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
+      skipQR,
+      skipCN,
       nameColor,
       cnColor,
       nameFontSize,
