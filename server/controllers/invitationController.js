@@ -44,14 +44,17 @@ async function generateCard(req, res) {
     ? req.body.name_text_align : 'center';
 
   // Drag-and-drop positions (all in 1080px canvas space, sent as strings from FormData)
+  // nameX/codeX = SVG anchor; nameY/codeY = TOP of text element (server adds ascender for baseline)
   const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
-  const posNameY = parseNum(req.body.pos_name_y);
-  const posCodeY = parseNum(req.body.pos_code_y);
+  const posNameX  = parseNum(req.body.pos_name_x);
+  const posNameY  = parseNum(req.body.pos_name_y);
+  const posCodeX  = parseNum(req.body.pos_code_x);
+  const posCodeY  = parseNum(req.body.pos_code_y);
   const posQrLeft = parseNum(req.body.pos_qr_left);
   const posQrTop  = parseNum(req.body.pos_qr_top);
   const hasPositions = posNameY != null;
   const positions = hasPositions
-    ? { nameY: posNameY, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop }
+    ? { nameX: posNameX, nameY: posNameY, codeX: posCodeX, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop }
     : null;
 
   const connection = await pool.getConnection();

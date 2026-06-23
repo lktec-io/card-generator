@@ -52,10 +52,12 @@ export default function CardGenerator({ event = null }) {
   const scale   = overlayW > 0 ? overlayW / 1080 : 1;
 
   const getDefaults = useCallback(() => ({
-    nameY:  Math.round(canvasH * 0.80),
-    codeY:  Math.round(canvasH * 0.88),
+    nameX:  540,
+    nameY:  Math.round(canvasH * 0.78),
+    codeX:  540,
+    codeY:  Math.round(canvasH * 0.86),
     qrLeft: Math.round((1080 - 202) / 2),
-    qrTop:  Math.round(canvasH * 0.56),
+    qrTop:  Math.round(canvasH * 0.54),
   }), [canvasH]);
 
   useEffect(() => {
@@ -127,8 +129,10 @@ export default function CardGenerator({ event = null }) {
     if (eventId) fd.append('event_id', String(eventId));
 
     if (pos) {
+      fd.append('pos_name_x', String(Math.round(pos.nameX)));
       fd.append('pos_name_y', String(Math.round(pos.nameY)));
       if (!isContribution) {
+        fd.append('pos_code_x',  String(Math.round(pos.codeX)));
         fd.append('pos_code_y',  String(Math.round(pos.codeY)));
         fd.append('pos_qr_left', String(Math.round(pos.qrLeft)));
         fd.append('pos_qr_top',  String(Math.round(pos.qrTop)));
@@ -152,6 +156,25 @@ export default function CardGenerator({ event = null }) {
     }
   };
 
+  // Blob download — works cross-origin (Cloudinary URLs ignore the `download` attr)
+  const handleDownload = async () => {
+    if (!result?.image_url) return;
+    try {
+      const res  = await fetch(result.image_url);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${result.code}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open(result.image_url, '_blank');
+    }
+  };
+
   const handleReset = () => {
     setImageFile(null);
     setImagePreview(null);
@@ -171,12 +194,7 @@ export default function CardGenerator({ event = null }) {
   // Scaled element sizes for overlay
   const qrBoxPx    = Math.max(24, Math.round(202 * scale));
   const nameFontPx = Math.max(8,  Math.round(nameFontSize * scale));
-  const codeFontPx = Math.max(8,  Math.round(40 * scale));
-
-  // Drag overlay justify-content based on alignment
-  const nameJustify = nameTextAlign === 'left' ? 'flex-start'
-                    : nameTextAlign === 'right' ? 'flex-end'
-                    : 'center';
+  const codeFontPx = Math.max(8,  Math.round(96 * scale));
 
   return (
     <>
@@ -365,14 +383,9 @@ export default function CardGenerator({ event = null }) {
                   style={{ width: '100%', borderRadius: 'var(--radius-md)', display: 'block' }}
                 />
                 <div className="result-actions">
-                  <a
-                    className="btn-gold"
-                    href={result.image_url}
-                    download={`${result.code}.png`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
-                  >
+                  <button className="btn-gold" onClick={handleDownload}>
                     <MdDownload size={17} /> Download PNG
-                  </a>
+                  </button>
                   <button className="btn-outline" onClick={handleReset}>
                     <FiRefreshCw size={15} /> New Card
                   </button>
@@ -384,8 +397,8 @@ export default function CardGenerator({ event = null }) {
                 <p className="drag-hint-label">
                   <MdDragIndicator size={14} />
                   {isContribution
-                    ? 'Drag Name to position · snaps vertically'
-                    : 'QR moves freely · Name & Code snap vertically'}
+                    ? 'Drag Name anywhere on the card — mouse or finger'
+                    : 'Drag QR, Name & Code freely — mouse or finger'}
                 </p>
 
                 <div
@@ -424,53 +437,53 @@ export default function CardGenerator({ event = null }) {
                         </Draggable>
                       )}
 
-                      {/* Guest Name — vertical drag only */}
+                      {/* Guest Name — free X+Y drag */}
                       <Draggable
                         nodeRef={nameRef}
-                        axis="y"
-                        position={{ x: 0, y: pos.nameY * scale }}
-                        bounds={{ top: 0, bottom: overlayH }}
-                        onStop={(_, d) => updatePos({ nameY: clamp(Math.round(d.y / scale), 0, canvasH) })}
+                        position={{ x: pos.nameX * scale, y: pos.nameY * scale }}
+                        bounds={{ top: 0, left: 0, right: overlayW, bottom: overlayH - 24 }}
+                        onStop={(_, d) => updatePos({
+                          nameX: clamp(Math.round(d.x / scale), 0, 1080),
+                          nameY: clamp(Math.round(d.y / scale), 0, canvasH),
+                        })}
                       >
                         <div
                           ref={nameRef}
                           className="drag-el drag-el--text"
-                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', justifyContent: nameJustify }}
+                          style={{ position: 'absolute', top: 0, left: 0 }}
                         >
+                          <MdDragIndicator size={Math.max(10, Math.round(14 * scale))} className="drag-el-icon" />
                           <span className="drag-el-badge">Name</span>
                           <span
                             className="drag-el-text-preview"
-                            style={{
-                              fontSize:   nameFontPx,
-                              fontWeight: nameFontWeight,
-                              color:      nameColor,
-                            }}
+                            style={{ fontSize: nameFontPx, fontWeight: nameFontWeight, color: nameColor }}
                           >
                             {guestName || 'Guest Name'}
                           </span>
-                          <MdDragIndicator className="drag-el-arrow" size={Math.max(12, Math.round(18 * scale))} />
                         </div>
                       </Draggable>
 
-                      {/* Code (CN) — invitation only, vertical drag */}
+                      {/* Code (CN) — invitation only, free X+Y drag */}
                       {!isContribution && (
                         <Draggable
                           nodeRef={codeRef}
-                          axis="y"
-                          position={{ x: 0, y: pos.codeY * scale }}
-                          bounds={{ top: 0, bottom: overlayH }}
-                          onStop={(_, d) => updatePos({ codeY: clamp(Math.round(d.y / scale), 0, canvasH) })}
+                          position={{ x: pos.codeX * scale, y: pos.codeY * scale }}
+                          bounds={{ top: 0, left: 0, right: overlayW, bottom: overlayH - 24 }}
+                          onStop={(_, d) => updatePos({
+                            codeX: clamp(Math.round(d.x / scale), 0, 1080),
+                            codeY: clamp(Math.round(d.y / scale), 0, canvasH),
+                          })}
                         >
                           <div
                             ref={codeRef}
                             className="drag-el drag-el--text"
-                            style={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
+                            style={{ position: 'absolute', top: 0, left: 0 }}
                           >
+                            <MdDragIndicator size={Math.max(10, Math.round(14 * scale))} className="drag-el-icon" />
                             <span className="drag-el-badge">CN</span>
                             <span className="drag-el-text-preview" style={{ fontSize: codeFontPx, letterSpacing: '0.2em', color: cnColor }}>
                               CN-###
                             </span>
-                            <MdDragIndicator className="drag-el-arrow" size={Math.max(12, Math.round(18 * scale))} />
                           </div>
                         </Draggable>
                       )}

@@ -166,11 +166,23 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, options =
 
   if (positions) {
     // ── MANUAL mode: each element at absolute canvas-scaled coordinates ──────
-    const { nameY, codeY, qrLeft, qrTop } = positions;
+    //
+    // nameX/codeX  = SVG anchor point in 1080px canvas space.
+    //   textAnchor (start/middle/end) is determined by nameTextAlign.
+    // nameY/codeY  = TOP of the text element in 1080px canvas space.
+    //   SVG y = baseline = top + ascender (Georgia ≈ 0.80 × em).
+    //   This makes the drag-element top in the preview match the rendered top.
+    const { nameX, nameY, codeX, codeY, qrLeft, qrTop } = positions;
 
-    const scaledNameY = Math.round(nameY * cardScale);
-    const namePNG = rasterise(buildElementSVG(cardW, cardH, guestName, nameCX, scaledNameY, nameStyle, nameColor, nameAnchor));
+    // Georgia ascender ratio (fraction of em above baseline that is visible text)
+    const ASCENDER = 0.80;
 
+    const scaledNameSVGX = nameX != null ? Math.round(nameX * cardScale) : nameCX;
+    const scaledNameSVGY = Math.round(nameY * cardScale) + Math.round(scaledFontSize * ASCENDER);
+
+    const namePNG = rasterise(buildElementSVG(
+      cardW, cardH, guestName, scaledNameSVGX, scaledNameSVGY, nameStyle, nameColor, nameAnchor
+    ));
     composites = [{ input: namePNG, top: 0, left: 0 }];
 
     if (!isContribution) {
@@ -186,19 +198,29 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, options =
 
       const scaledQrLeft = Math.round(qrLeft * cardScale);
       const scaledQrTop  = Math.round(qrTop  * cardScale);
-      const scaledCodeY  = Math.round(codeY  * cardScale);
 
-      const codePNG = rasterise(buildElementSVG(cardW, cardH, code, Math.round(cardW / 2), scaledCodeY, CN_FONT_STYLE, cnColor));
+      // CN font is fixed at 96px (matches CN_FONT_STYLE constant)
+      const CN_EM         = 96;
+      const scaledCnEm    = Math.round(CN_EM * cardScale);
+      const scaledCodeSVGX = codeX != null ? Math.round(codeX * cardScale) : Math.round(cardW / 2);
+      const scaledCodeSVGY = Math.round(codeY * cardScale) + Math.round(scaledCnEm * ASCENDER);
+
+      const codePNG = rasterise(buildElementSVG(
+        cardW, cardH, code, scaledCodeSVGX, scaledCodeSVGY, CN_FONT_STYLE, cnColor
+      ));
 
       composites.unshift({ input: paddedQR, top: Math.max(0, scaledQrTop), left: Math.max(0, scaledQrLeft) });
       composites.push({ input: codePNG, top: 0, left: 0 });
 
       const hasContact = !!(contactName || contactPhone);
       if (hasContact) {
-        const contactText = [contactName, contactPhone].filter(Boolean).join('  |  ');
+        const contactText  = [contactName, contactPhone].filter(Boolean).join('  |  ');
         const contactStyle = "font: 400 40px Poppins, sans-serif; letter-spacing: 1px;";
-        const cy = Math.round((codeY + 80) * cardScale);
-        const contactPNG = rasterise(buildElementSVG(cardW, cardH, contactText, Math.round(cardW / 2), cy, contactStyle, '#666666'));
+        // Place contact line 60px (1080-space) below the code element top
+        const cy = Math.round((codeY + 60) * cardScale) + Math.round(40 * cardScale * ASCENDER);
+        const contactPNG = rasterise(buildElementSVG(
+          cardW, cardH, contactText, Math.round(cardW / 2), cy, contactStyle, '#666666'
+        ));
         composites.push({ input: contactPNG, top: 0, left: 0 });
       }
     }

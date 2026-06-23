@@ -6,11 +6,11 @@ import {
   MdGridView, MdViewList,
 } from 'react-icons/md';
 import { listEvents, createEvent, deleteEvent, listUsersDropdown } from '../utils/api';
-import { isAdmin } from '../utils/auth';
+import { isAdmin, getAccessType } from '../utils/auth';
 import ConfirmModal from '../components/ConfirmModal';
 import '../styles/events.css';
 
-const EVENT_MODES = [
+const ALL_EVENT_MODES = [
   { key: 'invitation',   label: 'Invitation Event',     hint: 'RSVP, QR Check-in & Attendance Statistics' },
   { key: 'contribution', label: 'Contribution Campaign', hint: 'Personalised card generation — name printed per guest' },
 ];
@@ -36,15 +36,25 @@ function formatDate(raw) {
   return new Date(raw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-const EMPTY_FORM = {
-  event_name: '', event_type: 'Wedding', event_mode: 'invitation', event_date: '', event_time: '',
-  venue: '', maps_link: '', contact_name: '', contact_phone: '',
-  dress_code_main: '#d4af37', dress_code_secondary: '#1a1a2e', dress_code_accent: '#ffffff',
-  dress_code_notes: '', template_id: null, assigned_to: '',
-  name_color: '#111111', cn_color: '#222222',
-};
-
 export default function EventsPage() {
+  // Only show event modes the current user is permitted to create
+  const accessType  = getAccessType();
+  const EVENT_MODES = accessType === 'invitation'
+    ? ALL_EVENT_MODES.filter(m => m.key === 'invitation')
+    : accessType === 'contribution'
+    ? ALL_EVENT_MODES.filter(m => m.key === 'contribution')
+    : ALL_EVENT_MODES;
+
+  const defaultMode = accessType === 'contribution' ? 'contribution' : 'invitation';
+
+  const EMPTY_FORM = {
+    event_name: '', event_type: 'Wedding', event_mode: defaultMode, event_date: '', event_time: '',
+    venue: '', maps_link: '', contact_name: '', contact_phone: '',
+    dress_code_main: '#d4af37', dress_code_secondary: '#1a1a2e', dress_code_accent: '#ffffff',
+    dress_code_notes: '', template_id: null, assigned_to: '',
+    name_color: '#111111', cn_color: '#222222',
+  };
+
   const [events,     setEvents]     = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [showForm,   setShowForm]   = useState(false);
