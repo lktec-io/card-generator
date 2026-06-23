@@ -37,10 +37,10 @@ async function generateCard(req, res) {
   const cnColor        = (req.body.cn_color        || '#222222').trim();
   // Font sizes are ABSOLUTE OUTPUT PIXELS (user-selected, no server-side scaling)
   const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
-  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 20 && nameFontSizeRaw <= 800
+  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw > 0
     ? nameFontSizeRaw : 150;
   const cnFontSizeRaw  = parseInt(req.body.cn_font_size, 10);
-  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw >= 20 && cnFontSizeRaw <= 800
+  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw > 0
     ? cnFontSizeRaw : 100;
   const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
     ? req.body.name_font_weight : '700';
@@ -65,6 +65,8 @@ async function generateCard(req, res) {
     : null;
 
   const connection = await pool.getConnection();
+  const t0 = Date.now();
+  let code, uuid, finalBuffer;
 
   try {
     await connection.beginTransaction();
@@ -77,8 +79,8 @@ async function generateCard(req, res) {
     }
 
     // 2 — Reserve a unique code
-    const code = await getNextCode(connection);
-    const uuid = crypto.randomUUID();
+    code = await getNextCode(connection);
+    uuid = crypto.randomUUID();
 
     // 3 — Insert invitation row
     await connection.execute(
@@ -88,80 +90,83 @@ async function generateCard(req, res) {
       [code, guestName, phone, eventId, uuid]
     );
 
-    // 5 — Generate QR buffer
+    // 4 — Generate QR buffer
     console.time(`[timer:${code}] qr-generate`);
     const qrData   = JSON.stringify({ code, name: guestName });
     const qrBuffer = await generateStyledQRBuffer(qrData, 800);
     console.timeEnd(`[timer:${code}] qr-generate`);
 
-    // 6 — Overlay QR + text onto card image
+    // 5 — Overlay QR + text onto card image
     console.time(`[timer:${code}] processCardImage`);
     const isContribution = event?.event_mode === 'contribution';
-    const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
-      isContribution,
-      skipQR,
-      skipCN,
-      nameColor,
-      cnColor,
-      nameFontSize,
-      cnFontSize,
-      nameFontWeight,
-      nameTextAlign,
+    finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
+      isContribution, skipQR, skipCN, nameColor, cnColor,
+      nameFontSize, cnFontSize, nameFontWeight, nameTextAlign,
       contactName:  event?.contact_name  || null,
       contactPhone: event?.contact_phone || null,
       positions,
     });
     console.timeEnd(`[timer:${code}] processCardImage`);
 
-    // 7 — Save locally for static serving
+    // 6 — Save locally
     const localFile = path.join(GENERATED_DIR, `${code}.png`);
     fs.writeFileSync(localFile, finalBuffer);
 
-    // 8 — Upload final card to Cloudinary
-    console.time(`[timer:${code}] cloudinary-upload`);
-    const finalUpload = await uploadBuffer(finalBuffer, {
-      public_id:     `wedding-qr/generated/card_${code}`,
-      resource_type: 'image',
-      overwrite:     true,
-      quality:       'auto:best',
-    });
-    console.timeEnd(`[timer:${code}] cloudinary-upload`);
-
-    // 9 — Persist image URL in DB
+    // 7 — Commit with local URL; background job will update to Cloudinary URL
     await connection.execute(
       `UPDATE invitations SET image_url = ? WHERE code = ?`,
-      [finalUpload.secure_url, code]
+      [`/generated/${code}.png`, code]
     );
-
     await connection.commit();
 
-    console.log(`[generateCard] Created: ${code} for "${guestName}" | nameFontSize=${nameFontSize}px cnFontSize=${cnFontSize}px`);
-
-    return res.status(201).json({
-      success:         true,
-      message:         'Card generated successfully.',
-      code,
-      invitation_uuid: uuid,
-      guest_name:      guestName,
-      image_url:       finalUpload.secure_url,
-      local_url:       `/generated/${code}.png`,
-    });
-
   } catch (err) {
-    await connection.rollback();
+    await connection.rollback().catch(() => {});
+    connection.release();
     const msg = err?.message || String(err);
     console.error('[generateCard] ERROR:', msg, '\n', err?.stack || '');
     const userMsg = msg.includes('Input image exceeds pixel limit')
       ? 'Image is too large. Please reduce the image size and try again.'
       : msg.includes('ECONNRESET') || msg.includes('timeout')
         ? 'Upload timed out. Please check your internet connection and try again.'
-        : msg.includes('upload') || msg.includes('cloudinary')
-          ? 'Image upload failed. Please try again.'
-          : 'Failed to generate invitation. Please try again.';
+        : 'Failed to generate invitation. Please try again.';
     return res.status(500).json({ success: false, message: userMsg });
-  } finally {
-    connection.release();
   }
+
+  // Release AFTER successful commit
+  connection.release();
+  console.log(`[generateCard] ${code} ready in ${Date.now() - t0}ms → sending response`);
+
+  // ── Return immediately — user does not wait for Cloudinary ─────────────────
+  res.status(201).json({
+    success:         true,
+    message:         'Card generated successfully.',
+    code,
+    invitation_uuid: uuid,
+    guest_name:      guestName,
+    image_url:       `/generated/${code}.png`,
+    local_url:       `/generated/${code}.png`,
+  });
+
+  // ── Background: upload to Cloudinary + update DB (non-blocking) ────────────
+  setImmediate(async () => {
+    try {
+      console.time(`[bg:${code}] cloudinary`);
+      const finalUpload = await uploadBuffer(finalBuffer, {
+        public_id:     `wedding-qr/generated/card_${code}`,
+        resource_type: 'image',
+        overwrite:     true,
+        quality:       'auto:best',
+      });
+      console.timeEnd(`[bg:${code}] cloudinary`);
+      await pool.execute(
+        `UPDATE invitations SET image_url = ? WHERE code = ?`,
+        [finalUpload.secure_url, code]
+      );
+      console.log(`[bg:${code}] Cloudinary synced: ${finalUpload.secure_url}`);
+    } catch (err) {
+      console.error(`[bg:${code}] Cloudinary upload failed:`, err.message);
+    }
+  });
 }
 
 // ── verifyCode ────────────────────────────────────────────────────────────────
@@ -553,10 +558,10 @@ async function renderCard(req, res) {
   const nameColor      = (req.body.name_color || '#111111').trim();
   const cnColor        = (req.body.cn_color   || '#222222').trim();
   const nameFontSizeRaw = parseInt(req.body.name_font_size, 10);
-  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw >= 20 && nameFontSizeRaw <= 800
+  const nameFontSize   = Number.isFinite(nameFontSizeRaw) && nameFontSizeRaw > 0
     ? nameFontSizeRaw : 150;
   const cnFontSizeRaw  = parseInt(req.body.cn_font_size, 10);
-  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw >= 20 && cnFontSizeRaw <= 800
+  const cnFontSize     = Number.isFinite(cnFontSizeRaw) && cnFontSizeRaw > 0
     ? cnFontSizeRaw : 100;
   const nameFontWeight = ['normal', '700', 'bold'].includes(req.body.name_font_weight)
     ? req.body.name_font_weight : '700';

@@ -7,7 +7,6 @@ import '../styles/create.css';
 const QR_BLOCK  = 202;
 const ANCHOR_R  = 7;   // half of 14px anchor dot
 
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 export default function CardGenerator({ event }) {
   const isContribution = event?.event_mode === 'contribution';
@@ -267,15 +266,14 @@ export default function CardGenerator({ event }) {
             />
           </div>
 
-          {/* Font sizes — absolute output pixels */}
+          {/* Font sizes — absolute output pixels, free input (only > 0 enforced) */}
           <div className="font-size-row">
             <div className="font-size-field">
               <label>Name Size (px)</label>
               <input
                 type="number"
-                min={20} max={800}
                 value={nameFontSize}
-                onChange={e => setNameFontSize(clamp(parseInt(e.target.value, 10) || 150, 20, 800))}
+                onChange={e => { const v = parseInt(e.target.value, 10); if (v > 0) setNameFontSize(v); }}
               />
             </div>
             {!isContribution && (
@@ -283,9 +281,8 @@ export default function CardGenerator({ event }) {
                 <label>CN Size (px)</label>
                 <input
                   type="number"
-                  min={20} max={800}
                   value={cnFontSize}
-                  onChange={e => setCnFontSize(clamp(parseInt(e.target.value, 10) || 100, 20, 800))}
+                  onChange={e => { const v = parseInt(e.target.value, 10); if (v > 0) setCnFontSize(v); }}
                 />
               </div>
             )}

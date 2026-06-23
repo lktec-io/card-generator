@@ -750,6 +750,7 @@
   background: rgba(255,255,255,0.05);
   transition: border-color 0.2s, box-shadow 0.2s;
   -moz-appearance: textfield;
+  appearance: textfield;
 }
 .font-size-field input[type="number"]::-webkit-inner-spin-button { opacity: 0.5; }
 .font-size-field input[type="number"]:focus {
@@ -870,8 +871,40 @@
 @media (max-width: 768px) {
   .create-layout  { grid-template-columns: 1fr; }
   .result-actions { flex-direction: column; }
+
+  /* Download bar sticks at viewport bottom while user scrolls the card */
+  .download-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    padding: 0.75rem 0.5rem 0.5rem;
+    background: linear-gradient(to bottom, transparent 0%, rgba(10, 8, 3, 0.95) 28%);
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+  }
+
+  /* Ensure canvas never causes horizontal scroll */
+  .drag-canvas-container {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Full-width canvas image on narrow screens */
+  .drag-canvas-container img {
+    width: 100%;
+    height: auto;
+  }
+
+  /* Extra spacing so the sticky bar doesn't overlap the last form item */
+  .drag-preview-wrap {
+    padding-bottom: 3rem;
+  }
 }
 
 @media (max-width: 480px) {
   .create-page { padding: 1.5rem 0.75rem 3rem; }
+
+  .font-size-row { gap: 0.5rem; }
+
+  .drag-hint-label { flex-wrap: wrap; }
 }
