@@ -17,6 +17,33 @@ function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+/**
+ * Soft crystal-bell arpeggio — C major (C5 E5 G5 C6).
+ * Elegant, emotional, non-intrusive. Suitable for weddings, church events,
+ * conferences, and any formal occasion.
+ * Shared by both RSVP success and Voice Message success.
+ */
+export function playSuccessSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // C5 → E5 → G5 → C6 ascending, each 110ms apart
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+      const t   = ctx.currentTime + i * 0.11;
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.connect(env);
+      env.connect(ctx.destination);
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.15, t + 0.018); // crisp attack
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.9); // natural bell decay
+      osc.start(t);
+      osc.stop(t + 0.95);
+    });
+  } catch (_) { /* AudioContext unavailable */ }
+}
+
 export async function celebrateRSVP() {
   let confetti;
   try {

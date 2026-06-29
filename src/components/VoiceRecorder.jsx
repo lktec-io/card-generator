@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { MdMic, MdStop, MdDelete, MdPlayArrow, MdPause, MdReplay, MdSend } from 'react-icons/md';
 import { sendVoiceMessage } from '../utils/api';
-import { celebrateRSVP } from '../utils/confettiCelebration';
+import { celebrateRSVP, playSuccessSound } from '../utils/confettiCelebration';
 import '../styles/voice-recorder.css';
 
 const MAX_SECONDS = 30;
@@ -70,27 +70,6 @@ function VoiceSuccessPopup({ onClose }) {
       </div>
     </div>
   );
-}
-
-/* ── Sound for voice send ─────────────────────────────────────────────── */
-
-function playVoiceSentSound() {
-  try {
-    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-    const gain = ctx.createGain();
-    gain.connect(ctx.destination);
-    const freqs = [440, 554, 659];
-    freqs.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      osc.connect(gain);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.10);
-      gain.gain.setValueAtTime(0.20, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.50);
-      osc.start(ctx.currentTime + i * 0.10);
-      osc.stop(ctx.currentTime + 0.50);
-    });
-  } catch (_) {}
 }
 
 /* ── Main component ───────────────────────────────────────────────────── */
@@ -198,7 +177,7 @@ export default function VoiceRecorder({ uuid }) {
     try {
       await sendVoiceMessage(uuid, audioBlob);
       setPhase('sent');
-      playVoiceSentSound();
+      playSuccessSound();
       celebrateRSVP();
       setShowSuccess(true);
     } catch (err) {

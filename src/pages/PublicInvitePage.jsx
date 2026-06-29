@@ -9,7 +9,7 @@ import { GiDiamondRing } from 'react-icons/gi';
 import { FaWhatsapp } from 'react-icons/fa';
 import QRCode from 'qrcode';
 import { getPublicInvite, submitRSVP } from '../utils/api';
-import { celebrateRSVP } from '../utils/confettiCelebration';
+import { celebrateRSVP, playSuccessSound } from '../utils/confettiCelebration';
 import { useToast } from '../context/ToastContext';
 import VoiceRecorder from '../components/VoiceRecorder';
 import '../styles/public-invite.css';
@@ -131,8 +131,12 @@ export default function PublicInvitePage({ isPreview = false }) {
       const { data: r } = await submitRSVP(uuid, response);
       setRsvpState(response);
       setRsvpMsg(r.message);
-      playSound(response);
-      if (response === 'attending') celebrateRSVP();
+      if (response === 'attending') {
+        playSuccessSound();
+        celebrateRSVP();
+      } else {
+        playSound(response);
+      }
       setShowModal(true);
       setTimeout(() => setShowModal(false), 6000);
     } catch (err) {
