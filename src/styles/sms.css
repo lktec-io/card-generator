@@ -1,0 +1,224 @@
+/* ══════════════════════════════════════════════════════════════
+   SMS MODULE STYLES
+   Used exclusively by EventDetailPage — no other page touched.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Per-row SMS action button ─────────────────────────────────────────────── */
+
+.btn-sms {
+  background: rgba(59, 130, 246, 0.12);
+  border:  1px solid rgba(59, 130, 246, 0.25);
+  color:   #60a5fa;
+}
+
+.btn-sms:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(59, 130, 246, 0.50);
+  color: #93c5fd;
+}
+
+.btn-sms:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-sms--sent {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #34d399;
+}
+
+.btn-sms--failed {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+/* ── Bulk SMS progress bar ─────────────────────────────────────────────────── */
+
+.sms-progress-wrap {
+  margin: 0.85rem 0 0;
+  padding: 0.9rem 1.1rem;
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  border-radius: 12px;
+  animation: smsFadeIn 0.25s ease forwards;
+}
+
+@keyframes smsFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sms-progress-running {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.sms-progress-bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.sms-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+  min-width: 4px;
+}
+
+.sms-progress-text {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+.sms-progress-done {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.sms-progress-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+  line-height: 1;
+}
+
+.sms-progress-close:hover {
+  color: rgba(255, 255, 255, 0.70);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ── SMS template textarea ─────────────────────────────────────────────────── */
+
+.sms-template-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sms-template-textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.82rem;
+  font-family: 'Courier New', Courier, monospace;
+  line-height: 1.55;
+  resize: vertical;
+  min-height: 140px;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.sms-template-textarea:focus {
+  outline: none;
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
+.sms-template-hint {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.5;
+}
+
+.sms-template-preview {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-style: italic;
+}
+
+/* ── SMS status badges (in logs table) ────────────────────────────────────── */
+
+.sms-status {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  letter-spacing: 0.03em;
+}
+
+.sms-status--sent {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+}
+
+.sms-status--failed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.sms-status--pending {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+}
+
+/* ── "Send SMS" bulk button in toolbar ────────────────────────────────────── */
+
+.btn-sms-bulk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.78rem;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+  background: rgba(59, 130, 246, 0.10);
+  border: 1px solid rgba(59, 130, 246, 0.30);
+  color: #60a5fa;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.btn-sms-bulk:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.20);
+  border-color: rgba(59, 130, 246, 0.55);
+  color: #93c5fd;
+}
+
+.btn-sms-bulk:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Spinning retry loader ─────────────────────────────────────────────────── */
+
+.sms-retry-spin {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(96, 165, 250, 0.25);
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 600px) {
+  .sms-progress-running { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .sms-progress-bar-track { width: 100%; }
+}

@@ -32,6 +32,7 @@ const { sendVoiceMessage, getVoiceMessages, deleteVoiceMessage } = require('../c
 const { listTemplates }          = require('../controllers/templateController');
 const { getGlobalStats }         = require('../controllers/statsController');
 const { getVerificationHistory } = require('../controllers/verificationLogController');
+const { sendSingle, sendBulk, getBulkProgress, getSmsLogs, retrySms } = require('../controllers/smsController');
 
 // ── API status ─────────────────────────────────────────────────────────────
 router.get('/', (_req, res) => res.json({ status: 'ok', service: 'Nardio Events API v2' }));
@@ -73,6 +74,13 @@ router.put(   '/events/:id',               requireManager, updateEvent);
 router.delete('/events/:id',               requireAdmin,   deleteEvent);
 router.get(   '/events/:id/voice-messages',requireAuth,    getVoiceMessages);
 router.delete('/voice-messages/:id',       requireAdmin,   deleteVoiceMessage);
+
+// ── SMS ─────────────────────────────────────────────────────────────────────
+router.post('/sms/send/:invitation_id',      requireManager, sendSingle);
+router.post('/sms/bulk/:event_id',           requireManager, sendBulk);
+router.get( '/sms/bulk/progress/:job_id',   requireManager, getBulkProgress);
+router.get( '/sms/logs/:event_id',          requireAuth,    getSmsLogs);
+router.post('/sms/retry/:log_id',           requireManager, retrySms);
 
 // ── Static — generated card images ─────────────────────────────────────────
 router.get('/generated/:filename', (req, res) => {

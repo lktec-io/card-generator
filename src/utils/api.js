@@ -106,4 +106,11 @@ export const updateUser        = (id, data)   => api.put(`/users/${id}`, data);
 export const toggleUserStatus  = (id)         => api.patch(`/users/${id}/status`);
 export const deleteUser        = (id)         => api.delete(`/users/${id}`);
 
+// ── SMS ───────────────────────────────────────────────────────────────────────
+export const sendInvitationSms   = (invitationId)  => api.post(`/sms/send/${invitationId}`);
+export const sendBulkSms         = (eventId)       => api.post(`/sms/bulk/${eventId}`);
+export const getBulkSmsProgress  = (jobId)         => api.get(`/sms/bulk/progress/${jobId}`);
+export const getSmsLogs          = (eventId)       => api.get(`/sms/logs/${eventId}`);
+export const retrySms            = (logId)         => api.post(`/sms/retry/${logId}`);
+
 export default api;

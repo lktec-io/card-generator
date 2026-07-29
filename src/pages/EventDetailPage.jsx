@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   MdArrowBack, MdCalendarToday, MdLocationOn,
@@ -6,13 +6,17 @@ import {
   MdThumbUp, MdThumbDown, MdDownload, MdShare, MdDelete,
   MdEdit, MdSave, MdClose, MdContentCopy,
   MdOpenInNew, MdVisibility, MdGridView, MdViewList, MdAddPhotoAlternate,
+  MdSms,
 } from 'react-icons/md';
-import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage } from '../utils/api';
+import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage,
+  sendInvitationSms, sendBulkSms, getBulkSmsProgress, getSmsLogs, retrySms as apiRetrySms,
+} from '../utils/api';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
 import ConfirmModal from '../components/ConfirmModal';
 import '../styles/events.css';
 import '../styles/voice-recorder.css';
+import '../styles/sms.css';
 
 const EVENT_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
@@ -70,6 +74,17 @@ export default function EventDetailPage() {
   const [deletingVmId,   setDeletingVmId]   = useState(null);  // id being deleted
   const [deleteVmModal,  setDeleteVmModal]  = useState(null);  // vm object | null  // full inv object for modal
   const [invView,  setInvView]  = useState(() => localStorage.getItem('invView') || 'list');
+
+  // SMS state
+  const [smsSending,     setSmsSending]     = useState({}); // { [invId]: 'idle'|'sending'|'sent'|'failed' }
+  const [smsConfirm,     setSmsConfirm]     = useState(null);  // invitation | null
+  const [bulkSmsConfirm, setBulkSmsConfirm] = useState(false);
+  const [bulkJob,        setBulkJob]        = useState(null);  // { jobId, total, sent, failed, done }
+  const [smsLogs,        setSmsLogs]        = useState([]);
+  const [loadingLogs,    setLoadingLogs]    = useState(false);
+  const [showLogs,       setShowLogs]       = useState(false);
+  const [retryingLogId,  setRetryingLogId]  = useState(null);
+  const pollRef = useRef(null);
 
   // Provide color defaults so the pickers always save a value, even for old events
   function initForm(ev) {
@@ -213,6 +228,72 @@ export default function EventDetailPage() {
   /* ── Open guest view ── */
   const handleOpen = (inv) => window.open(inviteLink(inv), '_blank');
 
+  /* ── Send single SMS ── */
+  const handleSendSms = async (inv) => {
+    setSmsConfirm(null);
+    setSmsSending(prev => ({ ...prev, [inv.id]: 'sending' }));
+    try {
+      await sendInvitationSms(inv.id);
+      setSmsSending(prev => ({ ...prev, [inv.id]: 'sent' }));
+      showToast(`SMS sent to ${inv.guest_name}.`, 'success');
+      setTimeout(() => setSmsSending(prev => ({ ...prev, [inv.id]: 'idle' })), 6000);
+    } catch (err) {
+      setSmsSending(prev => ({ ...prev, [inv.id]: 'failed' }));
+      showToast(err.response?.data?.message || 'Failed to send SMS.', 'error');
+      setTimeout(() => setSmsSending(prev => ({ ...prev, [inv.id]: 'idle' })), 6000);
+    }
+  };
+
+  /* ── Send bulk SMS ── */
+  const handleBulkSms = async () => {
+    setBulkSmsConfirm(false);
+    try {
+      const { data } = await sendBulkSms(id);
+      setBulkJob({ jobId: data.job_id, total: data.total, sent: 0, failed: 0, done: false });
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const { data: p } = await getBulkSmsProgress(data.job_id);
+          setBulkJob({ jobId: p.job_id, total: p.total, sent: p.sent, failed: p.failed, done: p.done });
+          if (p.done) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+            showToast(`Bulk SMS complete — ${p.sent} sent, ${p.failed} failed.`, 'success');
+          }
+        } catch { /* ignore transient poll errors */ }
+      }, 1200);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to start bulk SMS.', 'error');
+    }
+  };
+
+  /* ── Load SMS logs ── */
+  const loadSmsLogs = async () => {
+    setLoadingLogs(true);
+    try {
+      const { data } = await getSmsLogs(id);
+      setSmsLogs(data.logs || []);
+    } catch { /* */ }
+    finally { setLoadingLogs(false); }
+  };
+
+  /* ── Retry failed SMS ── */
+  const handleRetry = async (log) => {
+    setRetryingLogId(log.id);
+    try {
+      await apiRetrySms(log.id);
+      showToast('SMS re-sent successfully.', 'success');
+      loadSmsLogs();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Retry failed.', 'error');
+    } finally {
+      setRetryingLogId(null);
+    }
+  };
+
+  // Stop polling on unmount
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
   /* ── Admin preview (with banner) ── */
   const handlePreview = (inv) => {
     const base = window.location.origin;
@@ -242,28 +323,41 @@ export default function EventDetailPage() {
   };
 
   /* ── Action buttons shared between list and grid ── */
-  const ActionButtons = ({ inv }) => (
-    <div className="row-actions">
-      <button className="btn-action btn-download" onClick={() => handleDownload(inv)} disabled={!inv.image_url} title="Download card">
-        <MdDownload size={14} />
-      </button>
-      <button className="btn-action btn-share"   onClick={() => handleShare(inv)}   title="Share">
-        <MdShare size={14} />
-      </button>
-      <button className="btn-action btn-copy"    onClick={() => handleCopyLink(inv)} title="Copy invite link">
-        <MdContentCopy size={14} />
-      </button>
-      <button className="btn-action btn-open"    onClick={() => handleOpen(inv)}    title="Open guest view">
-        <MdOpenInNew size={14} />
-      </button>
-      <button className="btn-action btn-preview" onClick={() => handlePreview(inv)} title="Admin preview">
-        <MdVisibility size={14} />
-      </button>
-      <button className="btn-action btn-delete"  onClick={() => openDelModal(inv)}  title="Delete">
-        <MdDelete size={14} />
-      </button>
-    </div>
-  );
+  const ActionButtons = ({ inv }) => {
+    const smsState = smsSending[inv.id] || 'idle';
+    return (
+      <div className="row-actions">
+        <button className="btn-action btn-download" onClick={() => handleDownload(inv)} disabled={!inv.image_url} title="Download card">
+          <MdDownload size={14} />
+        </button>
+        <button className="btn-action btn-share"   onClick={() => handleShare(inv)}   title="Share">
+          <MdShare size={14} />
+        </button>
+        <button className="btn-action btn-copy"    onClick={() => handleCopyLink(inv)} title="Copy invite link">
+          <MdContentCopy size={14} />
+        </button>
+        <button className="btn-action btn-open"    onClick={() => handleOpen(inv)}    title="Open guest view">
+          <MdOpenInNew size={14} />
+        </button>
+        <button className="btn-action btn-preview" onClick={() => handlePreview(inv)} title="Admin preview">
+          <MdVisibility size={14} />
+        </button>
+        <button
+          className={`btn-action btn-sms${smsState === 'sent' ? ' btn-sms--sent' : smsState === 'failed' ? ' btn-sms--failed' : ''}`}
+          onClick={() => inv.phone_number ? setSmsConfirm(inv) : showToast('This guest has no phone number.', 'info')}
+          disabled={smsState === 'sending'}
+          title={inv.phone_number ? `Send SMS to ${inv.phone_number}` : 'No phone number'}
+        >
+          {smsState === 'sending'
+            ? <span className="sms-retry-spin" />
+            : <MdSms size={14} />}
+        </button>
+        <button className="btn-action btn-delete"  onClick={() => openDelModal(inv)}  title="Delete">
+          <MdDelete size={14} />
+        </button>
+      </div>
+    );
+  };
 
   /* ── Loading / error states ── */
   if (loading) return (
@@ -288,6 +382,7 @@ export default function EventDetailPage() {
   const stats          = data?.stats || {};
   const rsvp           = data?.rsvp  || {};
   const isContribution = ev?.event_mode === 'contribution';
+  const guestsWithPhone = invs.filter(i => i.phone_number).length;
 
   return (
     <div className="events-page page-enter">
@@ -387,6 +482,21 @@ export default function EventDetailPage() {
                   <div className="ev-info-edit-row">
                     <label>Contact Phone</label>
                     <input type="tel" value={form.contact_phone || ''} onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))} placeholder="+255754123456" />
+                  </div>
+                  <div className="ev-info-edit-row">
+                    <label>SMS Template</label>
+                    <div className="sms-template-wrap">
+                      <textarea
+                        className="sms-template-textarea"
+                        rows={8}
+                        value={form.sms_template || ''}
+                        onChange={e => setForm(f => ({ ...f, sms_template: e.target.value }))}
+                        placeholder={`Habari {guest_name},\n\nLeave empty to use the default Swahili template…`}
+                      />
+                      <span className="sms-template-hint">
+                        Placeholders: {'{guest_name}'} &nbsp;{'{event_name}'} &nbsp;{'{venue}'} &nbsp;{'{event_date}'} &nbsp;{'{event_time}'} &nbsp;{'{invitation_code}'}
+                      </span>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -500,10 +610,39 @@ export default function EventDetailPage() {
                   </button>
                 </div>
               )}
+              {guestsWithPhone > 0 && !bulkJob && (
+                <button className="btn-sms-bulk" onClick={() => setBulkSmsConfirm(true)}>
+                  <MdSms size={14} /> Send SMS to All ({guestsWithPhone})
+                </button>
+              )}
               <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
                 <MdAddPhotoAlternate size={15} /> {isContribution ? 'Generate Cards' : 'Add Invitations'}
               </button>
             </div>
+
+            {/* Bulk SMS progress */}
+            {bulkJob && (
+              <div className="sms-progress-wrap">
+                {bulkJob.done ? (
+                  <div className="sms-progress-done">
+                    <span>SMS blast complete — <strong>{bulkJob.sent}</strong> sent, <strong>{bulkJob.failed}</strong> failed.</span>
+                    <button className="sms-progress-close" onClick={() => setBulkJob(null)}>✕</button>
+                  </div>
+                ) : (
+                  <div className="sms-progress-running">
+                    <div className="sms-progress-bar-track">
+                      <div
+                        className="sms-progress-bar-fill"
+                        style={{ width: `${Math.round(((bulkJob.sent + bulkJob.failed) / bulkJob.total) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="sms-progress-text">
+                      Sending {bulkJob.sent + bulkJob.failed} of {bulkJob.total}…
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {invs.length === 0 ? (
@@ -666,6 +805,65 @@ export default function EventDetailPage() {
         </div>
         )}
 
+        {/* ── SMS Logs section ── */}
+        <div className="ev-inv-section" style={{ marginTop: '1.5rem' }}>
+          <div className="ev-inv-head">
+            <h2>SMS Logs</h2>
+            <button
+              className="btn-outline"
+              onClick={() => { setShowLogs(s => !s); if (!showLogs) loadSmsLogs(); }}
+              style={{ fontSize: '0.78rem', padding: '0.45rem 0.9rem' }}
+            >
+              {showLogs ? 'Hide' : 'View Logs'}
+            </button>
+          </div>
+
+          {showLogs && (
+            loadingLogs ? (
+              <p style={{ textAlign: 'center', padding: '1.5rem 0', opacity: 0.5 }}>Loading…</p>
+            ) : smsLogs.length === 0 ? (
+              <p className="ev-info-empty" style={{ padding: '1.5rem 0', textAlign: 'center' }}>
+                No SMS logs for this event yet.
+              </p>
+            ) : (
+              <div className="table-scroll">
+                <table className="inv-table">
+                  <thead>
+                    <tr>
+                      <th>Guest</th><th>Phone</th><th>Status</th><th>Message ID</th><th>Sent At</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {smsLogs.map(log => (
+                      <tr key={log.id}>
+                        <td><strong>{log.guest_name || '—'}</strong></td>
+                        <td>{log.phone_number}</td>
+                        <td><span className={`sms-status sms-status--${log.status}`}>{log.status}</span></td>
+                        <td style={{ fontSize: '0.75rem', opacity: 0.6 }}>{log.provider_message_id || '—'}</td>
+                        <td className="date-cell">{formatDateTime(log.sent_at)}</td>
+                        <td>
+                          {log.status === 'failed' && (
+                            <button
+                              className="btn-action btn-sms"
+                              onClick={() => handleRetry(log)}
+                              disabled={retryingLogId === log.id}
+                              title="Retry SMS"
+                            >
+                              {retryingLogId === log.id
+                                ? <span className="sms-retry-spin" />
+                                : <MdSms size={14} />}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+        </div>
+
       </div>
 
       <ConfirmModal
@@ -694,6 +892,35 @@ export default function EventDetailPage() {
         cancelLabel="Cancel"
         onConfirm={confirmDeleteVm}
         onCancel={() => setDeleteVmModal(null)}
+      />
+
+      {/* SMS single confirm */}
+      <ConfirmModal
+        open={!!smsConfirm}
+        title="Send SMS?"
+        message={smsConfirm ? (
+          <>Send invitation SMS to <strong>{smsConfirm.guest_name}</strong>?<br />
+          <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>{smsConfirm.phone_number}</span></>
+        ) : ''}
+        confirmLabel="Send"
+        cancelLabel="Cancel"
+        danger={false}
+        onConfirm={() => handleSendSms(smsConfirm)}
+        onCancel={() => setSmsConfirm(null)}
+      />
+
+      {/* SMS bulk confirm */}
+      <ConfirmModal
+        open={bulkSmsConfirm}
+        title="Send SMS to All Guests?"
+        message={
+          <>Send an invitation SMS to <strong>{guestsWithPhone}</strong> guest{guestsWithPhone !== 1 ? 's' : ''} with phone numbers?</>
+        }
+        confirmLabel="Send All"
+        cancelLabel="Cancel"
+        danger={false}
+        onConfirm={handleBulkSms}
+        onCancel={() => setBulkSmsConfirm(false)}
       />
     </div>
   );

@@ -77,7 +77,7 @@ async function createEvent(req, res) {
     event_name, event_type, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id, assigned_to,
-    name_color, cn_color, layout_config,
+    name_color, cn_color, layout_config, sms_template,
   } = req.body;
 
   if (!sanitize(event_name)) {
@@ -93,6 +93,7 @@ async function createEvent(req, res) {
   const safeNameColor    = /^#[0-9a-fA-F]{6}$/.test(name_color) ? name_color : '#111111';
   const safeCnColor      = /^#[0-9a-fA-F]{6}$/.test(cn_color)   ? cn_color   : '#222222';
   const safeLayoutConfig = parseLayoutConfig(layout_config);
+  const safeSmsTpl       = (typeof sms_template === 'string' && sms_template.trim()) ? sms_template.trim() : null;
 
   try {
     const safeTemplateId = template_id ? parseInt(template_id, 10) || null : null;
@@ -102,8 +103,8 @@ async function createEvent(req, res) {
          (event_name, event_type, event_mode, event_date, event_time, venue,
           dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
           maps_link, contact_name, contact_phone, template_id,
-          name_color, cn_color, created_by, assigned_to, layout_config)
-       VALUES (?, ?, 'invitation', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          name_color, cn_color, created_by, assigned_to, layout_config, sms_template)
+       VALUES (?, ?, 'invitation', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sanitize(event_name), safeType,
         formatMySQLDate(event_date), sanitize(event_time), sanitize(venue),
@@ -113,7 +114,7 @@ async function createEvent(req, res) {
         safeTemplateId,
         safeNameColor, safeCnColor,
         createdBy, assignedTo,
-        safeLayoutConfig,
+        safeLayoutConfig, safeSmsTpl,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [result.insertId]);
@@ -182,7 +183,7 @@ async function updateEvent(req, res) {
     event_name, event_type, event_date, event_time, venue,
     dress_code_main, dress_code_secondary, dress_code_accent, dress_code_notes,
     maps_link, contact_name, contact_phone, template_id, assigned_to,
-    name_color, cn_color, layout_config,
+    name_color, cn_color, layout_config, sms_template,
   } = req.body;
 
   if (!sanitize(event_name)) {
@@ -209,6 +210,9 @@ async function updateEvent(req, res) {
     const safeLayoutConfig = layout_config !== undefined
       ? parseLayoutConfig(layout_config)
       : (existing.layout_config ? JSON.stringify(existing.layout_config) : null);
+    const safeSmsTpl = sms_template !== undefined
+      ? ((typeof sms_template === 'string' && sms_template.trim()) ? sms_template.trim() : null)
+      : (existing.sms_template || null);
 
     await pool.execute(
       `UPDATE events SET
@@ -216,7 +220,7 @@ async function updateEvent(req, res) {
          dress_code_main = ?, dress_code_secondary = ?, dress_code_accent = ?,
          dress_code_notes = ?, maps_link = ?, contact_name = ?, contact_phone = ?,
          template_id = ?, name_color = ?, cn_color = ?,
-         assigned_to = ?, layout_config = ?
+         assigned_to = ?, layout_config = ?, sms_template = ?
        WHERE id = ?`,
       [
         sanitize(event_name), safeType,
@@ -225,7 +229,7 @@ async function updateEvent(req, res) {
         sanitize(dress_code_accent), sanitize(dress_code_notes),
         sanitize(maps_link), sanitize(contact_name), sanitize(contact_phone),
         safeTemplateId, safeNameColor, safeCnColor,
-        newAssignedTo, safeLayoutConfig, id,
+        newAssignedTo, safeLayoutConfig, safeSmsTpl, id,
       ]
     );
     const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [id]);
