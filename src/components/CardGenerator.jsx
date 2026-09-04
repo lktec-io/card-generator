@@ -28,7 +28,13 @@ export default function CardGenerator({ event }) {
   const [cnFontSizeStr,   setCnFontSizeStr]   = useState('');
   const [showQR,          setShowQR]          = useState(true);
   const [showCN,          setShowCN]          = useState(true);
-  const [qrDataUrl,       setQrDataUrl]       = useState('');
+
+  // ── Status ─────────────────────────────────────────────────────────────────
+  const [loading,     setLoading]     = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [result,      setResult]      = useState(null);
+  const [error,       setError]       = useState(null);
+  const [qrDataUrl,   setQrDataUrl]   = useState('');
 
   // Render a real QR preview — same library & quality as the RSVP page
   useEffect(() => {
@@ -39,12 +45,6 @@ export default function CardGenerator({ event }) {
       width:                400,
     }).then(setQrDataUrl).catch(() => setQrDataUrl(''));
   }, [result?.code]);
-
-  // ── Status ─────────────────────────────────────────────────────────────────
-  const [loading,     setLoading]     = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [result,      setResult]      = useState(null);
-  const [error,       setError]       = useState(null);
 
   // ── Canvas geometry ────────────────────────────────────────────────────────
   const [canvasH,     setCanvasH]     = useState(1350);
