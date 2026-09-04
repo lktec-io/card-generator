@@ -41,7 +41,7 @@ export default function CardGenerator({ event }) {
     if (!result?.code) { setQrDataUrl(''); return; }
     QRCode.toDataURL(result.code, {
       errorCorrectionLevel: 'M',
-      margin:               2,
+      margin:               1,
       width:                400,
     }).then(setQrDataUrl).catch(() => setQrDataUrl(''));
   }, [result?.code]);

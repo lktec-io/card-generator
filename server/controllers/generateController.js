@@ -56,7 +56,7 @@ async function generateInvitation(req, res) {
     });
 
     // 3. Generate styled QR → PNG buffer
-    const qrPayload = JSON.stringify({ code, name: guestName });
+    const qrPayload = code;   // same payload as the Public Invitation / RSVP QR
     const qrBuffer  = await generateStyledQRBuffer(qrPayload, 600);
 
     // 4. Overlay QR + text on card

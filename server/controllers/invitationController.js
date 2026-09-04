@@ -111,7 +111,9 @@ async function generateCard(req, res) {
 
     // 4 — Generate QR buffer (400px is enough quality; smaller = faster PNG encode)
     console.time(`[timer:${code}] qr-generate`);
-    const qrData   = JSON.stringify({ code, name: guestName });
+    // Encode the bare code — same payload as the Public Invitation / RSVP QR.
+    // Keeps the module grid small (v1) so the printed QR stays large & sharp.
+    const qrData   = code;
     let qrBuffer   = _getQR(qrData);
     if (!qrBuffer) { qrBuffer = await generateStyledQRBuffer(qrData, 400); _setQR(qrData, qrBuffer); }
     console.timeEnd(`[timer:${code}] qr-generate`);
@@ -609,7 +611,7 @@ async function renderCard(req, res) {
   const naturalH = parseInt(req.body.natural_h, 10) || 0;
 
   try {
-    const qrData  = JSON.stringify({ code, name: guestName });
+    const qrData  = code;   // same payload as the Public Invitation / RSVP QR
     // Reuse cached QR from the generate step; regenerate only if cache missed
     let qrBuffer  = _getQR(qrData);
     if (!qrBuffer) { qrBuffer = await generateStyledQRBuffer(qrData, 400); _setQR(qrData, qrBuffer); }
