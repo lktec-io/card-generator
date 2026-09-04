@@ -36,6 +36,9 @@ export default function CardGenerator({ event }) {
   const [showQR,          setShowQR]          = useState(true);
   const [showCN,          setShowCN]          = useState(true);
   const [cardType,        setCardType]        = useState('single');   // Single / Double
+  const [showType,        setShowType]        = useState(true);
+  const [typeColor,       setTypeColor]       = useState('#444444');
+  const [typeFontSizeStr, setTypeFontSizeStr] = useState('');
 
   // ── Status ─────────────────────────────────────────────────────────────────
   const [loading,     setLoading]     = useState(false);
@@ -66,6 +69,7 @@ export default function CardGenerator({ event }) {
   const overlayRef    = useRef(null);
   const nameAnchorRef = useRef(null);
   const cnAnchorRef   = useRef(null);
+  const typeAnchorRef = useRef(null);
   const qrBoxRef      = useRef(null);
 
   // posScale: converts 1080-canvas coords → screen pixels (for drag positions)
@@ -77,6 +81,7 @@ export default function CardGenerator({ event }) {
   // Derived font sizes — null when empty (server uses its built-in default)
   const nameFontSize = nameFontSizeStr !== '' ? Math.max(1, parseInt(nameFontSizeStr, 10) || 1) : null;
   const cnFontSize   = cnFontSizeStr   !== '' ? Math.max(1, parseInt(cnFontSizeStr,   10) || 1) : null;
+  const typeFontSize = typeFontSizeStr !== '' ? Math.max(1, parseInt(typeFontSizeStr, 10) || 1) : null;
 
   // ── Track overlay width ────────────────────────────────────────────────────
   useEffect(() => {
@@ -118,7 +123,8 @@ export default function CardGenerator({ event }) {
       const qrLeft = Math.round((1080 - QR_BLOCK) / 2);
       const nameY  = Math.round(qrTop + QR_BLOCK + ch * 0.06);
       const codeY  = Math.round(nameY + ch * 0.07);
-      return { nameX: 540, nameY, codeX: 540, codeY, qrLeft, qrTop };
+      const typeY  = Math.round(codeY + ch * 0.05);
+      return { nameX: 540, nameY, codeX: 540, codeY, qrLeft, qrTop, typeX: 540, typeY };
     });
   }, []);
 
@@ -139,10 +145,13 @@ export default function CardGenerator({ event }) {
       fd.append('card_type',     cardType);
       fd.append('name_color',    nameColor);
       fd.append('cn_color',      cnColor);
+      fd.append('type_color',    typeColor);
       if (nameFontSize !== null) fd.append('name_font_size', nameFontSize);
       if (cnFontSize   !== null) fd.append('cn_font_size',   cnFontSize);
+      if (typeFontSize !== null) fd.append('type_font_size', typeFontSize);
       fd.append('show_qr',       showQR ? '1' : '0');
       fd.append('show_cn',       showCN ? '1' : '0');
+      fd.append('show_type',     showType ? '1' : '0');
       if (naturalImgW > 0) { fd.append('natural_w', naturalImgW); fd.append('natural_h', naturalImgH); }
       if (pos) {
         fd.append('pos_name_x',  pos.nameX);
@@ -151,6 +160,8 @@ export default function CardGenerator({ event }) {
         fd.append('pos_code_y',  pos.codeY);
         fd.append('pos_qr_left', pos.qrLeft);
         fd.append('pos_qr_top',  pos.qrTop);
+        fd.append('pos_type_x',  pos.typeX);
+        fd.append('pos_type_y',  pos.typeY);
       }
       const { data } = await generateCard(fd);
       if (!data.success) throw new Error(data.message || 'Generation failed');
@@ -174,12 +185,16 @@ export default function CardGenerator({ event }) {
       fd.append('image',          imageFile);
       fd.append('code',           result.code);
       fd.append('guest_name',     guestName.trim());
+      fd.append('card_type',     cardType);
       fd.append('name_color',    nameColor);
       fd.append('cn_color',      cnColor);
+      fd.append('type_color',    typeColor);
       if (nameFontSize !== null) fd.append('name_font_size', nameFontSize);
       if (cnFontSize   !== null) fd.append('cn_font_size',   cnFontSize);
+      if (typeFontSize !== null) fd.append('type_font_size', typeFontSize);
       fd.append('show_qr',       showQR ? '1' : '0');
       fd.append('show_cn',       showCN ? '1' : '0');
+      fd.append('show_type',     showType ? '1' : '0');
       if (naturalImgW > 0) { fd.append('natural_w', naturalImgW); fd.append('natural_h', naturalImgH); }
       if (pos) {
         fd.append('pos_name_x',  pos.nameX);
@@ -188,6 +203,8 @@ export default function CardGenerator({ event }) {
         fd.append('pos_code_y',  pos.codeY);
         fd.append('pos_qr_left', pos.qrLeft);
         fd.append('pos_qr_top',  pos.qrTop);
+        fd.append('pos_type_x',  pos.typeX);
+        fd.append('pos_type_y',  pos.typeY);
       }
       const resp = await renderCard(fd);
       const blob = resp.data instanceof Blob ? resp.data : new Blob([resp.data], { type: 'image/png' });
@@ -214,6 +231,10 @@ export default function CardGenerator({ event }) {
     codeX: Math.round((d.x + ANCHOR_R) / posScale),
     codeY: Math.round((d.y + ANCHOR_R) / posScale),
   }), [posScale, updatePos]);
+  const onTypeStop = useCallback((_, d) => updatePos({
+    typeX: Math.round((d.x + ANCHOR_R) / posScale),
+    typeY: Math.round((d.y + ANCHOR_R) / posScale),
+  }), [posScale, updatePos]);
   const onQrStop = useCallback((_, d) => updatePos({
     qrLeft: Math.max(0, Math.round(d.x / posScale)),
     qrTop:  Math.max(0, Math.round(d.y / posScale)),
@@ -224,6 +245,8 @@ export default function CardGenerator({ event }) {
   // Preview font sizes — null means empty input → fall back to defaults for accurate preview
   const previewNamePx = Math.max(4, Math.round((nameFontSize ?? 150) * fontScale));
   const previewCnPx   = Math.max(3, Math.round((cnFontSize   ?? 100) * fontScale));
+  const previewTypePx = Math.max(3, Math.round((typeFontSize ?? 70)  * fontScale));
+  const typeLabel     = cardType === 'double' ? 'Double' : 'Single';
 
   return (
     <div className="create-page">
@@ -329,6 +352,17 @@ export default function CardGenerator({ event }) {
                 />
               </div>
             )}
+            {!isContribution && (
+              <div className="font-size-field">
+                <label>Type Size (px)</label>
+                <input
+                  type="number"
+                  value={typeFontSizeStr}
+                  placeholder="Enter Type Size"
+                  onChange={e => setTypeFontSizeStr(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           {/* Colors */}
@@ -353,6 +387,17 @@ export default function CardGenerator({ event }) {
                 <span className="color-hex-sm">{cnColor}</span>
               </div>
             )}
+            {!isContribution && (
+              <div className="color-picker-row">
+                <span className="color-picker-label">Type color</span>
+                <input
+                  type="color" value={typeColor}
+                  onChange={e => setTypeColor(e.target.value)}
+                  style={{ width: 36, height: 28, border: 'none', cursor: 'pointer', background: 'none', padding: 0 }}
+                />
+                <span className="color-hex-sm">{typeColor}</span>
+              </div>
+            )}
           </div>
 
           {/* Show/hide toggles */}
@@ -365,6 +410,10 @@ export default function CardGenerator({ event }) {
               <label className="toggle-label">
                 <input type="checkbox" checked={showCN} onChange={e => setShowCN(e.target.checked)} />
                 Show CN
+              </label>
+              <label className="toggle-label">
+                <input type="checkbox" checked={showType} onChange={e => setShowType(e.target.checked)} />
+                Show Type
               </label>
             </div>
           )}
@@ -415,6 +464,9 @@ export default function CardGenerator({ event }) {
                 <span><span className="legend-dot" style={{ background: '#3b82f6' }} />Name</span>
                 {!isContribution && showCN && (
                   <span><span className="legend-dot" style={{ background: '#10b981' }} />CN</span>
+                )}
+                {!isContribution && showType && (
+                  <span><span className="legend-dot" style={{ background: '#d4af37' }} />Type</span>
                 )}
                 {!isContribution && showQR && <span>QR (drag box)</span>}
                 <span style={{ marginLeft: 'auto', opacity: 0.6 }}>Drag to reposition</span>
@@ -477,6 +529,22 @@ export default function CardGenerator({ event }) {
                           {result?.code || 'CN-000'}
                         </text>
                       )}
+
+                      {!isContribution && showType && (
+                        <text
+                          x={pos.typeX * posScale}
+                          y={pos.typeY * posScale}
+                          textAnchor="middle"
+                          fontFamily="Georgia, serif"
+                          fontSize={previewTypePx}
+                          fontWeight="600"
+                          fill={typeColor}
+                          letterSpacing="3"
+                          style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.6))' }}
+                        >
+                          {typeLabel}
+                        </text>
+                      )}
                     </svg>
 
                     {/* Name anchor dot — center = text baseline center */}
@@ -501,6 +569,20 @@ export default function CardGenerator({ event }) {
                       >
                         <div ref={cnAnchorRef} className="drag-anchor" style={{ zIndex: 10 }}>
                           <div className="drag-anchor__dot" style={{ background: '#10b981' }} />
+                        </div>
+                      </Draggable>
+                    )}
+
+                    {/* Type anchor dot */}
+                    {!isContribution && showType && (
+                      <Draggable
+                        nodeRef={typeAnchorRef}
+                        position={{ x: pos.typeX * posScale - ANCHOR_R, y: pos.typeY * posScale - ANCHOR_R }}
+                        bounds={{ top: -ANCHOR_R, left: -ANCHOR_R, right: overlayW - ANCHOR_R, bottom: overlayH - ANCHOR_R }}
+                        onStop={onTypeStop}
+                      >
+                        <div ref={typeAnchorRef} className="drag-anchor" style={{ zIndex: 10 }}>
+                          <div className="drag-anchor__dot" style={{ background: '#d4af37' }} />
                         </div>
                       </Draggable>
                     )}

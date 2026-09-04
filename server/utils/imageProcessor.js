@@ -15,6 +15,11 @@ const BOTTOM_MARGIN = 150;
 // Default font sizes — absolute output pixels, matched by CardGenerator defaults
 const DEFAULT_NAME_FONT = 150;
 const DEFAULT_CN_FONT   = 100;
+const DEFAULT_TYPE_FONT = 70;
+
+// Card type label — 'single' | 'double' → text drawn on the card
+const TYPE_LABELS = { single: 'Single', double: 'Double' };
+const typeLabel = (t) => TYPE_LABELS[t] || TYPE_LABELS.single;
 
 function xmlEsc(s) {
   return String(s)
@@ -72,12 +77,17 @@ function buildAutoInviteSVG(cardW, guestName, code, opts) {
     contactName = null,
     contactPhone = null,
     skipCN      = false,
+    skipType    = false,
+    cardType    = 'single',
+    typeColor   = '#444444',
+    typeFontPx  = DEFAULT_TYPE_FONT,
   } = opts;
 
   const hasContact = !!(contactName || contactPhone);
   const line2H     = skipCN ? 0 : cnFontPx + 20;
+  const lineTypeH  = skipType ? 0 : typeFontPx + 16;
   const line3H     = hasContact ? 50 : 0;
-  const svgH       = nameFontPx + line2H + line3H + 20;
+  const svgH       = nameFontPx + line2H + lineTypeH + line3H + 20;
   const contactText = [contactName, contactPhone].filter(Boolean).join('  |  ');
   const { textAnchor, cx } = resolveAlign(nameTextAlign, cardW);
   const contactFontPx = Math.round(Math.min(cnFontPx * 0.55, 48));
@@ -96,9 +106,16 @@ function buildAutoInviteSVG(cardW, guestName, code, opts) {
       ` letter-spacing="5" fill="${xmlEsc(cnColor)}">${xmlEsc(code)}</text>`;
   }
 
+  if (!skipType) {
+    svg +=
+      `<text x="${Math.round(cardW / 2)}" y="${nameFontPx + line2H + typeFontPx + 16}" text-anchor="middle"` +
+      ` font-family="Georgia, serif" font-size="${typeFontPx}" font-weight="600"` +
+      ` letter-spacing="3" fill="${xmlEsc(typeColor)}">${xmlEsc(typeLabel(cardType))}</text>`;
+  }
+
   if (hasContact) {
     svg +=
-      `<text x="${Math.round(cardW / 2)}" y="${nameFontPx + line2H + 45}" text-anchor="middle"` +
+      `<text x="${Math.round(cardW / 2)}" y="${nameFontPx + line2H + lineTypeH + 45}" text-anchor="middle"` +
       ` font-family="Georgia, serif" font-size="${contactFontPx}" font-weight="400"` +
       ` letter-spacing="1" fill="#666666">${xmlEsc(contactText)}</text>`;
   }
@@ -153,10 +170,14 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
     isContribution = false,
     skipQR         = false,
     skipCN         = false,
+    skipType       = false,
+    cardType       = 'single',
     nameColor      = '#111111',
     cnColor        = '#222222',
+    typeColor      = '#444444',
     nameFontSize   = DEFAULT_NAME_FONT,   // ABSOLUTE output pixels
     cnFontSize     = DEFAULT_CN_FONT,     // ABSOLUTE output pixels
+    typeFontSize   = DEFAULT_TYPE_FONT,   // ABSOLUTE output pixels
     nameFontWeight = '700',
     nameTextAlign  = 'center',
     contactName    = null,
@@ -166,8 +187,9 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
     naturalH       = 0,
   } = opts;
 
-  const hideQR = isContribution || skipQR;
-  const hideCN = isContribution || skipCN;
+  const hideQR   = isContribution || skipQR;
+  const hideCN   = isContribution || skipCN;
+  const hideType = isContribution || skipType;
 
   // ── Load card — normalise to min 1200px wide ──────────────────────────────
   let card = sharp(cardBuffer);
@@ -194,6 +216,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
   // Font sizes: ABSOLUTE output pixels — no cardScale multiplication
   const nameFontPx = Math.round(nameFontSize);
   const cnFontPx   = Math.round(cnFontSize);
+  const typeFontPx = Math.round(typeFontSize);
 
   // ── Debug log: exact values entering SVG generation ──────────────────────
   console.log('[imageProcessor] render params:', {
@@ -214,7 +237,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
 
   if (positions) {
     // ── MANUAL mode ──────────────────────────────────────────────────────────
-    const { nameX, nameY, codeX, codeY, qrLeft, qrTop } = positions;
+    const { nameX, nameY, codeX, codeY, qrLeft, qrTop, typeX, typeY } = positions;
 
     const scaledNameCX    = nameX != null ? Math.round(nameX * cardScale) : nameCX;
     const effectiveAnchor = nameX != null ? 'middle' : nameAnchor;
@@ -282,6 +305,29 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
       }
     }
 
+    // Card type — same mechanism as CN above
+    if (!hideType && typeY != null) {
+      const scaledTypeCX = typeX != null ? Math.round(typeX * cardScale) : Math.round(cardW / 2);
+      const scaledTypeY  = Math.round(typeY * cardScale);
+      const clampedTypeY = Math.max(typeFontPx, Math.min(scaledTypeY, cardH + Math.round(typeFontPx * 0.3)));
+
+      console.log('[imageProcessor] TYPE SVG:', {
+        cx: scaledTypeCX, y: clampedTypeY,
+        'font-size': typeFontPx,
+        label: typeLabel(cardType),
+      });
+
+      console.time('[timer] svg-type');
+      const typePNG = rasterise(buildTextSVG(cardW, cardH, typeLabel(cardType), scaledTypeCX, clampedTypeY, {
+        fontSize: typeFontPx,
+        fontWeight: '600',
+        letterSpacing: '3',
+        fill: typeColor,
+      }));
+      console.timeEnd('[timer] svg-type');
+      composites.push({ input: typePNG, top: 0, left: 0 });
+    }
+
   } else {
     // ── AUTO mode (fallback) ──────────────────────────────────────────────────
     if (isContribution) {
@@ -294,6 +340,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
       const textSVG  = buildAutoInviteSVG(cardW, guestName, code, {
         nameColor, cnColor, nameFontPx, cnFontPx, nameFontWeight, nameTextAlign,
         contactName, contactPhone, skipCN,
+        skipType: hideType, cardType, typeColor, typeFontPx,
       });
       const textPNG  = rasterise(textSVG);
       const svgHMatch = textSVG.match(/height="(\d+)"/);

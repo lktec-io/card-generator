@@ -70,9 +70,15 @@ async function generateCard(req, res) {
   const skipQR = req.body.show_qr === '0' || req.body.show_qr === 'false';
   const skipCN = req.body.show_cn === '0' || req.body.show_cn === 'false';
 
+  const skipType = req.body.show_type === '0' || req.body.show_type === 'false';
+
   // Card type — Single / Double (whitelisted; anything else falls back to single)
   const cardType = ['single', 'double'].includes(req.body.card_type)
     ? req.body.card_type : 'single';
+  const typeColor = (req.body.type_color || '#444444').trim();
+  const typeFontSizeRaw = parseInt(req.body.type_font_size, 10);
+  const typeFontSize = Number.isFinite(typeFontSizeRaw) && typeFontSizeRaw > 0
+    ? typeFontSizeRaw : 70;
 
   // Drag-and-drop positions (all in 1080px canvas space)
   const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
@@ -82,9 +88,12 @@ async function generateCard(req, res) {
   const posCodeY  = parseNum(req.body.pos_code_y);
   const posQrLeft = parseNum(req.body.pos_qr_left);
   const posQrTop  = parseNum(req.body.pos_qr_top);
+  const posTypeX  = parseNum(req.body.pos_type_x);
+  const posTypeY  = parseNum(req.body.pos_type_y);
   const hasPositions = posNameY != null;
   const positions = hasPositions
-    ? { nameX: posNameX, nameY: posNameY, codeX: posCodeX, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop }
+    ? { nameX: posNameX, nameY: posNameY, codeX: posCodeX, codeY: posCodeY,
+        qrLeft: posQrLeft, qrTop: posQrTop, typeX: posTypeX, typeY: posTypeY }
     : null;
 
   const connection = await pool.getConnection();
@@ -128,8 +137,9 @@ async function generateCard(req, res) {
     console.time(`[timer:${code}] processCardImage`);
     const isContribution = event?.event_mode === 'contribution';
     finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
-      isContribution, skipQR, skipCN, nameColor, cnColor,
-      nameFontSize, cnFontSize, nameFontWeight, nameTextAlign,
+      isContribution, skipQR, skipCN, skipType, cardType,
+      nameColor, cnColor, typeColor,
+      nameFontSize, cnFontSize, typeFontSize, nameFontWeight, nameTextAlign,
       contactName:  event?.contact_name  || null,
       contactPhone: event?.contact_phone || null,
       positions, naturalW, naturalH,
@@ -598,8 +608,16 @@ async function renderCard(req, res) {
   const contactName  = (req.body.contact_name  || '').trim() || null;
   const contactPhone = (req.body.contact_phone || '').trim() || null;
 
-  const skipQR = req.body.show_qr === '0' || req.body.show_qr === 'false';
-  const skipCN = req.body.show_cn === '0' || req.body.show_cn === 'false';
+  const skipQR   = req.body.show_qr   === '0' || req.body.show_qr   === 'false';
+  const skipCN   = req.body.show_cn   === '0' || req.body.show_cn   === 'false';
+  const skipType = req.body.show_type === '0' || req.body.show_type === 'false';
+
+  const cardType = ['single', 'double'].includes(req.body.card_type)
+    ? req.body.card_type : 'single';
+  const typeColor = (req.body.type_color || '#444444').trim();
+  const typeFontSizeRaw = parseInt(req.body.type_font_size, 10);
+  const typeFontSize = Number.isFinite(typeFontSizeRaw) && typeFontSizeRaw > 0
+    ? typeFontSizeRaw : 70;
 
   const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
   const posNameX  = parseNum(req.body.pos_name_x);
@@ -608,8 +626,11 @@ async function renderCard(req, res) {
   const posCodeY  = parseNum(req.body.pos_code_y);
   const posQrLeft = parseNum(req.body.pos_qr_left);
   const posQrTop  = parseNum(req.body.pos_qr_top);
+  const posTypeX  = parseNum(req.body.pos_type_x);
+  const posTypeY  = parseNum(req.body.pos_type_y);
   const positions = posNameY != null
-    ? { nameX: posNameX, nameY: posNameY, codeX: posCodeX, codeY: posCodeY, qrLeft: posQrLeft, qrTop: posQrTop }
+    ? { nameX: posNameX, nameY: posNameY, codeX: posCodeX, codeY: posCodeY,
+        qrLeft: posQrLeft, qrTop: posQrTop, typeX: posTypeX, typeY: posTypeY }
     : null;
 
   const naturalW = parseInt(req.body.natural_w, 10) || 0;
@@ -622,8 +643,9 @@ async function renderCard(req, res) {
     if (!qrBuffer) { qrBuffer = await generateStyledQRBuffer(qrData, 400); _setQR(qrData, qrBuffer); }
 
     const finalBuffer = await processCardImage(req.file.buffer, qrBuffer, guestName, code, {
-      skipQR, skipCN, nameColor, cnColor,
-      nameFontSize, cnFontSize, nameFontWeight,
+      skipQR, skipCN, skipType, cardType,
+      nameColor, cnColor, typeColor,
+      nameFontSize, cnFontSize, typeFontSize, nameFontWeight,
       contactName, contactPhone,
       positions, naturalW, naturalH,
     });
