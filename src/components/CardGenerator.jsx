@@ -4,8 +4,15 @@ import QRCode from 'qrcode';
 import { generateCard, renderCard } from '../utils/api';
 import '../styles/create.css';
 
-// QR block: 170px core + 16px padding each side = 202 canvas units (positions only)
-const QR_BLOCK  = 202;
+// ════════════════════════════════════════════════════════════════════════════
+//  ★ QR SIZE CONTROL ★  — change QR_SIZE and nothing else.
+//    Bigger number = bigger QR in the preview AND on the generated card.
+//    ⚠️ Must stay in sync with QR_SIZE in server/utils/imageProcessor.js
+// ════════════════════════════════════════════════════════════════════════════
+const QR_SIZE   = 260;                    // ← THE ONE VALUE TO CHANGE (was 170)
+const QR_PAD    = 16;                     // white quiet-zone padding around it
+const QR_BLOCK  = QR_SIZE + QR_PAD * 2;   // canvas units (positions only)
+
 const ANCHOR_R  = 7;   // half of 14px anchor dot
 
 
@@ -28,6 +35,7 @@ export default function CardGenerator({ event }) {
   const [cnFontSizeStr,   setCnFontSizeStr]   = useState('');
   const [showQR,          setShowQR]          = useState(true);
   const [showCN,          setShowCN]          = useState(true);
+  const [cardType,        setCardType]        = useState('single');   // Single / Double
 
   // ── Status ─────────────────────────────────────────────────────────────────
   const [loading,     setLoading]     = useState(false);
@@ -128,6 +136,7 @@ export default function CardGenerator({ event }) {
       fd.append('guest_name',     guestName.trim());
       if (phone.trim())           fd.append('phone_number',   phone.trim());
       if (event?.id)              fd.append('event_id',       event.id);
+      fd.append('card_type',     cardType);
       fd.append('name_color',    nameColor);
       fd.append('cn_color',      cnColor);
       if (nameFontSize !== null) fd.append('name_font_size', nameFontSize);
@@ -279,6 +288,25 @@ export default function CardGenerator({ event }) {
             />
           </div>
 
+          {/* Type — Single / Double */}
+          <div className="form-group">
+            <label>Type</label>
+            <div className="type-selector" role="radiogroup" aria-label="Card type">
+              {['single', 'double'].map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  role="radio"
+                  aria-checked={cardType === t}
+                  className={`type-option${cardType === t ? ' type-option--active' : ''}`}
+                  onClick={() => setCardType(t)}
+                >
+                  {t === 'single' ? 'Single' : 'Double'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Font sizes — free input, empty = use server defaults (150 / 100) */}
           <div className="font-size-row">
             <div className="font-size-field">
@@ -368,6 +396,11 @@ export default function CardGenerator({ event }) {
             <div className="inv-summary">
               <div className="inv-code">{result.code}</div>
               <div className="inv-name">{result.guest_name}</div>
+              {result.card_type && (
+                <div className={`inv-type inv-type--${result.card_type}`}>
+                  {result.card_type === 'double' ? 'Double' : 'Single'}
+                </div>
+              )}
               <div className="inv-drag-hint">Drag elements on the right, then download</div>
             </div>
           )}

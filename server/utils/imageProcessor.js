@@ -1,10 +1,15 @@
 const sharp     = require('sharp');
 const { Resvg } = require('@resvg/resvg-js');
 
-// QR constants (position-only; font sizes are absolute output pixels)
-const QR_SIZE       = 170;
-const QR_PAD        = 16;
-const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // 202 canvas units
+// ════════════════════════════════════════════════════════════════════════════
+//  ★ QR SIZE CONTROL ★  — change QR_SIZE and nothing else.
+//    Bigger number = bigger QR on the generated card. Everything below derives
+//    from it, so the layout re-centres itself automatically.
+//    ⚠️ Must stay in sync with QR_SIZE in src/components/CardGenerator.jsx
+// ════════════════════════════════════════════════════════════════════════════
+const QR_SIZE       = 260;                    // ← THE ONE VALUE TO CHANGE (was 170)
+const QR_PAD        = 16;                     // white quiet-zone padding around it
+const QR_BLOCK      = QR_SIZE + QR_PAD * 2;   // canvas units (position math)
 const BOTTOM_MARGIN = 150;
 
 // Default font sizes — absolute output pixels, matched by CardGenerator defaults

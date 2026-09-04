@@ -70,6 +70,10 @@ async function generateCard(req, res) {
   const skipQR = req.body.show_qr === '0' || req.body.show_qr === 'false';
   const skipCN = req.body.show_cn === '0' || req.body.show_cn === 'false';
 
+  // Card type — Single / Double (whitelisted; anything else falls back to single)
+  const cardType = ['single', 'double'].includes(req.body.card_type)
+    ? req.body.card_type : 'single';
+
   // Drag-and-drop positions (all in 1080px canvas space)
   const parseNum = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
   const posNameX  = parseNum(req.body.pos_name_x);
@@ -104,9 +108,9 @@ async function generateCard(req, res) {
     // 3 — Insert invitation row
     await connection.execute(
       `INSERT INTO invitations
-         (code, guest_name, phone_number, status, event_id, invitation_uuid)
-       VALUES (?, ?, ?, 'unused', ?, ?)`,
-      [code, guestName, phone, eventId, uuid]
+         (code, guest_name, card_type, phone_number, status, event_id, invitation_uuid)
+       VALUES (?, ?, ?, ?, 'unused', ?, ?)`,
+      [code, guestName, cardType, phone, eventId, uuid]
     );
 
     // 4 — Generate QR buffer (400px is enough quality; smaller = faster PNG encode)
@@ -167,6 +171,7 @@ async function generateCard(req, res) {
     code,
     invitation_uuid: uuid,
     guest_name:      guestName,
+    card_type:       cardType,
     image_url:       `/generated/${code}.png`,
     local_url:       `/generated/${code}.png`,
   });
