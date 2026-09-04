@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Draggable from 'react-draggable';
+import QRCode from 'qrcode';
 import { generateCard, renderCard } from '../utils/api';
 import '../styles/create.css';
 
@@ -27,6 +28,17 @@ export default function CardGenerator({ event }) {
   const [cnFontSizeStr,   setCnFontSizeStr]   = useState('');
   const [showQR,          setShowQR]          = useState(true);
   const [showCN,          setShowCN]          = useState(true);
+  const [qrDataUrl,       setQrDataUrl]       = useState('');
+
+  // Render a real QR preview — same library & quality as the RSVP page
+  useEffect(() => {
+    if (!result?.code) { setQrDataUrl(''); return; }
+    QRCode.toDataURL(result.code, {
+      errorCorrectionLevel: 'M',
+      margin:               2,
+      width:                400,
+    }).then(setQrDataUrl).catch(() => setQrDataUrl(''));
+  }, [result?.code]);
 
   // ── Status ─────────────────────────────────────────────────────────────────
   const [loading,     setLoading]     = useState(false);
@@ -394,7 +406,9 @@ export default function CardGenerator({ event }) {
                         onStop={onQrStop}
                       >
                         <div ref={qrBoxRef} className="drag-qr-box" style={{ width: qrBoxPx, height: qrBoxPx }}>
-                          QR
+                          {qrDataUrl
+                            ? <img src={qrDataUrl} alt="QR" style={{ width: '100%', height: '100%', display: 'block', imageRendering: 'pixelated' }} />
+                            : 'QR'}
                         </div>
                       </Draggable>
                     )}
