@@ -23,6 +23,7 @@ const audioUpload = multer({
 const {
   generateCard, renderCard, verifyCode, getStats,
   deleteInvitation, deleteAllInvitations, reserveCode, verifyManual, bulkImport, trackShare,
+  searchGuests,
 } = require('../controllers/invitationController');
 
 const { getDashboard }           = require('../controllers/adminController');
@@ -60,6 +61,10 @@ router.post('/voice-message/:uuid', audioUpload.single('audio'), sendVoiceMessag
 router.get('/admin/dashboard',   requireAuth, getDashboard);
 router.get('/stats/global',      requireAuth, getGlobalStats);
 router.get('/verification-logs', requireAuth, getVerificationHistory);
+
+// Guest name search for staff-assisted check-in (read-only; check-in still goes
+// through /verify/manual). Declared before any '/invitations/:id' style route.
+router.get('/invitations/search', requireAuth, searchGuests);
 
 // Invitations — destructive ops are admin-only
 router.delete('/invitations',     requireAdmin,   deleteAllInvitations);

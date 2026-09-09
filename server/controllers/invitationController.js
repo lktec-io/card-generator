@@ -7,7 +7,7 @@ const { uploadBuffer }            = require('../config/cloudinary');
 const { getNextCode }             = require('../utils/codeGenerator');
 const { generateStyledQRBuffer }  = require('../utils/qrGenerator');
 const { processCardImage }        = require('../utils/imageProcessor');
-const { eventScopeSQL }           = require('../middleware/authMiddleware');
+const { eventScopeSQL, invitationScopeSQL } = require('../middleware/authMiddleware');
 
 // Ensure the generated/ folder exists at server startup
 const GENERATED_DIR = path.join(__dirname, '..', 'generated');
@@ -509,6 +509,52 @@ async function verifyManual(req, res) {
   }
 }
 
+// ── searchGuests ──────────────────────────────────────────────────────────────
+// GET /invitations/search?q=...  — find guests by name so staff can check in a
+// guest who cannot present their card. Read-only: this performs NO check-in.
+// The actual check-in still goes through verifyManual with the returned code,
+// so there is exactly one check-in code path in the system.
+
+async function searchGuests(req, res) {
+  const q = (req.query.q || '').trim();
+
+  // Require a useful number of characters — avoids scanning the table on 1 char
+  if (q.length < 2) {
+    return res.status(200).json({ success: true, guests: [] });
+  }
+
+  // Parameterised below; this only stops a literal % or _ acting as a wildcard
+  const term = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+  const scope = invitationScopeSQL(req.user);
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT i.id, i.code, i.guest_name, i.status
+         FROM invitations i
+         LEFT JOIN events e ON e.id = i.event_id
+        WHERE i.guest_name LIKE ?
+          AND (e.event_mode IS NULL OR e.event_mode <> 'contribution')
+          ${scope.where}
+        ORDER BY i.guest_name ASC
+        LIMIT 20`,
+      [term, ...scope.params]
+    );
+
+    return res.status(200).json({
+      success: true,
+      guests: rows.map((r) => ({
+        id:              r.id,
+        guest_name:      r.guest_name,
+        invitation_code: r.code,
+        status:          r.status,
+      })),
+    });
+  } catch (err) {
+    console.error('[searchGuests]', err);
+    return res.status(500).json({ success: false, message: 'Search failed.' });
+  }
+}
+
 // ── bulkImport ────────────────────────────────────────────────────────────────
 // POST /import  — create multiple invitations from uploaded guest list
 
@@ -662,5 +708,5 @@ async function renderCard(req, res) {
 
 module.exports = {
   generateCard, renderCard, verifyCode, getStats, deleteInvitation, deleteAllInvitations,
-  reserveCode, verifyManual, bulkImport, trackShare,
+  reserveCode, verifyManual, bulkImport, trackShare, searchGuests,
 };

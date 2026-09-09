@@ -49,6 +49,10 @@ export const reserveCard  = (guestName, phoneNumber = null, eventId = null) =>
 export const verifyCode   = (code) => api.post('/verify',        { code });
 export const verifyManual = (code) => api.post('/verify/manual', { invitation_code: code });
 
+// Guest name search — read-only lookup; check-in still goes through verifyManual
+export const searchGuests = (q, config = {}) =>
+  api.get('/invitations/search', { params: { q }, ...config });
+
 export const getStats             = () => api.get('/stats');
 export const getGlobalStats       = () => api.get('/stats/global');
 export const getAdminDashboard    = () => api.get('/admin/dashboard');
