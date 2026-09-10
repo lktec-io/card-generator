@@ -264,38 +264,199 @@
   line-height: 1.6;
 }
 
-/* Invitation type + code on the verification success popup */
+/* ══ Verification success — "VALID GUEST" confirmation ═══════════════════
+   Success popup only. Error / used / invalid popups keep the rules above. */
+
+.popup-card.popup-valid {
+  padding: 2.4rem 2rem 1.9rem;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  background:
+    radial-gradient(120% 70% at 50% 0%, rgba(34, 197, 94, 0.16), transparent 62%),
+    var(--bg-card);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px rgba(34, 197, 94, 0.24),
+    0 0 70px rgba(34, 197, 94, 0.14);
+}
+
+/* Check: circle pops in → tick scales in → halo ripples out once */
+.valid-check {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  margin: 0 auto 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #22c55e, #15803d);
+  box-shadow:
+    0 12px 32px rgba(34, 197, 94, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transform: scale(0);
+  animation: validPop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.valid-check__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(34, 197, 94, 0.7);
+  opacity: 0;
+  animation: validHalo 0.9s ease-out 0.28s forwards;
+}
+
+.valid-check__icon {
+  width: 64px;
+  height: 64px;
+  color: #ffffff;
+  transform: scale(0) rotate(-14deg);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.22));
+  animation: validTick 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) 0.16s forwards;
+}
+
+@keyframes validPop  { to { transform: scale(1); } }
+@keyframes validTick { to { transform: scale(1) rotate(0deg); } }
+@keyframes validHalo {
+  0%   { opacity: 0.9; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(1.6); }
+}
+@keyframes validRise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.valid-label,
+.valid-welcome,
+.valid-subtitle,
+.popup-valid .popup-details {
+  opacity: 0;
+  animation: validRise 0.3s ease-out forwards;
+}
+.valid-label                { animation-delay: 0.24s; }
+.valid-welcome              { animation-delay: 0.30s; }
+.valid-subtitle             { animation-delay: 0.36s; }
+.popup-valid .popup-details { animation-delay: 0.42s; }
+
+.valid-label {
+  margin: 0 0 0.9rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.65rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.16em;
+  text-indent: 0.16em;           /* balance trailing letter-spacing */
+  text-transform: uppercase;
+  color: #22c55e;
+  text-shadow: 0 0 24px rgba(34, 197, 94, 0.35);
+}
+
+.valid-welcome {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-elegant);
+  font-weight: 400;
+  color: var(--white);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.valid-welcome__prefix {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.valid-welcome__name {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.valid-subtitle {
+  margin: 0 0 1.2rem;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+/* Invitation type + code */
 .popup-details {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  margin: -0.85rem 0 1.6rem;
+  gap: 0.6rem;
+  margin: 0 0 1.5rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .popup-type {
   display: inline-block;
-  padding: 0.3rem 1.1rem;
+  padding: 0.45rem 1.6rem;
   border-radius: 999px;
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  font-family: 'Poppins', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
   background: rgba(212, 175, 55, 0.14);
-  border: 1px solid rgba(212, 175, 55, 0.45);
+  border: 1.5px solid rgba(212, 175, 55, 0.55);
   color: var(--gold);
 }
 
 .popup-type--double {
   background: rgba(52, 211, 153, 0.14);
-  border-color: rgba(52, 211, 153, 0.45);
+  border-color: rgba(52, 211, 153, 0.55);
   color: #34d399;
 }
 
 .popup-code {
-  font-size: 0.95rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  color: var(--text);
+}
+
+@media (max-width: 420px) {
+  .popup-card.popup-valid { padding: 2rem 1.25rem 1.5rem; }
+  .valid-check            { width: 88px; height: 88px; margin-bottom: 0.9rem; }
+  .valid-check__icon      { width: 54px; height: 54px; }
+  .valid-label            { font-size: 1.4rem; letter-spacing: 0.12em; text-indent: 0.12em; }
+  .valid-welcome__name    { font-size: 1.5rem; }
+  .popup-type             { font-size: 1.05rem; padding: 0.4rem 1.3rem; }
+}
+
+@media (max-height: 560px) {
+  .popup-card.popup-valid { padding-top: 1.6rem; }
+  .valid-check            { width: 72px; height: 72px; margin-bottom: 0.6rem; }
+  .valid-check__icon      { width: 44px; height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .valid-check,
+  .valid-check__icon,
+  .valid-label,
+  .valid-welcome,
+  .valid-subtitle,
+  .popup-valid .popup-details {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .valid-check__ring { display: none; }
 }
 
 .popup-btn { width: 100%; }

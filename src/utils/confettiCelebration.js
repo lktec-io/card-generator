@@ -107,3 +107,45 @@ export async function celebrateRSVP() {
 
   console.log('[confetti] Confetti finished');
 }
+
+// ── Verification success burst ────────────────────────────────────────────────
+// Deliberately light compared with celebrateRSVP: staff verify guests back-to-back
+// at the gate, so this is one ~2 s gold/white burst rather than a 6 s show. A single
+// canvas is reused across rapid successive verifications (instead of stacking a new
+// full-screen canvas per scan) and removed once idle. Never throws — the celebration
+// is decorative and must never interfere with verification.
+
+let verifyCanvas = null;
+let verifyFire   = null;
+let verifyTimer  = null;
+
+export function celebrateVerification() {
+  try {
+    if (!verifyFire) {
+      verifyCanvas = makeCanvas();
+      verifyFire   = confetti.create(verifyCanvas, {
+        resize: true, useWorker: true, disableForReducedMotion: true,
+      });
+    }
+
+    const colors = [...GOLD, ...WHITE];
+    const burst  = (opts) => {
+      const p = verifyFire({ colors, ticks: 120, scalar: 0.9, ...opts });
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+    };
+
+    burst({ particleCount: 70, spread: 75, startVelocity: 36, gravity: 1.05, origin: { x: 0.5, y: 0.38 } });
+    burst({ particleCount: 35, angle: 60,  spread: 55, startVelocity: 44, origin: { x: 0, y: 0.7 } });
+    burst({ particleCount: 35, angle: 120, spread: 55, startVelocity: 44, origin: { x: 1, y: 0.7 } });
+
+    clearTimeout(verifyTimer);
+    verifyTimer = setTimeout(() => {
+      try { verifyFire?.reset?.(); } catch (_) { /* ignore */ }
+      verifyCanvas?.remove();
+      verifyCanvas = null;
+      verifyFire   = null;
+    }, 2600);
+  } catch (_) {
+    /* decorative only — never surface errors to the verification flow */
+  }
+}
