@@ -39,7 +39,10 @@ export default function VerifyPage() {
       const { data } = await verifyCode(code);
       if (data.success) {
         playSuccess();
-        setPopup({ type: 'success', name: data.name, message: data.message });
+        setPopup({
+          type: 'success', name: data.name, message: data.message,
+          cardType: data.card_type, code: data.code,
+        });
       } else if (data.type === 'not_applicable') {
         setPopup({
           type: 'info', name: data.name || '',
@@ -75,7 +78,10 @@ export default function VerifyPage() {
       const { data } = await verifyManual(fullCode);
       if (data.success) {
         playSuccess();
-        setManualPopup({ type: 'success', name: data.name, message: data.message });
+        setManualPopup({
+          type: 'success', name: data.name, message: data.message,
+          cardType: data.card_type, code: data.invitation_code,
+        });
       } else if (data.type === 'not_applicable') {
         setManualPopup({
           type: 'info', name: data.name || '',
@@ -148,7 +154,10 @@ export default function VerifyPage() {
       const { data } = await verifyManual(selectedGuest.invitation_code);
       if (data.success) {
         playSuccess();
-        setSearchPopup({ type: 'success', name: data.name, message: data.message });
+        setSearchPopup({
+          type: 'success', name: data.name, message: data.message,
+          cardType: data.card_type, code: data.invitation_code,
+        });
       } else if (data.type === 'not_applicable') {
         setSearchPopup({
           type: 'info', name: data.name || '',
@@ -299,6 +308,11 @@ export default function VerifyPage() {
                         <span className="guest-result-name">{g.guest_name}</span>
                         <span className="guest-result-meta">
                           <span className="guest-result-code">{g.invitation_code}</span>
+                          {g.card_type && (
+                            <span className={`guest-result-type guest-result-type--${g.card_type === 'double' ? 'double' : 'single'}`}>
+                              {g.card_type === 'double' ? 'DOUBLE' : 'SINGLE'}
+                            </span>
+                          )}
                           {g.status === 'used' && (
                             <span className="guest-result-used">Already used</span>
                           )}
@@ -324,6 +338,14 @@ export default function VerifyPage() {
                   {selectedGuest.invitation_code}
                 </span>
               </div>
+              {selectedGuest.card_type && (
+                <div className="guest-confirm-row">
+                  <span className="guest-confirm-label">Type</span>
+                  <span className={`guest-result-type guest-result-type--${selectedGuest.card_type === 'double' ? 'double' : 'single'}`}>
+                    {selectedGuest.card_type === 'double' ? 'DOUBLE' : 'SINGLE'}
+                  </span>
+                </div>
+              )}
 
               <button
                 className="btn-gold manual-btn"
@@ -355,6 +377,8 @@ export default function VerifyPage() {
           type={popup.type}
           name={popup.name}
           message={popup.message}
+          cardType={popup.cardType}
+          code={popup.code}
           onClose={handleClose}
         />
       )}
@@ -365,6 +389,8 @@ export default function VerifyPage() {
           type={manualPopup.type}
           name={manualPopup.name}
           message={manualPopup.message}
+          cardType={manualPopup.cardType}
+          code={manualPopup.code}
           onClose={handleManualClose}
         />
       )}
@@ -375,6 +401,8 @@ export default function VerifyPage() {
           type={searchPopup.type}
           name={searchPopup.name}
           message={searchPopup.message}
+          cardType={searchPopup.cardType}
+          code={searchPopup.code}
           onClose={handleSearchClose}
         />
       )}

@@ -398,6 +398,25 @@ html, body {
   color: #f87171;
 }
 
+/* Invitation type (SINGLE / DOUBLE) in search results and confirmation */
+.guest-result-type {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.guest-result-type--double {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.38);
+  color: #34d399;
+}
+
 /* ── Selected guest confirmation ──────────────────────────────────────── */
 
 .guest-confirm {

@@ -264,6 +264,40 @@
   line-height: 1.6;
 }
 
+/* Invitation type + code on the verification success popup */
+.popup-details {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: -0.85rem 0 1.6rem;
+}
+
+.popup-type {
+  display: inline-block;
+  padding: 0.3rem 1.1rem;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  background: rgba(212, 175, 55, 0.14);
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  color: var(--gold);
+}
+
+.popup-type--double {
+  background: rgba(52, 211, 153, 0.14);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #34d399;
+}
+
+.popup-code {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
+
 .popup-btn { width: 100%; }
 
 /* ── QR Scanner viewport ──────────────────────────────────────────────── */

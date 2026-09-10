@@ -230,7 +230,7 @@ async function verifyCode(req, res) {
 
   try {
     const [rows] = await connection.execute(
-      `SELECT i.id, i.code, i.guest_name, i.status, i.used_at, i.event_id, e.event_mode
+      `SELECT i.id, i.code, i.guest_name, i.card_type, i.status, i.used_at, i.event_id, e.event_mode
          FROM invitations i
          LEFT JOIN events e ON e.id = i.event_id
         WHERE i.code = ? LIMIT 1`,
@@ -294,6 +294,7 @@ async function verifyCode(req, res) {
       message: 'Valid Invitation',
       name:    inv.guest_name,
       code:    inv.code,
+      card_type: inv.card_type,
     });
 
   } catch (err) {
@@ -429,7 +430,7 @@ async function verifyManual(req, res) {
   const connection = await pool.getConnection();
   try {
     const [rows] = await connection.execute(
-      `SELECT i.id, i.code, i.guest_name, i.status, i.used_at, i.event_id, e.event_mode
+      `SELECT i.id, i.code, i.guest_name, i.card_type, i.status, i.used_at, i.event_id, e.event_mode
          FROM invitations i
          LEFT JOIN events e ON e.id = i.event_id
         WHERE i.code = ? LIMIT 1`,
@@ -499,6 +500,7 @@ async function verifyManual(req, res) {
       message:         'Guest verified successfully.',
       name:            inv.guest_name,
       invitation_code: inv.code,
+      card_type:       inv.card_type,
     });
 
   } catch (err) {
@@ -529,7 +531,7 @@ async function searchGuests(req, res) {
 
   try {
     const [rows] = await pool.execute(
-      `SELECT i.id, i.code, i.guest_name, i.status
+      `SELECT i.id, i.code, i.guest_name, i.card_type, i.status
          FROM invitations i
          LEFT JOIN events e ON e.id = i.event_id
         WHERE i.guest_name LIKE ?
@@ -546,6 +548,7 @@ async function searchGuests(req, res) {
         id:              r.id,
         guest_name:      r.guest_name,
         invitation_code: r.code,
+        card_type:       r.card_type,
         status:          r.status,
       })),
     });
