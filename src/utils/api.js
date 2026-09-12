@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-export const API_BASE = import.meta.env.VITE_API_URL || 'https://wedding.nardio.online/api';
+// Same-origin: nginx proxies /api/ on every hostname that serves this app
+export const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
