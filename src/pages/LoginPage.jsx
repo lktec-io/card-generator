@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GiDiamondRing } from 'react-icons/gi';
 import { MdLock, MdEmail, MdLogin } from 'react-icons/md';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { login } from '../utils/api';
 import '../styles/login.css';
 
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
+  const [showPassword, setShowPassword] = useState(false);   // UI only
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -68,19 +70,40 @@ export default function LoginPage() {
             <label htmlFor="login-password">
               <MdLock size={15} /> Password
             </label>
-            <input
-              id="login-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              autoComplete="current-password"
-              disabled={loading}
-            />
+            {/* spellCheck/autoCorrect off: once revealed as text, the password must not
+                be sent to spellcheck or autocorrect */}
+            <div className="login-password-wrap">
+              <input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+                disabled={loading}
+                spellCheck={false}
+                autoCapitalize="none"
+                autoCorrect="off"
+              />
+              <button
+                type="button"
+                className="login-eye-btn"
+                onClick={() => setShowPassword((v) => !v)}
+                onMouseDown={(e) => e.preventDefault()}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                aria-controls="login-password"
+                disabled={loading}
+              >
+                {showPassword
+                  ? <FiEyeOff className="login-eye-icon" aria-hidden="true" />
+                  : <FiEye    className="login-eye-icon" aria-hidden="true" />}
+              </button>
+            </div>
           </div>
 
-          {error && <p className="login-error">{error}</p>}
+          {error && <p className="login-error" role="alert">{error}</p>}
 
           <button
             type="submit"
