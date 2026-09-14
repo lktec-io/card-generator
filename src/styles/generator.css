@@ -202,7 +202,7 @@
   background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
   color: var(--dark);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-btn);
   padding: 16px 32px;
   font-size: 0.9rem;
   font-weight: 600;
@@ -347,7 +347,7 @@
   background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
   color: var(--dark);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-btn);
   padding: 14px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -369,7 +369,7 @@
   background: transparent;
   color: var(--dark);
   border: 1.5px solid var(--cream-dark);
-  border-radius: 8px;
+  border-radius: var(--radius-btn);
   padding: 14px;
   font-size: 0.85rem;
   font-weight: 500;

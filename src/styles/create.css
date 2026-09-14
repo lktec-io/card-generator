@@ -467,7 +467,7 @@
 .type-option {
   padding: 0.6rem 0.5rem;
   border: 1px solid transparent;
-  border-radius: calc(var(--radius-sm) - 3px);
+  border-radius: var(--radius-btn);
   background: transparent;
   color: var(--text-muted);
   font-family: var(--font-main);

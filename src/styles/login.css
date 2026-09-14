@@ -256,7 +256,7 @@
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-btn);
   color: var(--text-muted);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -325,7 +325,7 @@
   overflow: hidden;
   background: linear-gradient(135deg, #e2bf4b 0%, #d4af37 45%, #b8942a 100%);
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-btn);
   color: #1a1200;
   font-family: 'Poppins', sans-serif;
   font-size: 0.95rem;

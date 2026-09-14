@@ -40,7 +40,7 @@ button:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid rgba(212, 175, 55, 0.65);
   outline-offset: 3px;
-  border-radius: 5px;
+  border-radius: var(--radius-btn);
 }
 
 input:focus-visible,
@@ -107,6 +107,9 @@ textarea,
   --radius-lg: 28px;
   --radius-xl: 40px;
 
+  /* Buttons: compact fintech radius — change it here for every button */
+  --radius-btn: 5px;
+
   --shadow-sm:   0 2px 12px rgba(0, 0, 0, 0.35);
   --shadow-md:   0 8px 32px rgba(0, 0, 0, 0.45);
   --shadow-lg:   0 24px 64px rgba(0, 0, 0, 0.55);
@@ -134,7 +137,10 @@ textarea,
 .bg {
   position: fixed;
   inset: 0;
-  background: url('/event.jpeg') center / cover no-repeat;
+  /* Referenced from src/assets (not public/) so Vite fingerprints the file name.
+     A replaced image gets a new URL, so Cloudflare and browsers can never keep serving
+     a stale copy. To change the background, replace src/assets/background.jpeg. */
+  background: url('../assets/background.jpeg') center / cover no-repeat;
   z-index: -1;
   opacity: 0.15;
   animation: zoomBg 20s ease-in-out infinite;
@@ -223,7 +229,7 @@ a {
   font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-btn);
   border: none;
   text-align: center;
   white-space: nowrap;
@@ -258,7 +264,7 @@ a {
   font-family: var(--font-main);
   font-size: 0.9rem;
   font-weight: 600;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-btn);
   text-align: center;
   white-space: nowrap;
   transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;

@@ -46,7 +46,7 @@
 .tg-cat-btn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 20px;
+  border-radius: var(--radius-btn);
   color: var(--text-muted);
   font-family: 'Poppins', sans-serif;
   font-size: 0.72rem;
