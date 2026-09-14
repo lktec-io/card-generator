@@ -9,7 +9,7 @@
   letter-spacing: 0.07em;
   text-transform: uppercase;
   padding: 3px 9px;
-  border-radius: 20px;
+  border-radius: var(--radius-btn);
   flex-shrink: 0;
   margin-left: 0.5rem;
 }
@@ -41,20 +41,31 @@
 
 @media (max-width: 640px) { .nav-role-chip { display: none; } }
 
+/* Fixed, not sticky: `html, body { overflow-x: hidden }` (verifier.css, global once bundled)
+   makes <body> a scroll container, so position: sticky never engaged and the bar scrolled away. */
 .navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 200;
   background: rgba(12, 12, 12, 0.92);
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
   border-bottom: 1px solid rgba(212, 175, 55, 0.14);
+  border-radius: 0 0 var(--radius-btn) var(--radius-btn);
   padding: 0 2rem;
   height: 66px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
+
+/* The bar is out of the page flow now: reserve its 66px so content starts exactly where it did */
+.navbar + main { padding-top: 66px; }
+
+/* Keyboard focus and in-page scrolling stop below the bar instead of behind it */
+html:has(.navbar) { scroll-padding-top: 76px; }
 
 .navbar-logo {
   display: flex;
@@ -161,7 +172,7 @@
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(212, 175, 55, 0.20);
-    border-radius: 14px;
+    border-radius: var(--radius-btn);
     padding: 1.5rem 1.25rem 1.25rem;
     gap: 0.2rem;
     z-index: 550;

@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar                   from './components/Navbar';
+import InstallPrompt            from './components/InstallPrompt';
 import DashboardPage            from './pages/DashboardPage';
 import CreatePage               from './pages/CreatePage';
 import VerifyPage               from './pages/VerifyPage';
@@ -74,6 +75,7 @@ function AppShell() {
           <Route path="/import"     element={<OperationalRoute><ImportPage /></OperationalRoute>} />
         </Routes>
       </main>
+      <InstallPrompt />
     </>
   );
 }

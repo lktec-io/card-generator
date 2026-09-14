@@ -1,0 +1,91 @@
+/* ── PWA install prompt — non-blocking card at the bottom of the screen ── */
+
+.install-prompt {
+  position: fixed;
+  right: 1.25rem;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  z-index: 250;                      /* above the navbar (200), below popups and modals (300) */
+  width: min(360px, calc(100vw - 2.5rem));
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem;
+  background: rgba(18, 18, 18, 0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  animation: installPromptIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes installPromptIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.install-prompt-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: var(--radius-btn);
+  background: #0f0f0f;
+}
+
+.install-prompt-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.install-prompt-title {
+  margin-bottom: 0.2rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.install-prompt-text {
+  margin-bottom: 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.install-prompt-text strong { font-weight: 600; color: var(--text); }
+
+.install-prompt-inline-icon {
+  vertical-align: -0.2em;
+  font-size: 1.05em;
+  color: var(--gold);
+}
+
+.install-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Compact versions of the shared buttons; no hover zoom inside a small card */
+.install-prompt .install-prompt-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+}
+
+.install-prompt .install-prompt-btn.btn-gold:hover:not(:disabled),
+.install-prompt .install-prompt-btn.btn-outline:hover {
+  transform: none;
+}
+
+@media (max-width: 640px) {
+  .install-prompt {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .install-prompt { animation: none; }
+}
