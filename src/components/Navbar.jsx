@@ -14,6 +14,7 @@ import '../styles/components.css';
 const SUPER_ADMIN_LINKS = [
   { to: '/',      end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard' },
   { to: '/users', end: false, icon: <MdPeople size={16} />,             label: 'Users'     },
+  { to: '/history', end: false, icon: <MdHistory size={16} />,          label: 'History'   },
   { to: '/admin', end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'     },
 ];
 
@@ -37,7 +38,8 @@ const MANAGER_LINKS = [
 ];
 
 const VERIFIER_LINKS = [
-  { to: '/verify', end: false, icon: <MdQrCodeScanner size={16} />, label: 'Scan & Verify' },
+  { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />, label: 'Scan & Verify'   },
+  { to: '/history', end: false, icon: <MdHistory size={16} />,       label: 'My Scan History' },
 ];
 
 function getRoleLabel(role) {

@@ -8,6 +8,7 @@ const { getNextCode }             = require('../utils/codeGenerator');
 const { generateStyledQRBuffer }  = require('../utils/qrGenerator');
 const { processCardImage }        = require('../utils/imageProcessor');
 const { eventScopeSQL, invitationScopeSQL } = require('../middleware/authMiddleware');
+const { logVerification }          = require('../utils/verificationLog');
 
 // Ensure the generated/ folder exists at server startup
 const GENERATED_DIR = path.join(__dirname, '..', 'generated');
@@ -281,12 +282,10 @@ async function verifyCode(req, res) {
       [inv.id]
     );
 
-    // Log verification
-    await connection.execute(
-      `INSERT INTO verification_logs (event_id, invitation_id, verification_method, verified_by)
-       VALUES (?, ?, 'QR', 'Staff')`,
-      [inv.event_id || null, inv.id]
-    ).catch(() => {});
+    // Log verification (+ which logged-in user performed it)
+    await logVerification(connection, {
+      eventId: inv.event_id, invitationId: inv.id, method: 'QR', user: req.user,
+    }).catch(() => {});
 
     return res.status(200).json({
       success: true,
@@ -485,12 +484,10 @@ async function verifyManual(req, res) {
       [inv.id]
     );
 
-    // Log verification
-    await connection.execute(
-      `INSERT INTO verification_logs (event_id, invitation_id, verification_method, verified_by)
-       VALUES (?, ?, 'CN', 'Staff')`,
-      [inv.event_id || null, inv.id]
-    ).catch(() => {});
+    // Log verification (+ which logged-in user performed it)
+    await logVerification(connection, {
+      eventId: inv.event_id, invitationId: inv.id, method: 'CN', user: req.user,
+    }).catch(() => {});
 
     console.log(`[verifyManual] Checked in: ${code} — "${inv.guest_name}"`);
 

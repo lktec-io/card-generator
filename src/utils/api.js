@@ -76,7 +76,9 @@ export const updateEvent = (id, data) => api.put(`/events/${id}`, data);
 export const deleteEvent = (id)       => api.delete(`/events/${id}`);
 
 // ── Verification history ──────────────────────────────────────────────────────
-export const getVerificationLogs = () => api.get('/verification-logs');
+// Verifiers always get their own history (decided by the server from the login token);
+// admins may pass { verifier_id } to narrow the list to one staff member.
+export const getVerificationLogs = (params = {}) => api.get('/verification-logs', { params });
 
 // ── Public invite & RSVP (no auth, UUID-based) ───────────────────────────────
 export const getPublicInvite = (uuid)       => api.get(`/invite/${uuid}`);

@@ -6,7 +6,7 @@ import {
   MdThumbUp, MdThumbDown, MdDownload, MdShare, MdDelete,
   MdEdit, MdSave, MdClose, MdContentCopy,
   MdOpenInNew, MdVisibility, MdGridView, MdViewList, MdAddPhotoAlternate,
-  MdSms,
+  MdSms, MdSearch,
 } from 'react-icons/md';
 import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage,
   sendInvitationSms, sendBulkSms, getBulkSmsProgress, getSmsLogs, retrySms as apiRetrySms,
@@ -49,6 +49,18 @@ function StatusBadge({ status }) {
   );
 }
 
+// Generated-card search: case-insensitive partial match on guest name or invitation code.
+// Codes also match without punctuation/spaces, so "cn318" and "318" both find "CN-318".
+function matchesCardQuery(inv, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const name = String(inv.guest_name || '').toLowerCase();
+  const code = String(inv.code || '').toLowerCase();
+  if (name.includes(q) || code.includes(q)) return true;
+  const compact = q.replace(/[^a-z0-9]/g, '');
+  return compact.length > 0 && code.replace(/[^a-z0-9]/g, '').includes(compact);
+}
+
 function inviteLink(inv) {
   const base = window.location.origin;
   return inv.invitation_uuid
@@ -74,6 +86,7 @@ export default function EventDetailPage() {
   const [deletingVmId,   setDeletingVmId]   = useState(null);  // id being deleted
   const [deleteVmModal,  setDeleteVmModal]  = useState(null);  // vm object | null  // full inv object for modal
   const [invView,  setInvView]  = useState(() => localStorage.getItem('invView') || 'list');
+  const [cardQuery, setCardQuery] = useState('');
 
   // SMS state
   const [smsSending,     setSmsSending]     = useState({}); // { [invId]: 'idle'|'sending'|'sent'|'failed' }
@@ -130,7 +143,7 @@ export default function EventDetailPage() {
     }
   };
 
-  useEffect(() => { load(); loadVoice(); }, [id]);
+  useEffect(() => { setCardQuery(''); load(); loadVoice(); }, [id]);
 
   const switchInvView = (v) => {
     setInvView(v);
@@ -383,6 +396,8 @@ export default function EventDetailPage() {
   const rsvp           = data?.rsvp  || {};
   const isContribution = ev?.event_mode === 'contribution';
   const guestsWithPhone = invs.filter(i => i.phone_number).length;
+  // This event's cards only — `invs` is loaded for the current event id
+  const shownInvs      = cardQuery.trim() ? invs.filter(inv => matchesCardQuery(inv, cardQuery)) : invs;
 
   return (
     <div className="events-page page-enter">
@@ -645,7 +660,34 @@ export default function EventDetailPage() {
             )}
           </div>
 
-          {invs.length === 0 ? (
+          {invs.length > 0 && (
+            <div className="card-search" role="search">
+              <MdSearch size={18} className="card-search-icon" aria-hidden="true" />
+              <input
+                type="search"
+                value={cardQuery}
+                onChange={(e) => setCardQuery(e.target.value)}
+                placeholder="Search guest name or invitation code…"
+                aria-label="Search this event's cards by guest name or invitation code"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {cardQuery && (
+                <button type="button" className="card-search-clear" onClick={() => setCardQuery('')} aria-label="Clear search">
+                  <MdClose size={16} />
+                </button>
+              )}
+              {cardQuery.trim() && (
+                <p className="card-search-count" aria-live="polite">
+                  {shownInvs.length} of {invs.length} {shownInvs.length === 1 ? 'card' : 'cards'} match
+                </p>
+              )}
+            </div>
+          )}
+
+          {invs.length > 0 && shownInvs.length === 0 ? (
+            <p className="card-search-empty">No cards in this event match “{cardQuery.trim()}”.</p>
+          ) : invs.length === 0 ? (
             <div className="events-empty" style={{ padding: '3rem 1rem' }}>
               <MdPeople size={48} style={{ opacity: 0.25 }} />
               <h3>No {isContribution ? 'Contributors' : 'Invitations'} Yet</h3>
@@ -664,7 +706,7 @@ export default function EventDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {invs.map(inv => (
+                  {shownInvs.map(inv => (
                     <tr key={inv.id}>
                       <td>
                         {inv.image_url
@@ -691,7 +733,7 @@ export default function EventDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {invs.map(inv => (
+                  {shownInvs.map(inv => (
                     <tr key={inv.id}>
                       <td>
                         {inv.image_url
@@ -720,7 +762,7 @@ export default function EventDetailPage() {
           ) : (
             /* ── GRID VIEW ── */
             <div className="inv-grid">
-              {invs.map(inv => (
+              {shownInvs.map(inv => (
                 <div key={inv.id} className="inv-grid-card">
                   {/* Card image */}
                   <div className="inv-grid-img">

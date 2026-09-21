@@ -1,0 +1,93 @@
+/* ── Verification / scan history — filter + mobile card layout ─────────── */
+
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.history-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.history-filter select {
+  max-width: 16rem;
+  padding: 0.55rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-btn);
+  color: var(--white);
+  font-family: var(--font-main);
+  font-size: 0.84rem;
+}
+
+.history-filter select:focus { outline: none; border-color: rgba(212, 175, 55, 0.5); }
+.history-filter select option { background: #1e1e1e; }
+
+.history-cards { display: none; list-style: none; }
+
+@media (max-width: 640px) {
+  .history-table { display: none; }
+
+  .history-actions { width: 100%; }
+  .history-filter  { flex: 1 1 100%; }
+  .history-filter select { flex: 1; max-width: none; min-width: 0; }
+
+  .history-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .history-card {
+    padding: 0.85rem 0.95rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    min-width: 0;
+  }
+
+  .history-card-top,
+  .history-card-meta,
+  .history-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  .history-card-name {
+    min-width: 0;
+    color: var(--white);
+    font-size: 0.92rem;
+    overflow-wrap: anywhere;
+  }
+
+  .history-card-meta {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .history-card-meta > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .history-card-foot {
+    margin-top: 0.45rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+  }
+}

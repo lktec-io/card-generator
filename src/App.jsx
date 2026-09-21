@@ -61,7 +61,8 @@ function AppShell() {
 
           {/* Field routes — logged-in non-super_admin (admin, event_manager, verifier) */}
           <Route path="/verify"  element={<FieldRoute><VerifyPage /></FieldRoute>} />
-          <Route path="/history" element={<FieldRoute><VerificationHistoryPage /></FieldRoute>} />
+          {/* Any logged-in user: verifiers see their own scans, admins/super_admin inspect activity */}
+          <Route path="/history" element={<ProtectedRoute><VerificationHistoryPage /></ProtectedRoute>} />
 
           {/* Admin only (admin + super_admin) */}
           <Route path="/"       element={<AdminRoute><DashboardPage /></AdminRoute>} />
