@@ -228,12 +228,13 @@ export default function EventDetailPage() {
     ].filter(Boolean).join('\n');
 
     const fullMessage = [
+      `KADI YA MWALIKO`,
       `Habari ${inv.guest_name},`,
       `Tunafurahi kukualika kuhudhuria:`,
       `${emoji} ${name}`,
       details ? `\n${details}` : '',
-      `\nBonyeza link hapa chini kuona mwaliko wako rasmi, kuthibitisha uwepo wako, na kupata ramani ya kufika kwenye tukio:`,
-      url 
+      `\nBonyeza link 👇 hapa chini kuona mwaliko wako rasmi, kuthibitisha uwepo wako, na kupata ramani ya kufika kwenye tukio:`,
+      url,
 
       `Karibu sana!`
       ,
