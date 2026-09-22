@@ -197,7 +197,7 @@ export default function DashboardPage() {
       {/* ── Header ── */}
       <header className="dash-header">
         <div className="dash-header-text">
-          <span className="dash-ornament">— Nardio Events —</span>
+          <span className="dash-ornament">— Cardhub Events —</span>
           <h1>Dashboard</h1>
           <p>Live overview across all events</p>
         </div>

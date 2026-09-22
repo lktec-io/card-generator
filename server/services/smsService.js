@@ -49,7 +49,7 @@ async function sendInvitationSMS(phone, guestName, code, eventName, baseUrl) {
     `You are invited to ${eventName}.`,
     `View your invitation & RSVP: ${inviteUrl}`,
     `Your code: ${code}`,
-    `— Nardio Events`,
+    `— Cardhub Events`,
   ].join('\n');
   return sendSMS(phone, message);
 }

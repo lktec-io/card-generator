@@ -12,7 +12,7 @@ export default function ConferenceProTemplate({ guestName, invitationCode, event
       <div className="tpl-cf-inner">
         <div className="tpl-cf-logo-row">
           <span className="tpl-cf-logo-icon">💼</span>
-          <span className="tpl-cf-logo-text">NARDIO EVENTS</span>
+          <span className="tpl-cf-logo-text">CARDHUB EVENTS</span>
         </div>
 
         <div className="tpl-cf-divider" />

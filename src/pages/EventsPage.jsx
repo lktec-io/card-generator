@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   MdAdd, MdEvent, MdClose, MdCalendarToday,
   MdLocationOn, MdPeople, MdCheckCircle, MdArrowForward, MdDelete,
-  MdGridView, MdViewList,
+  MdGridView, MdViewList, MdShield,
 } from 'react-icons/md';
 import { listEvents, createEvent, deleteEvent, listUsersDropdown } from '../utils/api';
 import { isAdmin } from '../utils/auth';
@@ -33,6 +33,13 @@ const EMPTY_FORM = {
   dress_code_notes: '', template_id: null, assigned_to: '',
   name_color: '#111111', cn_color: '#222222',
 };
+
+// Same wording as the event page: the one assignee stored in events.assigned_to
+function assigneeLabel(ev) {
+  if (!ev.assigned_to) return 'Verifier: Not assigned';
+  const name = ev.assigned_to_name || `User #${ev.assigned_to}`;
+  return ev.assigned_to_role === 'event_manager' ? `Manager: ${name}` : `Verifier: ${name}`;
+}
 
 function formatDate(raw) {
   if (!raw) return null;
@@ -109,7 +116,7 @@ export default function EventsPage() {
         {/* ── Header ── */}
         <div className="events-header">
           <div>
-            <span className="events-ornament">— Nardio Events —</span>
+            <span className="events-ornament">— Cardhub Events —</span>
             <h1>Events</h1>
             <p>Manage weddings, parties, conferences & more</p>
           </div>
@@ -275,6 +282,7 @@ export default function EventsPage() {
                   <div className="event-card-meta">
                     {ev.event_date && <span><MdCalendarToday size={13} /> {formatDate(ev.event_date)}</span>}
                     {ev.venue      && <span><MdLocationOn size={13} /> {ev.venue}</span>}
+                    {ev.event_mode !== 'contribution' && <span className="ev-assignee"><MdShield size={13} /> {assigneeLabel(ev)}</span>}
                   </div>
                   <div className="event-card-stats">
                     <div className="ev-stat"><MdPeople size={15}/><strong>{ev.total_invitations ?? 0}</strong><span>Invited</span></div>
@@ -300,6 +308,7 @@ export default function EventsPage() {
                   <div className="events-list-meta">
                     {ev.event_date && <span><MdCalendarToday size={13} /> {formatDate(ev.event_date)}</span>}
                     {ev.venue      && <span><MdLocationOn size={13} /> {ev.venue}</span>}
+                    {ev.event_mode !== 'contribution' && <span className="ev-assignee"><MdShield size={13} /> {assigneeLabel(ev)}</span>}
                   </div>
                 </div>
                 <div className="events-list-stats">

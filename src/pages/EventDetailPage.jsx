@@ -6,11 +6,13 @@ import {
   MdThumbUp, MdThumbDown, MdDownload, MdShare, MdDelete,
   MdEdit, MdSave, MdClose, MdContentCopy,
   MdOpenInNew, MdVisibility, MdGridView, MdViewList, MdAddPhotoAlternate,
-  MdSms, MdSearch,
+  MdSms, MdSearch, MdShield,
 } from 'react-icons/md';
 import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage,
   sendInvitationSms, sendBulkSms, getBulkSmsProgress, getSmsLogs, retrySms as apiRetrySms,
+  listUsersDropdown,
 } from '../utils/api';
+import { isAdmin } from '../utils/auth';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
 import ConfirmModal from '../components/ConfirmModal';
@@ -61,6 +63,15 @@ function matchesCardQuery(inv, query) {
   return compact.length > 0 && code.replace(/[^a-z0-9]/g, '').includes(compact);
 }
 
+const VERIFIER_ROLES = ['verifier', 'gate_staff'];
+
+// "Verifier: John" / "Manager: Mary" / "Verifier: Not assigned" — the one assignee in events.assigned_to
+function assigneeLabel(ev) {
+  if (!ev?.assigned_to) return 'Verifier: Not assigned';
+  const name = ev.assigned_to_name || `User #${ev.assigned_to}`;
+  return ev.assigned_to_role === 'event_manager' ? `Manager: ${name}` : `Verifier: ${name}`;
+}
+
 function inviteLink(inv) {
   const base = window.location.origin;
   return inv.invitation_uuid
@@ -87,6 +98,8 @@ export default function EventDetailPage() {
   const [deleteVmModal,  setDeleteVmModal]  = useState(null);  // vm object | null  // full inv object for modal
   const [invView,  setInvView]  = useState(() => localStorage.getItem('invView') || 'list');
   const [cardQuery, setCardQuery] = useState('');
+  const [staffList, setStaffList] = useState([]);   // for the Event Verifier selector (admins only)
+  const canAssignVerifier = isAdmin();                // same rule as the server's canAssign()
 
   // SMS state
   const [smsSending,     setSmsSending]     = useState({}); // { [invId]: 'idle'|'sending'|'sent'|'failed' }
@@ -145,6 +158,13 @@ export default function EventDetailPage() {
 
   useEffect(() => { setCardQuery(''); load(); loadVoice(); }, [id]);
 
+  useEffect(() => {
+    if (!canAssignVerifier) return;
+    listUsersDropdown()
+      .then(({ data: d }) => setStaffList(d.users || []))
+      .catch(() => setStaffList([]));
+  }, [canAssignVerifier]);
+
   const switchInvView = (v) => {
     setInvView(v);
     localStorage.setItem('invView', v);
@@ -202,9 +222,9 @@ export default function EventDetailPage() {
 
     // Build compact details line (no empty lines between date/time/venue)
     const details = [
-      date  ? `📅 ${date}`  : null,
-      time  ? `🕒 ${time}`  : null,
-      venue ? `📍 ${venue}` : null,
+      date  ? `📅 Tarehe: ${date}`  : null,
+      time  ? `🕒 Muda: ${time}`  : null,
+      venue ? `📍Mahali: ${venue}` : null,
     ].filter(Boolean).join('\n');
 
     const fullMessage = [
@@ -212,9 +232,11 @@ export default function EventDetailPage() {
       `Tunafurahi kukualika kuhudhuria:`,
       `${emoji} ${name}`,
       details ? `\n${details}` : '',
-      `\nFungua link hapa chini kuona mwaliko wako rasmi, QR Code ya kuingilia na kuthibitisha uwepo wako:`,
+      `\nBonyeza link hapa chini kuona mwaliko wako rasmi, kuthibitisha uwepo wako, na kupata ramani ya kufika kwenye tukio:`,
       url,
-      `Karibu sana.`,
+
+      `Karibu sana!`,
+      
     ].filter(Boolean).join('\n');
 
     if (navigator.share) {
@@ -399,6 +421,16 @@ export default function EventDetailPage() {
   // This event's cards only — `invs` is loaded for the current event id
   const shownInvs      = cardQuery.trim() ? invs.filter(inv => matchesCardQuery(inv, cardQuery)) : invs;
 
+  // Event Verifier selector: verifiers only. If the event is currently assigned to someone who is
+  // not in that list (e.g. an event manager, or a verifier this admin can't list), keep them as an
+  // option so the current assignment is shown and is NOT silently changed on save.
+  const verifierOptions  = staffList.filter(u => VERIFIER_ROLES.includes(u.role));
+  const currentAssignee  = ev?.assigned_to
+    && !verifierOptions.some(u => u.id === ev.assigned_to)
+    ? { id: ev.assigned_to, name: ev.assigned_to_name || `User #${ev.assigned_to}`, role: ev.assigned_to_role }
+    : null;
+  const assignedValue    = form.assigned_to == null ? '' : String(form.assigned_to);
+
   return (
     <div className="events-page page-enter">
       <div className="events-container">
@@ -513,6 +545,31 @@ export default function EventDetailPage() {
                       </span>
                     </div>
                   </div>
+                  {!isContribution && canAssignVerifier && (
+                    <div className="ev-info-edit-row">
+                      <label htmlFor="ev-verifier">Event Verifier</label>
+                      <select
+                        id="ev-verifier"
+                        value={assignedValue}
+                        onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}
+                      >
+                        <option value="">No Verifier</option>
+                        {currentAssignee && (
+                          <option value={String(currentAssignee.id)}>
+                            {currentAssignee.name} (current{currentAssignee.role === 'event_manager' ? ' — Manager' : ''})
+                          </option>
+                        )}
+                        {verifierOptions.map(u => (
+                          <option key={u.id} value={String(u.id)}>{u.name}</option>
+                        ))}
+                      </select>
+                      <span className="ev-verifier-hint">
+                        {currentAssignee?.role === 'event_manager' && assignedValue === String(currentAssignee.id)
+                          ? 'This event is assigned to a manager. Choosing a verifier replaces that assignment.'
+                          : 'Only this user can check guests in for this event. Past check-ins keep their original verifier.'}
+                      </span>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -530,6 +587,9 @@ export default function EventDetailPage() {
                       <span style={{width:15,textAlign:'center'}}>📞</span>
                       <a href={`tel:${ev.contact_phone}`} className="ev-maps-link">{ev.contact_name || ev.contact_phone}</a>
                     </div>
+                  )}
+                  {!isContribution && (
+                    <div className="ev-info-row"><MdShield size={15}/><span>{assigneeLabel(ev)}</span></div>
                   )}
                   {!ev?.event_date && !ev?.venue && <p className="ev-info-empty">No details added</p>}
                 </>

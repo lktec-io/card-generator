@@ -1077,3 +1077,20 @@
   font-size: 0.86rem;
   color: var(--text-muted);
 }
+
+/* ── Event Verifier selector (Edit Event) + assignee label on event cards ── */
+
+.ev-verifier-hint {
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+#ev-verifier option { background: #1e1e1e; }
+
+.event-card-meta .ev-assignee,
+.events-list-meta .ev-assignee { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  #ev-verifier { min-height: 44px; font-size: 1rem; }   /* touch-sized; 16px stops iOS zoom */
+}

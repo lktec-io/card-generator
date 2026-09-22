@@ -192,7 +192,7 @@ export default function PublicInvitePage({ isPreview = false }) {
 
         <div className="invite-brand">
           <GiDiamondRing className="invite-ring" />
-          <span>Nardio Events</span>
+          <span>Cardhub Events</span>
         </div>
 
         {/* ── SECTION 1: Card image ── */}
@@ -387,7 +387,7 @@ export default function PublicInvitePage({ isPreview = false }) {
           </>
         )}
 
-        <p className="invite-footer">Powered by Nardio Events</p>
+        <p className="invite-footer">Powered by Cardhub Events</p>
       </div>
 
       {showModal && rsvpState && (

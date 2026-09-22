@@ -47,7 +47,7 @@ async function sendInvitationWhatsApp(phone, guestName, code, eventName, baseUrl
     ``,
     `🎫 Your Code: *${code}*`,
     ``,
-    `_— Nardio Events_`,
+    `_— Cardhub Events_`,
   ].join('\n');
   return sendWhatsApp(phone, message);
 }

@@ -48,6 +48,8 @@ async function listEvents(req, res) {
     const [events] = await pool.execute(
       `SELECT
          e.*,
+         (SELECT u.name FROM users u WHERE u.id = e.assigned_to) AS assigned_to_name,
+         (SELECT u.role FROM users u WHERE u.id = e.assigned_to) AS assigned_to_role,
          COUNT(DISTINCT i.id)                       AS total_invitations,
          COALESCE(SUM(i.status = 'used'),        0) AS checked_in,
          COALESCE(SUM(r.response = 'attending'), 0) AS rsvp_attending,
@@ -132,7 +134,14 @@ async function getEvent(req, res) {
   if (!id) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
 
   try {
-    const [[event]] = await pool.execute('SELECT * FROM events WHERE id = ?', [id]);
+    // assigned_to_name / assigned_to_role: display only — access checks still read e.assigned_to
+    const [[event]] = await pool.execute(
+      `SELECT e.*, u.name AS assigned_to_name, u.role AS assigned_to_role
+         FROM events e
+         LEFT JOIN users u ON u.id = e.assigned_to
+        WHERE e.id = ?`,
+      [id]
+    );
     if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
 
     if (!canSeeEvent(event, req.user)) {
@@ -204,6 +213,17 @@ async function updateEvent(req, res) {
     const newAssignedTo  = (canAssign(req.user) && assigned_to !== undefined)
       ? (parseInt(assigned_to, 10) || null)
       : existing.assigned_to;
+
+    // A newly chosen assignee must be a real, active user (clearing to null is always allowed)
+    if (newAssignedTo !== null && newAssignedTo !== existing.assigned_to) {
+      const [[assignee]] = await pool.execute(
+        "SELECT id FROM users WHERE id = ? AND status = 'active' LIMIT 1",
+        [newAssignedTo]
+      );
+      if (!assignee) {
+        return res.status(400).json({ success: false, message: 'Selected verifier was not found or is inactive.' });
+      }
+    }
 
     const safeNameColor    = /^#[0-9a-fA-F]{6}$/.test(name_color) ? name_color : (existing.name_color || '#111111');
     const safeCnColor      = /^#[0-9a-fA-F]{6}$/.test(cn_color)   ? cn_color   : (existing.cn_color   || '#222222');

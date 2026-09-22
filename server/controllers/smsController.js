@@ -6,11 +6,9 @@ const SmsService = require('../services/sms/SmsService');
 // ── Default SMS template ──────────────────────────────────────────────────────
 const DEFAULT_TEMPLATE =
 `Habari {guest_name},
-
-Tunapenda kuchukua nafasi hii kukualika katika {event_name} itakayofanyika {venue}, siku ya {event_date} kuanzia saa {event_time}.
+Tunapenda kuchukua nafasi hii kukualika katika {event_name} itakayofanyika {venue}, siku ya tarehe {event_date} kuanzia saa {event_time}.
 
 Mualiko namba #{invitation_code}
-
 Tafadhali fika na meseji hii.
 
 Karibu sana.`;
