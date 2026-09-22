@@ -233,10 +233,13 @@ export default function EventDetailPage() {
       `${emoji} ${name}`,
       details ? `\n${details}` : '',
       `\nBonyeza link hapa chini kuona mwaliko wako rasmi, kuthibitisha uwepo wako, na kupata ramani ya kufika kwenye tukio:`,
-      url,
+      url 
 
-      `Karibu sana!`,
-      
+      `Karibu sana!`
+      ,
+
+  
+
     ].filter(Boolean).join('\n');
 
     if (navigator.share) {
