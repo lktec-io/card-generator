@@ -30,6 +30,14 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`\n✦ Wedding QR Server running on https://wedding.nardio.online:${PORT}\n`);
-});
+// Same schema guard as server.js — whichever entry point production runs, the database
+// is brought up to date first. Add-only, idempotent, never fatal.
+const { ensureSchema } = require('./database/ensureSchema');
+
+ensureSchema()
+  .catch((err) => console.error('[schema] check failed:', err.message))
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`\n✦ Wedding QR Server running on https://wedding.nardio.online:${PORT}\n`);
+    });
+  });

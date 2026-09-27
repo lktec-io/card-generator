@@ -6,7 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "migrate": "node database/ensureSchema.js",
+    "check-schema": "node scripts/check-schema.js"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.0",

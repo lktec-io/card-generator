@@ -38,6 +38,15 @@ app.get('/health', (_req, res) => {
 // ── Error handler (must be last) ──────────────────────────────────────────────
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`\n💍 Wedding QR Server  →  https://wedding.nardio.online${PORT}\n`);
-});
+// Bring the database up to the schema this code expects, using the app's own connection.
+// Add-only and idempotent. If it cannot run, the API still starts and the reason is logged,
+// so a schema problem can never silently take the whole site down.
+const { ensureSchema } = require('./database/ensureSchema');
+
+ensureSchema()
+  .catch((err) => console.error('[schema] check failed:', err.message))
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`\n💍 Wedding QR Server  →  https://wedding.nardio.online${PORT}\n`);
+    });
+  });
