@@ -120,4 +120,9 @@ export const getBulkSmsProgress  = (jobId)         => api.get(`/sms/bulk/progres
 export const getSmsLogs          = (eventId)       => api.get(`/sms/logs/${eventId}`);
 export const retrySms            = (logId)         => api.post(`/sms/retry/${logId}`);
 
+// Post-event thank-you SMS (same Beem service, recipients resolved server-side per event)
+export const getThankYouInfo     = (eventId)       => api.get(`/sms/thank-you/${eventId}`);
+export const sendThankYouSms     = (invitationId, message) => api.post(`/sms/thank-you/send/${invitationId}`, { message });
+export const sendThankYouBulkSms = (eventId, payload)      => api.post(`/sms/thank-you/bulk/${eventId}`, payload);
+
 export default api;

@@ -33,7 +33,8 @@ const { sendVoiceMessage, getVoiceMessages, deleteVoiceMessage } = require('../c
 const { listTemplates }          = require('../controllers/templateController');
 const { getGlobalStats }         = require('../controllers/statsController');
 const { getVerificationHistory } = require('../controllers/verificationLogController');
-const { sendSingle, sendBulk, getBulkProgress, getSmsLogs, retrySms } = require('../controllers/smsController');
+const { sendSingle, sendBulk, getBulkProgress, getSmsLogs, retrySms,
+        getThankYouInfo, sendThankYouSingle, sendThankYouBulk } = require('../controllers/smsController');
 
 // ── API status ─────────────────────────────────────────────────────────────
 router.get('/', (_req, res) => res.json({ status: 'ok', service: 'Nardio Events API v2' }));
@@ -86,6 +87,11 @@ router.post('/sms/bulk/:event_id',           requireManager, sendBulk);
 router.get( '/sms/bulk/progress/:job_id',   requireManager, getBulkProgress);
 router.get( '/sms/logs/:event_id',          requireAuth,    getSmsLogs);
 router.post('/sms/retry/:log_id',           requireManager, retrySms);
+
+// Post-event thank-you — same requireManager rule as the other SMS routes (verifiers excluded)
+router.get( '/sms/thank-you/:event_id',            requireManager, getThankYouInfo);
+router.post('/sms/thank-you/send/:invitation_id',  requireManager, sendThankYouSingle);
+router.post('/sms/thank-you/bulk/:event_id',       requireManager, sendThankYouBulk);
 
 // ── Static — generated card images ─────────────────────────────────────────
 router.get('/generated/:filename', (req, res) => {

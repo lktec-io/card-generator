@@ -176,7 +176,39 @@ async function getEvent(req, res) {
     const rsvp = { attending: 0, declined: 0, pending: 0 };
     rsvpRows.forEach(r => { rsvp[r.response] = Number(r.count); });
 
-    res.json({ success: true, event, invitations, stats, rsvp });
+    // Single / Double analytics from the existing invitations.card_type, this event only.
+    // Own query + own catch: if card_type is missing (migration not yet run) or the query
+    // fails, the event page still loads — it just hides the Single/Double breakdown.
+    let analytics = { card_type_available: false, total: Number(stats.total) || 0 };
+    try {
+      const [[a]] = await pool.execute(
+        `SELECT
+           COUNT(*)                                                  AS total,
+           COALESCE(SUM(card_type = 'single'), 0)                    AS single_count,
+           COALESCE(SUM(card_type = 'double'), 0)                    AS double_count,
+           COALESCE(SUM(status = 'used'), 0)                         AS checked_in_total,
+           COALESCE(SUM(status = 'used' AND card_type = 'single'), 0) AS checked_in_single,
+           COALESCE(SUM(status = 'used' AND card_type = 'double'), 0) AS checked_in_double
+         FROM invitations WHERE event_id = ?`,
+        [id]
+      );
+      const n = (v) => Number(v) || 0;
+      analytics = {
+        card_type_available: true,
+        single:   n(a.single_count),
+        double:   n(a.double_count),
+        total:    n(a.total),
+        expected_guests: n(a.single_count) + n(a.double_count) * 2,   // single + (double × 2)
+        checked_in_single: n(a.checked_in_single),
+        checked_in_double: n(a.checked_in_double),
+        checked_in_total:  n(a.checked_in_total),
+        checked_in_guests: n(a.checked_in_single) + n(a.checked_in_double) * 2,
+      };
+    } catch (err) {
+      console.error('[getEvent] card_type analytics unavailable:', err.message);
+    }
+
+    res.json({ success: true, event, invitations, stats, rsvp, analytics });
   } catch (err) {
     console.error('[getEvent]', err);
     res.status(500).json({ success: false, message: 'Failed to fetch event.' });

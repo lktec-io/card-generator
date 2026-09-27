@@ -6,13 +6,13 @@ import {
   MdThumbUp, MdThumbDown, MdDownload, MdShare, MdDelete,
   MdEdit, MdSave, MdClose, MdContentCopy,
   MdOpenInNew, MdVisibility, MdGridView, MdViewList, MdAddPhotoAlternate,
-  MdSms, MdSearch, MdShield,
+  MdSms, MdSearch, MdShield, MdVolunteerActivism, MdInsights, MdGroups, MdConfirmationNumber,
 } from 'react-icons/md';
 import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage,
   sendInvitationSms, sendBulkSms, getBulkSmsProgress, getSmsLogs, retrySms as apiRetrySms,
-  listUsersDropdown,
+  listUsersDropdown, getThankYouInfo, sendThankYouSms, sendThankYouBulkSms,
 } from '../utils/api';
-import { isAdmin } from '../utils/auth';
+import { isAdmin, canManage } from '../utils/auth';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
 import ConfirmModal from '../components/ConfirmModal';
@@ -65,6 +65,40 @@ function matchesCardQuery(inv, query) {
 
 const VERIFIER_ROLES = ['verifier', 'gate_staff'];
 
+// SMS segment maths. Beem sends with encoding 0 (GSM-7), so anything outside the GSM
+// alphabet is flagged rather than silently re-encoded.
+const GSM_BASE = '@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&\'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà';
+const GSM_EXT  = '^{}\\[~]|€';
+
+function smsInfo(text) {
+  const s = String(text || '');
+  let units = 0;
+  let unsupported = false;
+  for (const ch of s) {
+    if (GSM_BASE.includes(ch)) units += 1;
+    else if (GSM_EXT.includes(ch)) units += 2;
+    else { unsupported = true; units += 1; }
+  }
+  const single = unsupported ? 70 : 160;
+  const multi  = unsupported ? 67 : 153;
+  const segments = units === 0 ? 0 : (units <= single ? 1 : Math.ceil(units / multi));
+  return { chars: s.length, units, segments, unsupported };
+}
+
+// Same placeholders the existing SMS service fills in
+function personalise(template, inv, ev) {
+  const date = ev?.event_date
+    ? new Date(ev.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+  return String(template || '')
+    .replace(/\{guest_name\}/g,      inv?.guest_name || 'Mgeni')
+    .replace(/\{event_name\}/g,      ev?.event_name  || '')
+    .replace(/\{venue\}/g,           ev?.venue       || '')
+    .replace(/\{event_date\}/g,      date)
+    .replace(/\{event_time\}/g,      ev?.event_time  || '')
+    .replace(/\{invitation_code\}/g, inv?.code       || '');
+}
+
 // "Verifier: John" / "Manager: Mary" / "Verifier: Not assigned" — the one assignee in events.assigned_to
 function assigneeLabel(ev) {
   if (!ev?.assigned_to) return 'Verifier: Not assigned';
@@ -100,6 +134,24 @@ export default function EventDetailPage() {
   const [cardQuery, setCardQuery] = useState('');
   const [staffList, setStaffList] = useState([]);   // for the Event Verifier selector (admins only)
   const canAssignVerifier = isAdmin();                // same rule as the server's canAssign()
+
+  // Post-event thank-you SMS (same rule as the server's requireManager)
+  const canSendSms = canManage();
+  const [tyInfo,       setTyInfo]       = useState(null);   // { template, counts, already_sent_ids, tracking_available }
+  const [tyMessage,    setTyMessage]    = useState('');     // send-time only — never written to the event
+  const [tyGroup,      setTyGroup]      = useState('checked_in');
+  const [tyResend,     setTyResend]     = useState(false);
+  const [tyStep,       setTyStep]       = useState(null);   // null | 'count' | 'preview'
+  const [tyStarting,   setTyStarting]   = useState(false);
+  const [tyJob,        setTyJob]        = useState(null);   // { jobId, total, sent, failed, skipped, already, done }
+  const [tySingle,     setTySingle]     = useState(null);   // invitation awaiting confirmation
+  const [tySendingId,  setTySendingId]  = useState(null);
+  const [tySentIds,    setTySentIds]    = useState([]);     // invitations already thanked
+  const tyPollRef = useRef(null);
+  // Synchronous send guards. State updates are async, so rapid repeat clicks on a confirm
+  // button can all run before React re-renders — these refs stop a second send outright.
+  const tySingleRef = useRef(false);
+  const tyBulkRef   = useRef(false);
 
   // SMS state
   const [smsSending,     setSmsSending]     = useState({}); // { [invId]: 'idle'|'sending'|'sent'|'failed' }
@@ -156,7 +208,7 @@ export default function EventDetailPage() {
     }
   };
 
-  useEffect(() => { setCardQuery(''); load(); loadVoice(); }, [id]);
+  useEffect(() => { setCardQuery(''); setTyMessage(''); setTyJob(null); load(); loadVoice(); loadThankYou(); }, [id]);
 
   useEffect(() => {
     if (!canAssignVerifier) return;
@@ -234,7 +286,7 @@ export default function EventDetailPage() {
       `${emoji} ${name}`,
       details ? `\n${details}` : '',
       `\nBonyeza link 👇 hapa chini kuona mwaliko wako rasmi, kuthibitisha uwepo wako, na kupata ramani ya kufika kwenye tukio:`,
-      url,
+      url
 
       `Karibu sana!`
       ,
@@ -306,6 +358,70 @@ export default function EventDetailPage() {
     }
   };
 
+  /* ── Post-event thank-you: load default message + recipient counts ── */
+  const loadThankYou = () => {
+    if (!canSendSms) return;
+    getThankYouInfo(id)
+      .then(({ data: d }) => {
+        setTyInfo(d);
+        setTySentIds(d.already_sent_ids || []);
+        setTyMessage(prev => (prev ? prev : d.template || ''));   // keep an edit in progress
+      })
+      .catch(() => setTyInfo(null));
+  };
+
+  /* ── Thank-you: one guest ── */
+  const handleThankYouSingle = async (inv) => {
+    if (!inv || tySingleRef.current) return;
+    tySingleRef.current = true;
+    setTySingle(null);
+    setTySendingId(inv.id);
+    try {
+      await sendThankYouSms(inv.id, tyMessage);
+      setTySentIds(prev => (prev.includes(inv.id) ? prev : [...prev, inv.id]));
+      showToast(`Thank-you SMS sent to ${inv.guest_name}.`, 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to send thank-you SMS.', 'error');
+    } finally {
+      tySingleRef.current = false;
+      setTySendingId(null);
+    }
+  };
+
+  /* ── Thank-you: bulk (recipients are resolved on the server) ── */
+  const startThankYouBulk = async () => {
+    if (tyBulkRef.current || tyStarting || (tyJob && !tyJob.done)) return;  // server guards too (409)
+    tyBulkRef.current = true;
+    setTyStep(null);
+    setTyStarting(true);
+    try {
+      const { data } = await sendThankYouBulkSms(id, {
+        message:    tyMessage,
+        recipients: tyGroup,
+        resend:     tyResend,
+      });
+      setTyJob({ jobId: data.job_id, total: data.total, sent: 0, failed: 0, skipped: data.skipped || 0, already: data.already || 0, done: false });
+      if (tyPollRef.current) clearInterval(tyPollRef.current);
+      tyPollRef.current = setInterval(async () => {
+        try {
+          const { data: p } = await getBulkSmsProgress(data.job_id);
+          setTyJob({ jobId: p.job_id, total: p.total, sent: p.sent, failed: p.failed, skipped: p.skipped || 0, already: p.already || 0, done: p.done });
+          if (p.done) {
+            clearInterval(tyPollRef.current);
+            tyPollRef.current = null;
+            showToast(`Thank-you SMS complete — ${p.sent} sent, ${p.failed} failed.`, 'success');
+            loadThankYou();
+          }
+        } catch { /* ignore transient poll errors */ }
+      }, 1200);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to start thank-you SMS.', 'error');
+    } finally {
+      tyBulkRef.current = false;
+      setTyStarting(false);
+    }
+  };
+
   /* ── Load SMS logs ── */
   const loadSmsLogs = async () => {
     setLoadingLogs(true);
@@ -331,7 +447,10 @@ export default function EventDetailPage() {
   };
 
   // Stop polling on unmount
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+  useEffect(() => () => {
+    if (pollRef.current)   clearInterval(pollRef.current);
+    if (tyPollRef.current) clearInterval(tyPollRef.current);
+  }, []);
 
   /* ── Admin preview (with banner) ── */
   const handlePreview = (inv) => {
@@ -391,6 +510,21 @@ export default function EventDetailPage() {
             ? <span className="sms-retry-spin" />
             : <MdSms size={14} />}
         </button>
+        {canSendSms && !isContribution && (
+          <button
+            className={`btn-action btn-thanks${tySentIds.includes(inv.id) ? ' btn-thanks--sent' : ''}`}
+            onClick={() => {
+              if (!inv.phone_number) return showToast('This guest has no phone number.', 'info');
+              if (tyTooLong) return showToast(`Message too long — maximum ${tyMaxChars} characters.`, 'error');
+              setTySingle(inv);
+            }}
+            disabled={tySendingId === inv.id}
+            title={!inv.phone_number ? 'No phone number'
+              : tySentIds.includes(inv.id) ? 'Thank You Sent — send again' : 'Send Thank You'}
+          >
+            {tySendingId === inv.id ? <span className="sms-retry-spin" /> : <MdVolunteerActivism size={14} />}
+          </button>
+        )}
         <button className="btn-action btn-delete"  onClick={() => openDelModal(inv)}  title="Delete">
           <MdDelete size={14} />
         </button>
@@ -424,6 +558,19 @@ export default function EventDetailPage() {
   const guestsWithPhone = invs.filter(i => i.phone_number).length;
   // This event's cards only — `invs` is loaded for the current event id
   const shownInvs      = cardQuery.trim() ? invs.filter(inv => matchesCardQuery(inv, cardQuery)) : invs;
+  const analytics      = data?.analytics || null;
+
+  // Thank-you recipients — counts come from the server; the server resolves the guests itself
+  const tyCounts       = tyInfo?.counts?.[tyGroup] || { total: 0, with_phone: 0 };
+  const tyAlready      = tyInfo?.tracking_available
+    ? (tyInfo.already_sent_ids || []).length
+    : 0;
+  const tySms          = smsInfo(personalise(tyMessage, shownInvs[0] || invs[0], ev));
+  const tyMaxChars     = tyInfo?.max_chars || 800;
+  const tyTooLong      = tySms.chars > tyMaxChars;     // the server refuses these too
+  const tySkipped      = Math.max(0, tyCounts.total - tyCounts.with_phone);
+  const tyQueued       = Math.max(0, tyCounts.with_phone - (tyResend ? 0 : tyAlready));
+  const tyBusy         = tyStarting || !!(tyJob && !tyJob.done);
 
   // Event Verifier selector: verifiers only. If the event is currently assigned to someone who is
   // not in that list (e.g. an event manager, or a verifier this admin can't list), keep them as an
@@ -488,6 +635,54 @@ export default function EventDetailPage() {
             <div className="ev-mini-stat"><MdHourglassEmpty size={18}/><span>{stats.pending ?? 0}</span><label>Pending</label></div>
             <div className="ev-mini-stat ev-mini--green"><MdThumbUp size={18}/><span>{rsvp.attending ?? 0}</span><label>RSVP Yes</label></div>
             <div className="ev-mini-stat ev-mini--red"><MdThumbDown size={18}/><span>{rsvp.declined ?? 0}</span><label>RSVP No</label></div>
+          </div>
+        )}
+
+        {/* ── Invitation analytics — Single / Double from the existing card_type ── */}
+        {!isContribution && analytics && (
+          <div className="ev-analytics">
+            <div className="ev-an-head">
+              <h3><MdInsights size={16} /> Invitation Analytics</h3>
+              {analytics.card_type_available && analytics.total > 0 && (
+                <span className="ev-an-note">Expected = Single + (Double × 2)</span>
+              )}
+            </div>
+
+            {analytics.card_type_available ? (
+              <>
+                <div className="ev-an-grid">
+                  <div className="ev-an-tile">
+                    <span className="ev-an-label"><MdConfirmationNumber size={13} /> Single</span>
+                    <strong className="ev-an-value">{analytics.single}</strong>
+                  </div>
+                  <div className="ev-an-tile">
+                    <span className="ev-an-label"><MdConfirmationNumber size={13} /> Double</span>
+                    <strong className="ev-an-value">{analytics.double}</strong>
+                  </div>
+                  <div className="ev-an-tile">
+                    <span className="ev-an-label"><MdPeople size={13} /> Total</span>
+                    <strong className="ev-an-value">{analytics.total}</strong>
+                  </div>
+                  <div className="ev-an-tile ev-an-tile--gold">
+                    <span className="ev-an-label"><MdGroups size={13} /> Expected Guests</span>
+                    <strong className="ev-an-value">{analytics.expected_guests}</strong>
+                  </div>
+                </div>
+                {analytics.checked_in_total > 0 && (
+                  <p className="ev-an-checkin">
+                    Checked in: <strong>{analytics.checked_in_single}</strong> single ·{' '}
+                    <strong>{analytics.checked_in_double}</strong> double ·{' '}
+                    <strong>{analytics.checked_in_total}</strong> invitations ·{' '}
+                    <strong>{analytics.checked_in_guests}</strong> guests present
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="ev-an-checkin">
+                Single / Double breakdown unavailable — the <code>card_type</code> column is missing.
+                Total invitations: <strong>{analytics.total}</strong>.
+              </p>
+            )}
           </div>
         )}
 
@@ -855,6 +1050,121 @@ export default function EventDetailPage() {
           )}
         </div>
 
+        {/* ── Post-event thank-you SMS — managers/admins, invitation events ── */}
+        {!isContribution && canSendSms && tyInfo && (
+          <div className="ev-inv-section ty-section" style={{ marginTop: '1.5rem' }}>
+            <div className="ev-inv-head">
+              <h2><MdVolunteerActivism size={17} /> Post-Event Thank You</h2>
+              <span className="log-count">{tyCounts.with_phone} with phone</span>
+            </div>
+
+            <div className="ty-body">
+              <label className="ty-label" htmlFor="ty-message">Thank You Message</label>
+              <textarea
+                id="ty-message"
+                className="ty-textarea"
+                rows={7}
+                value={tyMessage}
+                onChange={e => setTyMessage(e.target.value)}
+                placeholder="Thank-you message…"
+              />
+              <div className="ty-meta">
+                <span className={tyTooLong || tySms.segments > 2 ? 'ty-meta-warn' : ''}>
+                  {tySms.chars} characters · {tySms.segments} SMS {tySms.segments === 1 ? 'segment' : 'segments'}
+                </span>
+                <button type="button" className="ty-reset" onClick={() => setTyMessage(tyInfo.template || '')}>
+                  Reset to default
+                </button>
+              </div>
+              {tyTooLong && (
+                <p className="ty-warn ty-warn--stop">
+                  Too long to send: {tySms.chars} characters, maximum {tyMaxChars}. Shorten the message by{' '}
+                  {tySms.chars - tyMaxChars} character{tySms.chars - tyMaxChars !== 1 ? 's' : ''}.
+                </p>
+              )}
+              {!tyTooLong && tySms.segments > 2 && (
+                <p className="ty-warn">
+                  This message will be sent as {tySms.segments} SMS segments per guest — each segment is charged separately.
+                </p>
+              )}
+              {tySms.unsupported && (
+                <p className="ty-warn">
+                  Some characters are outside the standard SMS alphabet and may not display correctly on every phone.
+                </p>
+              )}
+              <p className="ty-hint">
+                {'{guest_name}'} is replaced with each guest&apos;s name. Edits here apply to this send only —
+                the event&apos;s saved SMS template is not changed.
+              </p>
+
+              <fieldset className="ty-recipients">
+                <legend>Recipients</legend>
+                <label className={`ty-radio${tyGroup === 'checked_in' ? ' is-active' : ''}`}>
+                  <input type="radio" name="ty-group" value="checked_in"
+                    checked={tyGroup === 'checked_in'} onChange={() => setTyGroup('checked_in')} />
+                  <span>Checked-in guests
+                    <em>{tyInfo.counts.checked_in.with_phone} with phone of {tyInfo.counts.checked_in.total}</em>
+                  </span>
+                </label>
+                <label className={`ty-radio${tyGroup === 'all' ? ' is-active' : ''}`}>
+                  <input type="radio" name="ty-group" value="all"
+                    checked={tyGroup === 'all'} onChange={() => setTyGroup('all')} />
+                  <span>All invited guests
+                    <em>{tyInfo.counts.all.with_phone} with phone of {tyInfo.counts.all.total}</em>
+                  </span>
+                </label>
+              </fieldset>
+
+              {tyInfo.tracking_available && tyAlready > 0 && (
+                <label className="ty-resend">
+                  <input type="checkbox" checked={tyResend} onChange={e => setTyResend(e.target.checked)} />
+                  <span>Send again to {tyAlready} guest{tyAlready !== 1 ? 's' : ''} already thanked</span>
+                </label>
+              )}
+
+              <div className="ty-actions">
+                <button
+                  className="btn-gold"
+                  onClick={() => setTyStep('count')}
+                  disabled={tyBusy || tyQueued === 0 || tySms.chars === 0 || tyTooLong}
+                >
+                  <MdVolunteerActivism size={15} />
+                  {tyBusy ? 'Sending…' : `Send Thank You to All (${tyQueued})`}
+                </button>
+                {tySkipped > 0 && (
+                  <span className="ty-skip-note">{tySkipped} without phone number will be skipped</span>
+                )}
+              </div>
+
+              {tyJob && (
+                <div className="sms-progress-wrap">
+                  {tyJob.done ? (
+                    <div className="sms-progress-done">
+                      <span>
+                        Thank-you SMS complete — <strong>{tyJob.sent}</strong> sent,{' '}
+                        <strong>{tyJob.failed}</strong> failed,{' '}
+                        <strong>{tyJob.skipped}</strong> skipped
+                        {tyJob.already > 0 && <> , <strong>{tyJob.already}</strong> already thanked</>}.
+                      </span>
+                      <button className="sms-progress-close" onClick={() => setTyJob(null)}>✕</button>
+                    </div>
+                  ) : (
+                    <div className="sms-progress-running">
+                      <div className="sms-progress-bar-track">
+                        <div className="sms-progress-bar-fill"
+                          style={{ width: `${Math.round(((tyJob.sent + tyJob.failed) / Math.max(1, tyJob.total)) * 100)}%` }} />
+                      </div>
+                      <span className="sms-progress-text">
+                        Sending thank-you SMS… {tyJob.sent + tyJob.failed} / {tyJob.total}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Voice Messages section — Invitation Events only ── */}
         {!isContribution && (
         <div className="ev-inv-section" style={{ marginTop: '1.5rem' }}>
@@ -1013,6 +1323,71 @@ export default function EventDetailPage() {
         danger={false}
         onConfirm={() => handleSendSms(smsConfirm)}
         onCancel={() => setSmsConfirm(null)}
+      />
+
+      {/* Thank-you — single guest */}
+      <ConfirmModal
+        open={!!tySingle}
+        title="Send Thank You SMS?"
+        message={tySingle ? (
+          <>
+            Send thank-you SMS to <strong>{tySingle.guest_name}</strong>?<br />
+            <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>{tySingle.phone_number}</span>
+            {tySentIds.includes(tySingle.id) && (
+              <><br /><span style={{ fontSize: '0.8rem', color: '#fbbf24' }}>This guest has already received a thank-you SMS.</span></>
+            )}
+            <pre className="ty-preview">{personalise(tyMessage, tySingle, ev)}</pre>
+          </>
+        ) : ''}
+        confirmLabel="Send"
+        cancelLabel="Cancel"
+        danger={false}
+        icon={<MdVolunteerActivism size={26} />}
+        onConfirm={() => handleThankYouSingle(tySingle)}
+        onCancel={() => setTySingle(null)}
+      />
+
+      {/* Thank-you — bulk, step 1: how many */}
+      <ConfirmModal
+        open={tyStep === 'count'}
+        title="Send Thank You SMS"
+        message={
+          <>
+            You are about to send a thank-you message to:<br />
+            <strong style={{ fontSize: '1.4rem' }}>{tyQueued} guest{tyQueued !== 1 ? 's' : ''}</strong><br />
+            <span style={{ fontSize: '0.82rem', opacity: 0.7 }}>
+              {tyGroup === 'checked_in' ? 'Checked-in guests' : 'All invited guests'} · {tySms.segments} SMS per guest
+              {tySkipped > 0 && <> · {tySkipped} skipped (no phone)</>}
+              {!tyResend && tyAlready > 0 && <> · {tyAlready} already thanked</>}
+            </span>
+          </>
+        }
+        confirmLabel="Continue"
+        cancelLabel="Cancel"
+        danger={false}
+        icon={<MdVolunteerActivism size={26} />}
+        onConfirm={() => setTyStep('preview')}
+        onCancel={() => setTyStep(null)}
+      />
+
+      {/* Thank-you — bulk, step 2: final preview */}
+      <ConfirmModal
+        open={tyStep === 'preview'}
+        title="Confirm Message"
+        message={
+          <>
+            <span style={{ fontSize: '0.82rem', opacity: 0.75 }}>
+              This message will be sent to {tyQueued} guest{tyQueued !== 1 ? 's' : ''}:
+            </span>
+            <pre className="ty-preview">{personalise(tyMessage, invs[0], ev)}</pre>
+          </>
+        }
+        confirmLabel={tyBusy ? 'Sending…' : 'Send Now'}
+        cancelLabel="Back"
+        danger={false}
+        icon={<MdVolunteerActivism size={26} />}
+        onConfirm={startThankYouBulk}
+        onCancel={() => setTyStep('count')}
       />
 
       {/* SMS bulk confirm */}

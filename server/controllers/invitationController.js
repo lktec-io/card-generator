@@ -696,6 +696,11 @@ async function renderCard(req, res) {
       positions, naturalW, naturalH,
     });
 
+    // Keep the stored type in step with the card actually downloaded — the Single/Double
+    // selector can still be changed after Generate. Never blocks the download.
+    await pool.execute('UPDATE invitations SET card_type = ? WHERE code = ?', [cardType, code])
+      .catch((err) => console.error('[renderCard] card_type not stored:', err.message));
+
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Disposition', `attachment; filename="${code}.png"`);
     return res.send(finalBuffer);
