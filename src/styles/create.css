@@ -217,9 +217,8 @@
 
 .result-card {
   background: var(--glass-bg);
-  -webkit--webkit-backdrop-filter: blur(16px);
-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+-webkit-backdrop-filter: blur(6px);
+backdrop-filter: blur(6px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 1.25rem;
@@ -379,7 +378,7 @@ backdrop-filter: blur(16px);
   font-size: 38px;
   font-weight: 600;
   color: #111;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   white-space: nowrap;
 }
 
@@ -394,7 +393,7 @@ backdrop-filter: blur(16px);
   font-size: 38px;
   font-weight: 600;
   color: #111;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   white-space: nowrap;
 }
 
@@ -887,7 +886,7 @@ backdrop-filter: blur(16px);
   font-weight: 700;
   color: #555;
   letter-spacing: 0.1em;
-  font-family: sans-serif;
+  font-family: var(--font-main);
   text-transform: uppercase;
 }
 .drag-qr-box:active { cursor: grabbing; }

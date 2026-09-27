@@ -142,7 +142,6 @@
 .sms-template-preview {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.45);
-  font-style: italic;
 }
 
 /* ── SMS status badges (in logs table) ────────────────────────────────────── */
@@ -180,7 +179,7 @@
   gap: 0.35rem;
   padding: 0.45rem 0.9rem;
   font-size: 0.78rem;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-weight: 500;
   background: rgba(59, 130, 246, 0.10);
   border: 1px solid rgba(59, 130, 246, 0.30);

@@ -19,7 +19,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-main);
   font-size: 1.35rem;
   font-weight: 600;
   color: var(--white);

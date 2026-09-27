@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { GiDiamondRing } from 'react-icons/gi';
 import {
   MdDashboard, MdQrCodeScanner, MdAdminPanelSettings,
@@ -52,7 +52,29 @@ function getRoleLabel(role) {
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const close = () => setOpen(false);
+
+  // Close on navigation, so the menu never stays open behind a new page
+  useEffect(close, [location.pathname]);
+
+  // Escape closes it; lock page scroll while it covers the screen
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    // If the viewport grows past the collapse breakpoint the row layout returns,
+    // so drop the open state to keep it consistent.
+    const onResize = () => { if (window.innerWidth >= 1280) close(); };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+      document.body.style.overflow = prev || '';
+    };
+  }, [open]);
 
   const role   = getRole();
   const name   = getUserName();

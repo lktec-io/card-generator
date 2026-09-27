@@ -25,9 +25,8 @@
 
   /* Appearance */
   background:        rgba(0, 0, 0, 0.65);
-  -webkit--webkit-backdrop-filter:   blur(14px);
-backdrop-filter:   blur(14px);
-  backdrop-filter: blur(14px);
+-webkit-backdrop-filter: blur(6px);
+backdrop-filter: blur(6px);
 
   /* Must be above everything — confetti (99999), admin tables, etc. */
   z-index: 999999;
@@ -118,7 +117,7 @@ backdrop-filter:   blur(14px);
 /* ── Text ─────────────────────────────────────────────────────────────── */
 
 .cm-title {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-main);
   font-size: 1.5rem;
   font-weight: 500;
   color: #ffffff;
@@ -147,7 +146,7 @@ backdrop-filter:   blur(14px);
   flex: 1;
   padding: 0.78rem 0;
   border-radius: var(--radius-btn);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;

@@ -99,8 +99,8 @@ textarea,
   --glass-bg:      rgba(255, 255, 255, 0.05);
   --glass-border:  rgba(212, 175, 55, 0.18);
 
-  --font-main:    'Poppins', 'Segoe UI', system-ui, sans-serif;
-  --font-elegant: 'Cormorant Garamond', Georgia, serif;
+  --font-main:    'Nunito', 'Segoe UI', system-ui, sans-serif;
+  --font-elegant: 'Nunito', 'Segoe UI', system-ui, sans-serif;   /* headings use weight, not a second family */
 
   /* Radius scale — restrained, 8px is the ceiling.
      xs 4px  badges, chips, progress bars
@@ -163,7 +163,7 @@ textarea,
 /* ── Body ────────────────────────────────────────────────────────────── */
 
 body {
-  font-family: 'Poppins', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--font-main);
   font-family: var(--font-main);
   background-color: var(--bg);
   color: var(--text);

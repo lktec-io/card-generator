@@ -58,9 +58,8 @@
   width: 100%;
   max-width: 420px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.035) 100%);
-  -webkit--webkit-backdrop-filter: blur(32px) saturate(120%);
-backdrop-filter: blur(32px) saturate(120%);
-  backdrop-filter: blur(32px) saturate(120%);
+-webkit-backdrop-filter: blur(10px) saturate(120%);
+backdrop-filter: blur(10px) saturate(120%);
   border: 1px solid rgba(212, 175, 55, 0.22);
   border-radius: var(--radius-md);
   padding: 2.75rem 2.5rem 2.5rem;
@@ -187,7 +186,7 @@ backdrop-filter: blur(32px) saturate(120%);
   border-radius: var(--radius-sm);
   color: var(--white);
   caret-color: var(--gold);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 1rem;             /* 16px: stops iOS Safari zooming in on focus */
   line-height: 1.4;
   box-sizing: border-box;
@@ -328,7 +327,7 @@ backdrop-filter: blur(32px) saturate(120%);
   border: none;
   border-radius: var(--radius-btn);
   color: #1a1200;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -438,7 +437,7 @@ backdrop-filter: blur(32px) saturate(120%);
   inset: -6%;                       /* bleed, so the drift never reveals an edge */
   z-index: -3;
   background: url('../assets/background.jpeg') center / cover no-repeat;
-  filter: blur(16px) saturate(115%) brightness(0.62);
+  filter: blur(10px) saturate(115%) brightness(0.62);
   transform: scale(1.06);
   animation: loginDrift 38s ease-in-out infinite alternate;
   pointer-events: none;
@@ -472,7 +471,7 @@ backdrop-filter: blur(32px) saturate(120%);
 
 /* Welcome line — more specific than .login-brand p so it keeps the serif voice */
 .login-brand .login-welcome {
-  font-family: var(--font-elegant), Georgia, serif;
+  font-family: var(--font-main);
   font-size: 1.15rem;
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -513,7 +512,7 @@ backdrop-filter: blur(32px) saturate(120%);
 @media (max-width: 640px) {
   .login-bg {
     /* cheaper on mobile GPUs: less blur, no drift */
-    filter: blur(10px) saturate(110%) brightness(0.58);
+    filter: blur(7px) saturate(110%) brightness(0.58);
     animation: none;
     transform: scale(1.04);
   }

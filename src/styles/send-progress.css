@@ -12,9 +12,8 @@
   background: rgba(8, 8, 10, 0.72);
   /* Prefixed first, standard last: the CSS minifier keeps the last declaration, and
      Chromium/Firefox only understand the unprefixed one. */
-  -webkit--webkit-backdrop-filter: blur(6px);
-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+-webkit-backdrop-filter: blur(4px);
+backdrop-filter: blur(4px);
   animation: sp-fade 0.22s ease-out;
 }
 

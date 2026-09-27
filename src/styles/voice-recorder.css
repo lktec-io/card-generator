@@ -82,7 +82,7 @@
   gap: 0.45rem;
   padding: 0.72rem 1.4rem;
   border-radius: var(--radius-sm);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
@@ -171,7 +171,7 @@
   gap: 0.35rem;
   padding: 0.55rem 0.9rem;
   border-radius: var(--radius-sm);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
@@ -314,8 +314,8 @@
   white-space: nowrap;
   z-index: 10;
   animation: popupIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 
 @keyframes popupIn {

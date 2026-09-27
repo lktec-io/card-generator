@@ -52,8 +52,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 /* ── Container ───────────────────────────────────────────────────────── */
@@ -93,9 +93,8 @@
 .invite-section {
   width: 100%;
   background: rgba(255, 255, 255, 0.05);
-  -webkit--webkit-backdrop-filter: blur(24px);
-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
+-webkit-backdrop-filter: blur(8px);
+backdrop-filter: blur(8px);
   border: 1px solid rgba(212, 175, 55, 0.18);
   border-radius: var(--radius-md);
   padding: 1.75rem;
@@ -124,7 +123,7 @@ backdrop-filter: blur(24px);
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 0.70rem;
   font-weight: 700;
   letter-spacing: 0.10em;
@@ -152,7 +151,7 @@ backdrop-filter: blur(24px);
 }
 
 .invite-guest-name {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-main);
   font-size: 2.4rem;
   font-weight: 400;
   color: #fff;
@@ -161,7 +160,7 @@ backdrop-filter: blur(24px);
 }
 
 .invite-event-name {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-main);
   font-size: 1.35rem;
   font-weight: 400;
   color: #d4af37;
@@ -240,7 +239,7 @@ backdrop-filter: blur(24px);
   border-radius: var(--radius-sm);
   padding: 0.45rem 1rem;
   color: #d4af37;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 0.84rem;
   font-weight: 600;
   text-decoration: none;
@@ -359,7 +358,7 @@ backdrop-filter: blur(24px);
 /* ── RSVP section ─────────────────────────────────────────────────────── */
 
 .invite-rsvp-title {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-main);
   font-size: 1.85rem;
   font-weight: 400;
   color: #fff;
@@ -387,7 +386,7 @@ backdrop-filter: blur(24px);
   width: 100%;
   padding: 1.05rem 1rem;
   border-radius: var(--radius-sm);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -528,9 +527,8 @@ backdrop-filter: blur(24px);
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
-  -webkit--webkit-backdrop-filter: blur(10px);
-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+-webkit-backdrop-filter: blur(5px);
+backdrop-filter: blur(5px);
   /* Below confetti (99999) — user sees petals fly in front of the popup */
   z-index: 9980;
   display: flex;
@@ -582,7 +580,7 @@ backdrop-filter: blur(10px);
 .rsvp-modal--declined  .rsvp-modal-icon { color: #fca5a5; }
 
 .rsvp-modal-title {
-  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-family: var(--font-main);
   font-size: 2rem;
   font-weight: 400;
   color: #fff;
@@ -610,7 +608,7 @@ backdrop-filter: blur(10px);
   margin-top: 1rem;
   padding: 0.75rem 2rem;
   border-radius: var(--radius-sm);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;

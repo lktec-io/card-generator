@@ -50,9 +50,8 @@
   right: 0;
   z-index: 200;
   background: rgba(12, 12, 12, 0.92);
-  -webkit--webkit-backdrop-filter: blur(22px);
-backdrop-filter: blur(22px);
-  backdrop-filter: blur(22px);
+-webkit-backdrop-filter: blur(8px);
+backdrop-filter: blur(8px);
   border-bottom: 1px solid rgba(212, 175, 55, 0.14);
   border-radius: 0 0 var(--radius-btn) var(--radius-btn);
   padding: 0 2rem;
@@ -155,7 +154,10 @@ html:has(.navbar) { scroll-padding-top: 76px; }
   display: none;
 }
 
-@media (max-width: 640px) {
+/* Collapse to the toggle whenever the link row cannot fit. The row needs ~1260px with a
+   full admin menu, so anything below that gets the hamburger — previously this only
+   applied under 640px, leaving tablets with an overflowing menu that could not close. */
+@media (max-width: 1279px) {
   .navbar { padding: 0 1.25rem; }
   .nav-hamburger { display: flex; align-items: center; z-index: 600; }
 
@@ -170,9 +172,8 @@ html:has(.navbar) { scroll-padding-top: 76px; }
     max-width: 400px;
     flex-direction: column;
     background: rgba(14, 14, 14, 0.97);
-    -webkit--webkit-backdrop-filter: blur(24px);
-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
+-webkit-backdrop-filter: blur(8px);
+backdrop-filter: blur(8px);
     border: 1px solid rgba(212, 175, 55, 0.20);
     border-radius: var(--radius-btn);
     padding: 1.5rem 1.25rem 1.25rem;
@@ -181,7 +182,14 @@ backdrop-filter: blur(24px);
     transition: top 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .navbar-links.open { top: 80px; }
+  /* A full admin menu can be taller than a short screen — cap it and scroll inside */
+  .navbar-links.open {
+    top: 80px;
+    max-height: calc(100vh - 96px);
+    max-height: calc(100dvh - 96px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 
   .navbar-links a,
   .nav-logout { padding: 0.75rem 1.25rem; border-radius: var(--radius-btn); }
@@ -356,7 +364,7 @@ backdrop-filter: blur(24px);
 
 .valid-label {
   margin: 0 0 0.9rem;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 1.65rem;
   font-weight: 800;
   line-height: 1.1;
@@ -380,7 +388,7 @@ backdrop-filter: blur(24px);
 .valid-welcome__prefix {
   display: block;
   margin-bottom: 0.3rem;
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.32em;
@@ -418,7 +426,7 @@ backdrop-filter: blur(24px);
   display: inline-block;
   padding: 0.45rem 1.6rem;
   border-radius: var(--radius-xs);
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 1.15rem;
   font-weight: 800;
   letter-spacing: 0.22em;
@@ -435,7 +443,7 @@ backdrop-filter: blur(24px);
 }
 
 .popup-code {
-  font-family: 'Poppins', sans-serif;
+  font-family: var(--font-main);
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.14em;

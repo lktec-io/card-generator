@@ -318,9 +318,8 @@
 
 .event-form-card {
   background: var(--glass-bg);
-  -webkit--webkit-backdrop-filter: blur(16px);
-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+-webkit-backdrop-filter: blur(6px);
+backdrop-filter: blur(6px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 2rem;
@@ -436,9 +435,8 @@ backdrop-filter: blur(16px);
 
 .event-card {
   background: var(--glass-bg);
-  -webkit--webkit-backdrop-filter: blur(16px);
-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+-webkit-backdrop-filter: blur(6px);
+backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -742,9 +740,8 @@ backdrop-filter: blur(16px);
 
 .ev-inv-section {
   background: var(--glass-bg);
-  -webkit--webkit-backdrop-filter: blur(16px);
-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+-webkit-backdrop-filter: blur(6px);
+backdrop-filter: blur(6px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 1.75rem;
@@ -804,9 +801,8 @@ backdrop-filter: blur(16px);
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
-  -webkit--webkit-backdrop-filter: blur(8px);
-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+-webkit-backdrop-filter: blur(4px);
+backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
