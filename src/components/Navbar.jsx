@@ -91,7 +91,7 @@ export default function Navbar() {
     <nav className="navbar">
       <Link to={logoTo} className="navbar-logo" onClick={close}>
         <GiDiamondRing className="logo-icon" />
-        Cardhub Digital Invitation
+      Hi! Cardhub Invitation
       </Link>
 
       {/* Role chip */}
