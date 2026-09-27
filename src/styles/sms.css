@@ -464,3 +464,59 @@
   border-color: rgba(239, 68, 68, 0.3);
   color: #f87171;
 }
+
+/* ── Thank-you message: saved view, edit actions, send button polish ───── */
+
+.ty-saved {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 2px solid rgba(212, 175, 55, 0.5);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--white);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ty-saved-state {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.ty-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+/* Send button: subtle lift on hover, no hover dependency on touch devices */
+.ty-send-btn {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.ty-send-icon { transition: transform 0.18s ease; }
+
+@media (hover: hover) {
+  .ty-send-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(212, 175, 55, 0.28);
+  }
+  .ty-send-btn:hover:not(:disabled) .ty-send-icon { transform: translateX(2px); }
+}
+
+.ty-send-btn:active:not(:disabled) { transform: translateY(0); }
+.ty-send-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .ty-edit-actions { width: 100%; }
+  .ty-edit-actions .btn-gold,
+  .ty-edit-actions .btn-outline { flex: 1; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ty-send-btn, .ty-send-icon { transition: none; }
+  .ty-send-btn:hover:not(:disabled) { transform: none; }
+}

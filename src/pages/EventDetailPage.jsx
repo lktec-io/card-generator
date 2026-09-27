@@ -10,9 +10,10 @@ import {
 } from 'react-icons/md';
 import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage,
   sendInvitationSms, sendBulkSms, getBulkSmsProgress, getSmsLogs, retrySms as apiRetrySms,
-  listUsersDropdown, getThankYouInfo, sendThankYouSms, sendThankYouBulkSms,
+  listUsersDropdown, getThankYouInfo, saveThankYouTemplate, sendThankYouSms, sendThankYouBulkSms,
 } from '../utils/api';
 import { isAdmin, canManage } from '../utils/auth';
+import SendProgressModal from '../components/SendProgressModal';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
 import ConfirmModal from '../components/ConfirmModal';
@@ -149,6 +150,11 @@ export default function EventDetailPage() {
   const [tySentIds,    setTySentIds]    = useState([]);     // invitations already thanked
   const [tyError,      setTyError]      = useState('');     // why the details could not load
   const [tyLoading,    setTyLoading]    = useState(false);
+  const [tyEditing,    setTyEditing]    = useState(false);   // view mode ↔ edit mode
+  const [tyDraft,      setTyDraft]      = useState('');      // edit buffer, discarded on Cancel
+  const [tySaving,     setTySaving]     = useState(false);
+  const tySpeedRef = useRef([]);                              // progress samples for real SMS/sec
+  const [tySpeed,      setTySpeed]      = useState(null);
   const tyPollRef = useRef(null);
   // Synchronous send guards. State updates are async, so rapid repeat clicks on a confirm
   // button can all run before React re-renders — these refs stop a second send outright.
@@ -369,7 +375,8 @@ export default function EventDetailPage() {
       .then(({ data: d }) => {
         setTyInfo(d);
         setTySentIds(d.already_sent_ids || []);
-        setTyMessage(prev => (prev ? prev : d.template || ''));   // keep an edit in progress
+        // d.template is the saved message when the event has one, else the default
+        if (!tyEditing) setTyMessage(d.template || '');
       })
       .catch((err) => {
         // Never hide the section silently — show why, so the cause is visible on the page
@@ -377,6 +384,31 @@ export default function EventDetailPage() {
         setTyError(err.response?.data?.message || err.message || 'Could not load the thank-you details.');
       })
       .finally(() => setTyLoading(false));
+  };
+
+  /* ── Thank-you message: edit → save → edit again ── */
+  const startTyEdit  = () => { setTyDraft(tyMessage); setTyEditing(true); };
+  const cancelTyEdit = () => { setTyDraft(''); setTyEditing(false); };   // unsaved changes dropped
+
+  const saveTyMessage = async () => {
+    const text = tyDraft.trim();
+    const max  = tyInfo?.max_chars || 800;
+    if (!text)             { showToast('The message cannot be empty.', 'error'); return; }
+    if (text.length > max) { showToast(`Message too long — maximum ${max} characters.`, 'error'); return; }
+    setTySaving(true);
+    try {
+      const { data } = await saveThankYouTemplate(id, text);
+      const saved = data.saved_template || text;
+      setTyMessage(saved);
+      setTyInfo(prev => (prev ? { ...prev, saved_template: saved, template: saved } : prev));
+      setTyEditing(false);
+      setTyDraft('');
+      showToast('Message saved successfully', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to save the message.', 'error');
+    } finally {
+      setTySaving(false);
+    }
   };
 
   /* ── Thank-you: one guest ── */
@@ -409,20 +441,43 @@ export default function EventDetailPage() {
         recipients: tyGroup,
         resend:     tyResend,
       });
-      setTyJob({ jobId: data.job_id, total: data.total, sent: 0, failed: 0, skipped: data.skipped || 0, already: data.already || 0, done: false });
+      tySpeedRef.current = [{ t: Date.now(), processed: 0 }];
+      setTySpeed(null);
+      setTyJob({
+        jobId: data.job_id, total: data.total, sent: 0, failed: 0,
+        skipped: data.skipped || 0, skipped_no_phone: data.skipped_no_phone || 0,
+        skipped_already: data.skipped_already || 0, already: data.already || 0,
+        failures: [], done: false,
+      });
       if (tyPollRef.current) clearInterval(tyPollRef.current);
       tyPollRef.current = setInterval(async () => {
         try {
           const { data: p } = await getBulkSmsProgress(data.job_id);
-          setTyJob({ jobId: p.job_id, total: p.total, sent: p.sent, failed: p.failed, skipped: p.skipped || 0, already: p.already || 0, done: p.done });
+          setTyJob({
+            jobId: p.job_id, total: p.total, sent: p.sent, failed: p.failed,
+            skipped: p.skipped || 0, skipped_no_phone: p.skipped_no_phone || 0,
+            skipped_already: p.skipped_already || 0, already: p.already || 0,
+            failures: p.failures || [], done: p.done,
+          });
+
+          // Real throughput: processed messages over elapsed time, across a short window
+          // of actual progress samples. Nothing is estimated or animated.
+          const processed = (p.sent || 0) + (p.failed || 0);
+          const samples = tySpeedRef.current;
+          samples.push({ t: Date.now(), processed });
+          if (samples.length > 6) samples.shift();
+          const first = samples[0];
+          const last  = samples[samples.length - 1];
+          const secs  = (last.t - first.t) / 1000;
+          setTySpeed(secs > 0.5 ? (last.processed - first.processed) / secs : null);
+
           if (p.done) {
             clearInterval(tyPollRef.current);
             tyPollRef.current = null;
-            showToast(`Thank-you SMS complete — ${p.sent} sent, ${p.failed} failed.`, 'success');
-            loadThankYou();
+            loadThankYou();      // refresh the already-thanked list behind the modal
           }
         } catch { /* ignore transient poll errors */ }
-      }, 1200);
+      }, 700);
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to start thank-you SMS.', 'error');
     } finally {
@@ -574,7 +629,9 @@ export default function EventDetailPage() {
   const tyAlready      = tyInfo?.tracking_available
     ? (tyInfo.already_sent_ids || []).length
     : 0;
-  const tySms          = smsInfo(personalise(tyMessage, shownInvs[0] || invs[0], ev));
+  // Counter follows whichever text is on screen: the draft while editing, else the saved message
+  const tyShownText    = tyEditing ? tyDraft : tyMessage;
+  const tySms          = smsInfo(personalise(tyShownText, shownInvs[0] || invs[0], ev));
   const tyMaxChars     = tyInfo?.max_chars || 800;
   const tyTooLong      = tySms.chars > tyMaxChars;     // the server refuses these too
   const tySkipped      = Math.max(0, tyCounts.total - tyCounts.with_phone);
@@ -896,22 +953,52 @@ export default function EventDetailPage() {
               </div>
             ) : (
             <div className="ty-body">
-              <label className="ty-label" htmlFor="ty-message">Thank You Message</label>
-              <textarea
-                id="ty-message"
-                className="ty-textarea"
-                rows={7}
-                value={tyMessage}
-                onChange={e => setTyMessage(e.target.value)}
-                placeholder="Thank-you message…"
-              />
+              <label className="ty-label" htmlFor={tyEditing ? 'ty-message' : undefined}>Thank You Message</label>
+
+              {tyEditing ? (
+                <textarea
+                  id="ty-message"
+                  className="ty-textarea"
+                  rows={6}
+                  value={tyDraft}
+                  onChange={e => setTyDraft(e.target.value)}
+                  placeholder="Thank-you message…"
+                  autoFocus
+                />
+              ) : (
+                <p className="ty-saved" data-testid="ty-saved-message">{tyMessage}</p>
+              )}
+
               <div className="ty-meta">
                 <span className={tyTooLong || tySms.segments > 2 ? 'ty-meta-warn' : ''}>
                   {tySms.chars} / {tyMaxChars} characters · {tySms.segments} SMS {tySms.segments === 1 ? 'segment' : 'segments'}
                 </span>
-                <button type="button" className="ty-reset" onClick={() => setTyMessage(tyInfo.template || '')}>
-                  Reset to default
-                </button>
+                {tyEditing ? (
+                  <button type="button" className="ty-reset" onClick={() => setTyDraft(tyInfo.default_template || tyInfo.template || '')}>
+                    Reset to default
+                  </button>
+                ) : (
+                  <span className="ty-saved-state">
+                    {tyInfo.saved_template ? 'Saved for this event' : 'Default message — not yet saved'}
+                  </span>
+                )}
+              </div>
+
+              <div className="ty-edit-actions">
+                {tyEditing ? (
+                  <>
+                    <button className="btn-outline" onClick={cancelTyEdit} disabled={tySaving}>
+                      <MdClose size={14} /> Cancel
+                    </button>
+                    <button className="btn-gold" onClick={saveTyMessage} disabled={tySaving || tyTooLong || !tyDraft.trim()}>
+                      <MdSave size={14} /> {tySaving ? 'Saving…' : 'Save'}
+                    </button>
+                  </>
+                ) : (
+                  <button className="btn-outline" onClick={startTyEdit} disabled={tyBusy}>
+                    <MdEdit size={14} /> Edit Message
+                  </button>
+                )}
               </div>
               {tyTooLong && (
                 <p className="ty-warn ty-warn--stop">
@@ -930,8 +1017,8 @@ export default function EventDetailPage() {
                 </p>
               )}
               <p className="ty-hint">
-                {'{guest_name}'} is replaced with each guest&apos;s name. Edits here apply to this send only —
-                the event&apos;s saved SMS template is not changed.
+                {'{guest_name}'} is replaced with each guest&apos;s name. Saving keeps this wording for this
+                event; the invitation SMS template is separate and is not affected.
               </p>
 
               <fieldset className="ty-recipients">
@@ -961,43 +1048,20 @@ export default function EventDetailPage() {
 
               <div className="ty-actions">
                 <button
-                  className="btn-gold"
+                  className="btn-gold ty-send-btn"
                   onClick={() => setTyStep('count')}
-                  disabled={tyBusy || tyQueued === 0 || tySms.chars === 0 || tyTooLong}
+                  disabled={tyBusy || tyEditing || tyQueued === 0 || tySms.chars === 0 || tyTooLong}
                 >
-                  <MdVolunteerActivism size={15} />
+                  <MdVolunteerActivism size={15} className="ty-send-icon" />
                   {tyBusy ? 'Sending…' : `Send Thank You to All (${tyQueued})`}
                 </button>
-                {tySkipped > 0 && (
+                {tyEditing ? (
+                  <span className="ty-skip-note">Save or cancel your changes before sending</span>
+                ) : tySkipped > 0 && (
                   <span className="ty-skip-note">{tySkipped} without phone number will be skipped</span>
                 )}
               </div>
 
-              {tyJob && (
-                <div className="sms-progress-wrap">
-                  {tyJob.done ? (
-                    <div className="sms-progress-done">
-                      <span>
-                        Thank-you SMS complete — <strong>{tyJob.sent}</strong> sent,{' '}
-                        <strong>{tyJob.failed}</strong> failed,{' '}
-                        <strong>{tyJob.skipped}</strong> skipped
-                        {tyJob.already > 0 && <> , <strong>{tyJob.already}</strong> already thanked</>}.
-                      </span>
-                      <button className="sms-progress-close" onClick={() => setTyJob(null)}>✕</button>
-                    </div>
-                  ) : (
-                    <div className="sms-progress-running">
-                      <div className="sms-progress-bar-track">
-                        <div className="sms-progress-bar-fill"
-                          style={{ width: `${Math.round(((tyJob.sent + tyJob.failed) / Math.max(1, tyJob.total)) * 100)}%` }} />
-                      </div>
-                      <span className="sms-progress-text">
-                        Sending thank-you SMS… {tyJob.sent + tyJob.failed} / {tyJob.total}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
             )}
           </div>
@@ -1352,6 +1416,9 @@ export default function EventDetailPage() {
         onConfirm={() => handleSendSms(smsConfirm)}
         onCancel={() => setSmsConfirm(null)}
       />
+
+      {/* Bulk thank-you progress — every number comes from the server's job state */}
+      <SendProgressModal job={tyJob} speed={tySpeed} onClose={() => { setTyJob(null); setTySpeed(null); }} />
 
       {/* Thank-you — single guest */}
       <ConfirmModal

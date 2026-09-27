@@ -257,6 +257,11 @@ function getBulkProgress(req, res) {
     done:    job.done,
     skipped: job.skipped || 0,           // thank-you jobs only; 0 for invitation blasts
     already: job.already || 0,
+    skipped_no_phone: job.skipped_no_phone || 0,
+    skipped_already:  job.skipped_already  || 0,
+    // Per-failure reasons as reported by the provider (thank-you jobs)
+    failures: job.failures || [],
+    started_at: job.startedAt,
   });
 }
 
@@ -319,14 +324,34 @@ async function retrySms(req, res) {
    ══════════════════════════════════════════════════════════════════════════ */
 
 const MAX_MESSAGE_CHARS = 800;          // refuse silently-huge sends (~5 SMS segments)
+const MAX_FAILURE_DETAILS = 200;        // cap the per-failure list kept in memory
 const _thankYouRunning  = new Set();    // event ids with a bulk thank-you in flight
+
+// events.thank_you_template is added by migration_thank_you_template.sql.
+// Until it exists the saved message simply isn't available and the default is used.
+let _templateColumn = null;
+
+async function hasTemplateColumn() {
+  if (_templateColumn !== null) return _templateColumn;
+  try {
+    const [[row]] = await pool.execute(
+      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'thank_you_template'`
+    );
+    _templateColumn = Number(row.n) > 0;
+  } catch {
+    _templateColumn = false;
+  }
+  return _templateColumn;
+}
 
 // Same authorization the rest of the app uses: the event must be inside the
 // logged-in user's scope (super_admin: all, admin: own, manager: own/assigned).
 async function loadEventForUser(eventId, user) {
   const scope = eventScopeSQL(user);
+  const saved = (await hasTemplateColumn()) ? ', e.thank_you_template' : '';
   const [[event]] = await pool.execute(
-    `SELECT e.id, e.event_name, e.event_type, e.venue, e.event_date, e.event_time
+    `SELECT e.id, e.event_name, e.event_type, e.venue, e.event_date, e.event_time${saved}
        FROM events e
       WHERE e.id = ? ${scope.where}`,
     [eventId, ...scope.params]
@@ -334,22 +359,23 @@ async function loadEventForUser(eventId, user) {
   return event || null;
 }
 
-// Default Swahili thank-you. Event details are filled in when they exist; {guest_name}
-// stays as a placeholder so each guest is greeted by name at send time.
-// Wording stays neutral ("tukio letu") so it suits weddings, send-offs, graduations etc.
+// What actually gets sent: the event's saved message when it has one, else the default.
+// A saved message is never replaced by the default.
+const savedTemplate   = (event) => (typeof event?.thank_you_template === 'string' && event.thank_you_template.trim())
+  ? event.thank_you_template.trim() : null;
+const resolveTemplate = (event) => savedTemplate(event) || buildThankYouTemplate(event);
+
+// Default Swahili thank-you — short, warm and direct. Event details are filled in when
+// they exist; {guest_name} stays a placeholder so each guest is greeted by name at send
+// time. Wording stays neutral ("tukio letu") so it suits weddings, send-offs,
+// graduations, church and corporate events alike.
+// This is only a fallback: an event with a saved message keeps its own wording.
 function buildThankYouTemplate(event) {
-  const date = formatEventDate(event.event_date);
+  const date  = formatEventDate(event.event_date);
   const where = event.venue ? ` kule ${event.venue}` : '';
   const when  = date ? ` siku ya ${date}` : '';
-  return [
-    'Habari {guest_name},',
-    '',
-    `Tunakushukuru kwa moyo wa dhati kwa mchango wako na kwa kuhudhuria ${event.event_name}${where}${when}. `
-      + 'Uwepo wako ulifanya tukio letu kuwa la kipekee na lenye furaha zaidi. '
-      + 'Tunathamini sana kuwa nawe katika kumbukumbu hii muhimu.',
-    '',
-    'Asante sana, Mungu akubariki na karibu tena tuendelee kuwa pamoja.',
-  ].join('\n');
+  return `Habari {guest_name}, tunakushukuru kwa dhati kwa kuhudhuria ${event.event_name}${where}${when}. `
+    + 'Uwepo wako ulifanya tukio letu kuwa la kipekee. Asante sana na Mungu akubariki.';
 }
 
 const hasPhone = (inv) => !!(inv.phone_number && String(inv.phone_number).trim());
@@ -408,7 +434,10 @@ async function getThankYouInfo(req, res) {
 
     res.json({
       success: true,
-      template: buildThankYouTemplate(event),
+      template:         resolveTemplate(event),      // what will actually be sent
+      saved_template:   savedTemplate(event),        // null until the admin saves one
+      default_template: buildThankYouTemplate(event),
+      can_save:         await hasTemplateColumn(),
       counts: { checked_in: count(checkedIn), all: count(all) },
       tracking_available: sentIds !== null,
       already_sent_ids:   sentIds || [],
@@ -417,6 +446,41 @@ async function getThankYouInfo(req, res) {
   } catch (err) {
     console.error('[getThankYouInfo]', err);
     res.status(500).json({ success: false, message: 'Failed to load thank-you details.' });
+  }
+}
+
+// ── PUT /sms/thank-you/:event_id ─────────────────────────────────────────────
+// Saves this event's thank-you wording. Touches events.thank_you_template only —
+// no other event field is read or written here.
+async function saveThankYouTemplate(req, res) {
+  const eventId = parseInt(req.params.event_id, 10);
+  if (!eventId) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
+
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  if (!message) {
+    return res.status(400).json({ success: false, message: 'The message cannot be empty.' });
+  }
+  if (message.length > MAX_MESSAGE_CHARS) {
+    return res.status(400).json({ success: false, message: `Message too long (${message.length} characters, max ${MAX_MESSAGE_CHARS}).` });
+  }
+
+  try {
+    const event = await loadEventForUser(eventId, req.user);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
+
+    if (!(await hasTemplateColumn())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Saving is unavailable: the database is missing thank_you_template (run migration_thank_you_template.sql).',
+      });
+    }
+
+    await pool.execute('UPDATE events SET thank_you_template = ? WHERE id = ?', [message, eventId]);
+    console.log(`[saveThankYouTemplate] event=${eventId} saved (${message.length} chars)`);
+    res.json({ success: true, saved_template: message, message: 'Message saved successfully' });
+  } catch (err) {
+    console.error('[saveThankYouTemplate]', err);
+    res.status(500).json({ success: false, message: 'Failed to save the message.' });
   }
 }
 
@@ -442,7 +506,7 @@ async function sendThankYouSingle(req, res) {
       return res.status(400).json({ success: false, message: `${inv.guest_name} has no phone number.` });
     }
 
-    const message  = buildMessage(custom || buildThankYouTemplate(event), messageVars(event, inv));
+    const message  = buildMessage(custom || resolveTemplate(event), messageVars(event, inv));
     const provider = SmsService.providerName();
 
     try {
@@ -495,18 +559,25 @@ async function sendThankYouBulk(req, res) {
         message: already > 0
           ? 'Every guest in this group has already received a thank-you SMS.'
           : 'No guests with phone numbers in this group.',
-        skipped, already,
+        // same breakdown keys as a started job, so the UI can explain why nothing was queued
+        skipped: skipped + already, skipped_no_phone: skipped, skipped_already: already, already,
       });
     }
 
-    const template = custom || buildThankYouTemplate(event);
+    const template = custom || resolveTemplate(event);
     const jobId    = createJob(eventId, queue.length);
     const job      = _jobs.get(jobId);
-    job.skipped = skipped;
-    job.already = already;
+    job.skipped           = skipped + already;     // intentional server-side skips, never failures
+    job.skipped_no_phone  = skipped;
+    job.skipped_already   = already;
+    job.already           = already;
+    job.failures          = [];                    // { phone, guest_name, reason } from the provider
     _thankYouRunning.add(eventId);
 
-    res.json({ success: true, job_id: jobId, total: queue.length, skipped, already, recipients: group });
+    res.json({
+      success: true, job_id: jobId, total: queue.length, recipients: group,
+      skipped: skipped + already, skipped_no_phone: skipped, skipped_already: already, already,
+    });
 
     setImmediate(async () => {
       const provider = SmsService.providerName();
@@ -520,6 +591,11 @@ async function sendThankYouBulk(req, res) {
           } catch (err) {
             await writeLog({ event_id: eventId, invitation_id: inv.id, phone_number: inv.phone_number, provider, message, status: 'failed', error_message: err.message, kind: 'thank_you' });
             job.failed++;
+            // The provider's own words — never a guessed reason
+            const reason = (err?.message || '').trim() || 'SMS failed — provider did not provide a reason.';
+            if (job.failures.length < MAX_FAILURE_DETAILS) {
+              job.failures.push({ phone: inv.phone_number, guest_name: inv.guest_name, reason });
+            }
           }
           await new Promise((r) => setTimeout(r, 200));   // same pacing as the invitation blast
         }
@@ -538,5 +614,5 @@ async function sendThankYouBulk(req, res) {
 
 module.exports = {
   sendSingle, sendBulk, getBulkProgress, getSmsLogs, retrySms,
-  getThankYouInfo, sendThankYouSingle, sendThankYouBulk,
+  getThankYouInfo, saveThankYouTemplate, sendThankYouSingle, sendThankYouBulk,
 };

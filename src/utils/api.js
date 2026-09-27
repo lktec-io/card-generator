@@ -122,6 +122,7 @@ export const retrySms            = (logId)         => api.post(`/sms/retry/${log
 
 // Post-event thank-you SMS (same Beem service, recipients resolved server-side per event)
 export const getThankYouInfo     = (eventId)       => api.get(`/sms/thank-you/${eventId}`);
+export const saveThankYouTemplate = (eventId, message)      => api.put(`/sms/thank-you/${eventId}`, { message });
 export const sendThankYouSms     = (invitationId, message) => api.post(`/sms/thank-you/send/${invitationId}`, { message });
 export const sendThankYouBulkSms = (eventId, payload)      => api.post(`/sms/thank-you/bulk/${eventId}`, payload);
 
