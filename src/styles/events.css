@@ -152,7 +152,7 @@
 .inv-grid-card {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   transition: transform 0.22s, border-color 0.22s, box-shadow 0.22s;
 }
@@ -223,7 +223,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 20px;
+  border-radius: var(--radius-xs);
   font-size: 0.70rem;
   font-weight: 700;
   white-space: nowrap;
@@ -318,8 +318,9 @@
 
 .event-form-card {
   background: var(--glass-bg);
+  -webkit--webkit-backdrop-filter: blur(16px);
+backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 2rem;
@@ -435,8 +436,9 @@
 
 .event-card {
   background: var(--glass-bg);
+  -webkit--webkit-backdrop-filter: blur(16px);
+backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -611,7 +613,7 @@
   padding: 0.7rem 1.2rem;
   background: var(--glass-bg);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   font-size: 0.84rem;
   color: var(--text-muted);
   flex-shrink: 0;
@@ -740,8 +742,9 @@
 
 .ev-inv-section {
   background: var(--glass-bg);
+  -webkit--webkit-backdrop-filter: blur(16px);
+backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 1.75rem;
@@ -768,7 +771,7 @@
   color: var(--text-faint);
   background: rgba(255, 255, 255, 0.05);
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-xs);
 }
 
 /* ── Verification method badges ──────────────────────────────────────── */
@@ -778,7 +781,7 @@
   align-items: center;
   gap: 0.3rem;
   padding: 3px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-xs);
   font-size: 0.70rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -801,8 +804,9 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
+  -webkit--webkit-backdrop-filter: blur(8px);
+backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -813,7 +817,7 @@
 .modal-box {
   background: #1a1a1a;
   border: 1px solid rgba(212, 175, 55, 0.22);
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   width: 100%;
   max-width: 340px;
   padding: 2rem 1.75rem 1.75rem;

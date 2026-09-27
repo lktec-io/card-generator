@@ -217,8 +217,9 @@
 
 .result-card {
   background: var(--glass-bg);
+  -webkit--webkit-backdrop-filter: blur(16px);
+backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 1.25rem;
@@ -325,7 +326,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  border-radius: 24px;
+  border-radius: var(--radius-md);
 }
 
 /* Draggable overlays */
@@ -502,7 +503,7 @@
   display: inline-block;
   margin-top: 0.4rem;
   padding: 0.16rem 0.62rem;
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.07em;

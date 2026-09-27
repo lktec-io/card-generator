@@ -41,7 +41,7 @@
   padding: 0.9rem 1.1rem;
   background: rgba(59, 130, 246, 0.06);
   border: 1px solid rgba(59, 130, 246, 0.18);
-  border-radius: 12px;
+  border-radius: var(--radius-xs);
   animation: smsFadeIn 0.25s ease forwards;
 }
 
@@ -60,14 +60,14 @@
   flex: 1;
   height: 6px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
 }
 
 .sms-progress-bar-fill {
   height: 100%;
   background: linear-gradient(90deg, #3b82f6, #60a5fa);
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   transition: width 0.4s ease;
   min-width: 4px;
 }
@@ -117,7 +117,7 @@
   padding: 0.65rem 0.75rem;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   color: rgba(255, 255, 255, 0.85);
   font-size: 0.82rem;
   font-family: 'Courier New', Courier, monospace;
@@ -230,7 +230,7 @@
   padding: 1rem 1.15rem 1.15rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .ev-an-head {

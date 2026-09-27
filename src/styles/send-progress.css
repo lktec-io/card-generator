@@ -12,7 +12,8 @@
   background: rgba(8, 8, 10, 0.72);
   /* Prefixed first, standard last: the CSS minifier keeps the last declaration, and
      Chromium/Firefox only understand the unprefixed one. */
-  -webkit-backdrop-filter: blur(6px);
+  -webkit--webkit-backdrop-filter: blur(6px);
+backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   animation: sp-fade 0.22s ease-out;
 }
@@ -27,7 +28,7 @@
   text-align: center;
   background: linear-gradient(180deg, rgba(32, 32, 36, 0.96), rgba(22, 22, 25, 0.96));
   border: 1px solid rgba(212, 175, 55, 0.22);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
   animation: sp-rise 0.28s cubic-bezier(0.2, 0.8, 0.25, 1);
 }
@@ -79,13 +80,13 @@
   margin: 0 0 0.8rem;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
 }
 
 .sp-bar-fill {
   height: 100%;
   background: linear-gradient(90deg, #b9932f, #f0cf6a);
-  border-radius: 999px;
+  border-radius: var(--radius-xs);
   transition: width 0.45s ease;
 }
 

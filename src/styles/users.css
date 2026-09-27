@@ -52,6 +52,7 @@
   padding: 0.55rem 1rem;
   font-size: 0.82rem;
   color: var(--text-muted);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
@@ -67,6 +68,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
 
@@ -133,7 +135,7 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 3px 9px;
-  border-radius: 20px;
+  border-radius: var(--radius-xs);
   white-space: nowrap;
 }
 
@@ -162,7 +164,7 @@
   font-size: 0.72rem;
   font-weight: 600;
   padding: 2px 8px;
-  border-radius: 20px;
+  border-radius: var(--radius-xs);
 }
 
 .user-status-badge--active {

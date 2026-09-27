@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GiDiamondRing } from 'react-icons/gi';
-import { MdLock, MdEmail, MdLogin } from 'react-icons/md';
-import { FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiMail, FiLock, FiLogIn } from 'react-icons/fi';
 import { login } from '../utils/api';
 import '../styles/login.css';
 
@@ -42,17 +41,22 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
+      {/* Decorative only — blurred wedding backdrop, soft light and a vignette */}
+      <div className="login-bg" aria-hidden="true" />
+      <div className="login-bg-veil" aria-hidden="true" />
+
       <div className="login-card">
         <div className="login-brand">
           <GiDiamondRing className="login-ring-icon" />
           <h1>Cardhub Digital Invitation</h1>
-          <p>Event Invitation System</p>
+          <p className="login-welcome">Welcome back</p>
+          <p>Sign in to manage your events</p>
         </div>
 
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className="login-field">
             <label htmlFor="login-email">
-              <MdEmail size={15} /> Email
+              <FiMail size={14} /> Email
             </label>
             <input
               id="login-email"
@@ -68,7 +72,7 @@ export default function LoginPage() {
 
           <div className="login-field">
             <label htmlFor="login-password">
-              <MdLock size={15} /> Password
+              <FiLock size={14} /> Password
             </label>
             {/* spellCheck/autoCorrect off: once revealed as text, the password must not
                 be sent to spellcheck or autocorrect */}
@@ -113,7 +117,7 @@ export default function LoginPage() {
             {loading ? (
               <><span className="login-spinner" /> Signing in…</>
             ) : (
-              <><MdLogin size={18} /> Sign In</>
+              <><FiLogIn size={16} /> Sign In</>
             )}
           </button>
         </form>

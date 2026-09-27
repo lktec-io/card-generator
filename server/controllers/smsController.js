@@ -36,19 +36,31 @@ function formatEventDate(raw) {
 // sms_kind ('invitation' | 'thank_you') is added by migration_thank_you_sms.sql.
 // null = not checked yet. When the column is missing we fall back to the original INSERT,
 // so sending keeps working before the migration is run.
-let _kindColumn = null;
+let _kindColumn   = null;
+let _kindCheckedAt = 0;
 
-async function hasKindColumn() {
-  if (_kindColumn !== null) return _kindColumn;
+// A missing column is re-checked instead of being remembered forever: running the
+// migration must take effect without restarting the Node process.
+const COLUMN_RECHECK_MS = 15_000;
+
+async function columnExists(table, column) {
+  const [[row]] = await pool.execute(
+    `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [table, column]
+  );
+  return Number(row.n) > 0;
+}
+
+async function hasKindColumn({ force = false } = {}) {
+  if (_kindColumn === true) return true;
+  if (!force && _kindColumn === false && Date.now() - _kindCheckedAt < COLUMN_RECHECK_MS) return false;
   try {
-    const [[row]] = await pool.execute(
-      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sms_logs' AND COLUMN_NAME = 'sms_kind'`
-    );
-    _kindColumn = Number(row.n) > 0;
+    _kindColumn = await columnExists('sms_logs', 'sms_kind');
   } catch {
     _kindColumn = false;
   }
+  _kindCheckedAt = Date.now();
   return _kindColumn;
 }
 
@@ -329,20 +341,34 @@ const _thankYouRunning  = new Set();    // event ids with a bulk thank-you in fl
 
 // events.thank_you_template is added by migration_thank_you_template.sql.
 // Until it exists the saved message simply isn't available and the default is used.
-let _templateColumn = null;
+let _templateColumn   = null;
+let _templateCheckedAt = 0;
 
-async function hasTemplateColumn() {
-  if (_templateColumn !== null) return _templateColumn;
+// Same rule as above: never remember "missing" permanently. Before this, a server that
+// started BEFORE the migration cached false for the life of the process, so saving kept
+// returning 400 even after the migration had been applied.
+async function hasTemplateColumn({ force = false } = {}) {
+  if (_templateColumn === true) return true;
+  if (!force && _templateColumn === false && Date.now() - _templateCheckedAt < COLUMN_RECHECK_MS) return false;
   try {
-    const [[row]] = await pool.execute(
-      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'events' AND COLUMN_NAME = 'thank_you_template'`
-    );
-    _templateColumn = Number(row.n) > 0;
-  } catch {
+    _templateColumn = await columnExists('events', 'thank_you_template');
+  } catch (err) {
+    console.error('[hasTemplateColumn] schema check failed:', err.message);
     _templateColumn = false;
   }
+  _templateCheckedAt = Date.now();
   return _templateColumn;
+}
+
+// Which database the pool is actually connected to — used to make the failure message
+// actionable when a migration was applied to a different schema.
+async function currentDatabase() {
+  try {
+    const [[row]] = await pool.execute('SELECT DATABASE() AS db');
+    return row?.db || '(unknown)';
+  } catch {
+    return '(unknown)';
+  }
 }
 
 // Same authorization the rest of the app uses: the event must be inside the
@@ -372,9 +398,9 @@ const resolveTemplate = (event) => savedTemplate(event) || buildThankYouTemplate
 // This is only a fallback: an event with a saved message keeps its own wording.
 function buildThankYouTemplate(event) {
   const date  = formatEventDate(event.event_date);
-  const where = event.venue ? ` kule ${event.venue}` : '';
-  const when  = date ? ` siku ya ${date}` : '';
-  return `Habari {guest_name}, tunakushukuru kwa dhati kwa kuhudhuria ${event.event_name}${where}${when}. `
+  const where = event.venue ? ` pale ${event.venue}` : '';
+  const when  = date ? ` siku ya tarehe ${date}` : '';
+  return `Habari {guest_name}, Familia inakushukuru kwa dhati kwa kuhudhuria ${event.event_name}${where}${when}. `
     + 'Uwepo wako ulifanya tukio letu kuwa la kipekee. Asante sana na Mungu akubariki.';
 }
 
@@ -468,14 +494,37 @@ async function saveThankYouTemplate(req, res) {
     const event = await loadEventForUser(eventId, req.user);
     if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
 
-    if (!(await hasTemplateColumn())) {
+    // force: a cached "missing" must never block a save after the migration has run
+    if (!(await hasTemplateColumn({ force: true }))) {
+      const db = await currentDatabase();
+      console.error(`[saveThankYouTemplate] events.thank_you_template missing in database "${db}"`);
       return res.status(400).json({
         success: false,
-        message: 'Saving is unavailable: the database is missing thank_you_template (run migration_thank_you_template.sql).',
+        code: 'THANK_YOU_COLUMN_MISSING',
+        database: db,
+        message: `Saving is unavailable: database "${db}" has no column events.thank_you_template. `
+          + 'Run server/database/migration_thank_you_template.sql against that database '
+          + '(note: this is a different file from migration_thank_you_sms.sql).',
       });
     }
 
-    await pool.execute('UPDATE events SET thank_you_template = ? WHERE id = ?', [message, eventId]);
+    try {
+      await pool.execute('UPDATE events SET thank_you_template = ? WHERE id = ?', [message, eventId]);
+    } catch (err) {
+      if (err?.code !== 'ER_BAD_FIELD_ERROR') throw err;
+      // The column vanished since the last check — report it instead of a 500
+      _templateColumn = false;
+      _templateCheckedAt = Date.now();
+      const db = await currentDatabase();
+      return res.status(400).json({
+        success: false,
+        code: 'THANK_YOU_COLUMN_MISSING',
+        database: db,
+        message: `Saving is unavailable: database "${db}" has no column events.thank_you_template. `
+          + 'Run server/database/migration_thank_you_template.sql against that database.',
+      });
+    }
+
     console.log(`[saveThankYouTemplate] event=${eventId} saved (${message.length} chars)`);
     res.json({ success: true, saved_template: message, message: 'Message saved successfully' });
   } catch (err) {

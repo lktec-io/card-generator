@@ -52,6 +52,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
@@ -92,10 +93,11 @@
 .invite-section {
   width: 100%;
   background: rgba(255, 255, 255, 0.05);
+  -webkit--webkit-backdrop-filter: blur(24px);
+backdrop-filter: blur(24px);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(212, 175, 55, 0.18);
-  border-radius: 22px;
+  border-radius: var(--radius-md);
   padding: 1.75rem;
 }
 
@@ -172,7 +174,7 @@
   gap: 0.55rem;
   background: rgba(212, 175, 55, 0.10);
   border: 1px solid rgba(212, 175, 55, 0.25);
-  border-radius: 30px;
+  border-radius: var(--radius-xs);
   padding: 0.4rem 1rem;
   margin-top: 0.25rem;
 }
@@ -235,7 +237,7 @@
   gap: 0.3rem;
   background: rgba(212, 175, 55, 0.12);
   border: 1px solid rgba(212, 175, 55, 0.30);
-  border-radius: 30px;
+  border-radius: var(--radius-sm);
   padding: 0.45rem 1rem;
   color: #d4af37;
   font-family: 'Poppins', sans-serif;
@@ -300,7 +302,7 @@
 .invite-qr-box {
   display: inline-block;
   background: #fff;
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   padding: 10px;
   margin-bottom: 0.85rem;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -384,7 +386,7 @@
   gap: 0.65rem;
   width: 100%;
   padding: 1.05rem 1rem;
-  border-radius: 16px;
+  border-radius: var(--radius-sm);
   font-family: 'Poppins', sans-serif;
   font-size: 1rem;
   font-weight: 700;
@@ -438,7 +440,7 @@
   align-items: flex-start;
   gap: 0.85rem;
   padding: 1.25rem;
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   text-align: left;
 }
 
@@ -526,8 +528,9 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
+  -webkit--webkit-backdrop-filter: blur(10px);
+backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   /* Below confetti (99999) — user sees petals fly in front of the popup */
   z-index: 9980;
   display: flex;
@@ -545,7 +548,7 @@
 .rsvp-modal {
   width: 100%;
   max-width: 340px;
-  border-radius: 24px;
+  border-radius: var(--radius-md);
   padding: 2.5rem 1.75rem 2rem;
   text-align: center;
   /* Sits above the backdrop but still below confetti */
@@ -606,7 +609,7 @@
   justify-content: center;
   margin-top: 1rem;
   padding: 0.75rem 2rem;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   font-family: 'Poppins', sans-serif;
   font-size: 0.88rem;
   font-weight: 600;
@@ -632,7 +635,7 @@
 
 @media (max-width: 500px) {
   .invite-page     { padding: 1rem 0.75rem 3rem; }
-  .invite-section  { border-radius: 16px; padding: 1.4rem; }
+  .invite-section  { border-radius: var(--radius-md); padding: 1.4rem; }
   .invite-guest-name { font-size: 1.9rem; }
   .invite-event-name { font-size: 1.15rem; }
   .invite-rsvp-title { font-size: 1.5rem; }

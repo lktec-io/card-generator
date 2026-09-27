@@ -160,7 +160,7 @@
   font-size: 12px;
   color: var(--gold-light);
   background: var(--gold-dim);
-  border-radius: 20px;
+  border-radius: var(--radius-md);
   padding: 4px 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -184,7 +184,7 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-radius: 20px;
+  border-radius: var(--radius-xs);
   padding: 4px 10px;
 }
 .ct-card-status--active   { color: #6fe3a0; background: rgba(111, 227, 160, 0.12); }
@@ -322,7 +322,7 @@
 .cte-element-chip {
   font-family: var(--font-main);
   font-size: 12px;
-  border-radius: 20px;
+  border-radius: var(--radius-xs);
   padding: 7px 14px;
   border: 1px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.03);
@@ -377,7 +377,7 @@
   font-weight: 600;
   color: var(--gold-light);
   background: var(--gold-dim);
-  border-radius: 20px;
+  border-radius: var(--radius-xs);
   padding: 4px 12px;
   white-space: nowrap;
 }

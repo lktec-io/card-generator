@@ -5,7 +5,10 @@
 --  default, so no event's wording changes when this runs.
 -- ═══════════════════════════════════════════════════════════════════════════
 
-USE card;
+-- Run it against the SAME database the API uses (server/.env DB_NAME), e.g.
+--   mysql -u root -p YOUR_DB_NAME < server/database/migration_thank_you_template.sql
+-- No USE statement here on purpose: the checks below run against whichever database
+-- you connect to, so the column can never land in the wrong schema.
 
 SET @col_exists = (
   SELECT COUNT(*) FROM information_schema.COLUMNS

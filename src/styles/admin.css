@@ -54,6 +54,7 @@
   margin-top: 0.4rem;
   flex-shrink: 0;
   transition: var(--transition);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
@@ -118,8 +119,9 @@
 
 .table-wrap {
   background: var(--glass-bg);
+  -webkit--webkit-backdrop-filter: blur(16px);
+backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 2rem;
@@ -262,7 +264,7 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 4px 12px;
-  border-radius: 30px;
+  border-radius: var(--radius-xs);
   white-space: nowrap;
 }
 
@@ -281,8 +283,9 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
+  -webkit--webkit-backdrop-filter: blur(8px);
+backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -299,7 +302,7 @@
 .modal-box {
   background: #1a1a1a;
   border: 1px solid rgba(212, 175, 55, 0.22);
-  border-radius: 18px;
+  border-radius: var(--radius-md);
   width: 100%;
   max-width: 340px;
   padding: 2rem 1.75rem 1.75rem;

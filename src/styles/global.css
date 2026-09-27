@@ -102,13 +102,19 @@ textarea,
   --font-main:    'Poppins', 'Segoe UI', system-ui, sans-serif;
   --font-elegant: 'Cormorant Garamond', Georgia, serif;
 
-  --radius-sm: 10px;
-  --radius-md: 18px;
-  --radius-lg: 28px;
-  --radius-xl: 40px;
+  /* Radius scale — restrained, 8px is the ceiling.
+     xs 4px  badges, chips, progress bars
+     sm 6px  buttons, inputs, small controls
+     md 8px  cards, modals, tables, dropdowns
+     lg/xl kept as aliases so older rules stay on the scale. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
 
   /* Buttons: compact fintech radius — change it here for every button */
-  --radius-btn: 5px;
+  --radius-btn: var(--radius-sm);   /* buttons and inputs share one step */
 
   --shadow-sm:   0 2px 12px rgba(0, 0, 0, 0.35);
   --shadow-md:   0 8px 32px rgba(0, 0, 0, 0.45);
@@ -236,10 +242,16 @@ a {
   transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease;
 }
 
+/* Restrained lift rather than a scale-up — closer to a professional tool than an app */
 .btn-gold:hover:not(:disabled) {
   box-shadow: var(--shadow-gold);
-  transform: scale(1.05) translateY(-2px);
-  filter: brightness(1.08);
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+.btn-gold:focus-visible,
+.btn-outline:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 
 .btn-gold:active:not(:disabled) {
@@ -270,10 +282,24 @@ a {
   transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
 }
 
-.btn-outline:hover {
+.btn-outline:hover:not(:disabled) {
   background: var(--gold-dim);
-  box-shadow: 0 0 22px rgba(212, 175, 55, 0.18);
-  transform: scale(1.04) translateY(-1px);
+  box-shadow: 0 0 18px rgba(212, 175, 55, 0.16);
+  transform: translateY(-1px);
+}
+
+.btn-outline:active:not(:disabled) { transform: translateY(0); }
+
+.btn-outline:disabled {
+  opacity: 0.36;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-gold, .btn-outline { transition: none; }
+  .btn-gold:hover:not(:disabled), .btn-outline:hover:not(:disabled) { transform: none; }
 }
 
 /* ── Form error banner ────────────────────────────────────────────────── */

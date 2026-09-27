@@ -4,7 +4,7 @@
   --dash-surface:     rgba(24, 24, 24, 0.78);
   --dash-line:        rgba(255, 255, 255, 0.07);
   --dash-line-strong: rgba(255, 255, 255, 0.14);
-  --dash-radius:      12px;
+  --dash-radius:      var(--radius-md);   /* on the global 4/6/8 scale */
   --dash-pad:         1.25rem;
   --dash-gap:         1rem;
 
@@ -57,8 +57,9 @@
 .dash-card,
 .dash-kpi {
   background: var(--dash-surface);
+  -webkit--webkit-backdrop-filter: blur(14px);
+backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--dash-line);
   border-radius: var(--dash-radius);
   min-width: 0;
