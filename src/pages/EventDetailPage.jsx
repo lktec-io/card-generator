@@ -147,6 +147,8 @@ export default function EventDetailPage() {
   const [tySingle,     setTySingle]     = useState(null);   // invitation awaiting confirmation
   const [tySendingId,  setTySendingId]  = useState(null);
   const [tySentIds,    setTySentIds]    = useState([]);     // invitations already thanked
+  const [tyError,      setTyError]      = useState('');     // why the details could not load
+  const [tyLoading,    setTyLoading]    = useState(false);
   const tyPollRef = useRef(null);
   // Synchronous send guards. State updates are async, so rapid repeat clicks on a confirm
   // button can all run before React re-renders — these refs stop a second send outright.
@@ -361,13 +363,20 @@ export default function EventDetailPage() {
   /* ── Post-event thank-you: load default message + recipient counts ── */
   const loadThankYou = () => {
     if (!canSendSms) return;
+    setTyLoading(true);
+    setTyError('');
     getThankYouInfo(id)
       .then(({ data: d }) => {
         setTyInfo(d);
         setTySentIds(d.already_sent_ids || []);
         setTyMessage(prev => (prev ? prev : d.template || ''));   // keep an edit in progress
       })
-      .catch(() => setTyInfo(null));
+      .catch((err) => {
+        // Never hide the section silently — show why, so the cause is visible on the page
+        setTyInfo(null);
+        setTyError(err.response?.data?.message || err.message || 'Could not load the thank-you details.');
+      })
+      .finally(() => setTyLoading(false));
   };
 
   /* ── Thank-you: one guest ── */
@@ -860,6 +869,140 @@ export default function EventDetailPage() {
           )}
         </div>
 
+        {/* ── Post-event thank-you SMS — managers/admins, invitation events ── */}
+        {!isContribution && canSendSms && (
+          <div className="ev-inv-section ty-section" style={{ marginTop: '1.5rem' }}>
+            <div className="ev-inv-head">
+              <h2><MdVolunteerActivism size={17} /> Post-Event Thank You</h2>
+              {tyInfo && <span className="log-count">{tyCounts.with_phone} with phone</span>}
+            </div>
+
+            {!tyInfo ? (
+              <div className="ty-body">
+                {tyLoading ? (
+                  <p className="ty-hint">Loading thank-you details…</p>
+                ) : (
+                  <>
+                    <p className="ty-warn ty-warn--stop">{tyError || 'Could not load the thank-you details.'}</p>
+                    <p className="ty-hint">
+                      The thank-you message and recipient counts come from the server. If this keeps failing,
+                      the API may not be running the latest version yet.
+                    </p>
+                    <div className="ty-actions">
+                      <button className="btn-outline" onClick={loadThankYou}>Retry</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+            <div className="ty-body">
+              <label className="ty-label" htmlFor="ty-message">Thank You Message</label>
+              <textarea
+                id="ty-message"
+                className="ty-textarea"
+                rows={7}
+                value={tyMessage}
+                onChange={e => setTyMessage(e.target.value)}
+                placeholder="Thank-you message…"
+              />
+              <div className="ty-meta">
+                <span className={tyTooLong || tySms.segments > 2 ? 'ty-meta-warn' : ''}>
+                  {tySms.chars} / {tyMaxChars} characters · {tySms.segments} SMS {tySms.segments === 1 ? 'segment' : 'segments'}
+                </span>
+                <button type="button" className="ty-reset" onClick={() => setTyMessage(tyInfo.template || '')}>
+                  Reset to default
+                </button>
+              </div>
+              {tyTooLong && (
+                <p className="ty-warn ty-warn--stop">
+                  Too long to send: {tySms.chars} characters, maximum {tyMaxChars}. Shorten the message by{' '}
+                  {tySms.chars - tyMaxChars} character{tySms.chars - tyMaxChars !== 1 ? 's' : ''}.
+                </p>
+              )}
+              {!tyTooLong && tySms.segments > 2 && (
+                <p className="ty-warn">
+                  This message will be sent as {tySms.segments} SMS segments per guest — each segment is charged separately.
+                </p>
+              )}
+              {tySms.unsupported && (
+                <p className="ty-warn">
+                  Some characters are outside the standard SMS alphabet and may not display correctly on every phone.
+                </p>
+              )}
+              <p className="ty-hint">
+                {'{guest_name}'} is replaced with each guest&apos;s name. Edits here apply to this send only —
+                the event&apos;s saved SMS template is not changed.
+              </p>
+
+              <fieldset className="ty-recipients">
+                <legend>Recipients</legend>
+                <label className={`ty-radio${tyGroup === 'checked_in' ? ' is-active' : ''}`}>
+                  <input type="radio" name="ty-group" value="checked_in"
+                    checked={tyGroup === 'checked_in'} onChange={() => setTyGroup('checked_in')} />
+                  <span>Checked-in guests
+                    <em>{tyInfo.counts.checked_in.with_phone} with phone of {tyInfo.counts.checked_in.total}</em>
+                  </span>
+                </label>
+                <label className={`ty-radio${tyGroup === 'all' ? ' is-active' : ''}`}>
+                  <input type="radio" name="ty-group" value="all"
+                    checked={tyGroup === 'all'} onChange={() => setTyGroup('all')} />
+                  <span>All invited guests
+                    <em>{tyInfo.counts.all.with_phone} with phone of {tyInfo.counts.all.total}</em>
+                  </span>
+                </label>
+              </fieldset>
+
+              {tyInfo.tracking_available && tyAlready > 0 && (
+                <label className="ty-resend">
+                  <input type="checkbox" checked={tyResend} onChange={e => setTyResend(e.target.checked)} />
+                  <span>Send again to {tyAlready} guest{tyAlready !== 1 ? 's' : ''} already thanked</span>
+                </label>
+              )}
+
+              <div className="ty-actions">
+                <button
+                  className="btn-gold"
+                  onClick={() => setTyStep('count')}
+                  disabled={tyBusy || tyQueued === 0 || tySms.chars === 0 || tyTooLong}
+                >
+                  <MdVolunteerActivism size={15} />
+                  {tyBusy ? 'Sending…' : `Send Thank You to All (${tyQueued})`}
+                </button>
+                {tySkipped > 0 && (
+                  <span className="ty-skip-note">{tySkipped} without phone number will be skipped</span>
+                )}
+              </div>
+
+              {tyJob && (
+                <div className="sms-progress-wrap">
+                  {tyJob.done ? (
+                    <div className="sms-progress-done">
+                      <span>
+                        Thank-you SMS complete — <strong>{tyJob.sent}</strong> sent,{' '}
+                        <strong>{tyJob.failed}</strong> failed,{' '}
+                        <strong>{tyJob.skipped}</strong> skipped
+                        {tyJob.already > 0 && <> , <strong>{tyJob.already}</strong> already thanked</>}.
+                      </span>
+                      <button className="sms-progress-close" onClick={() => setTyJob(null)}>✕</button>
+                    </div>
+                  ) : (
+                    <div className="sms-progress-running">
+                      <div className="sms-progress-bar-track">
+                        <div className="sms-progress-bar-fill"
+                          style={{ width: `${Math.round(((tyJob.sent + tyJob.failed) / Math.max(1, tyJob.total)) * 100)}%` }} />
+                      </div>
+                      <span className="sms-progress-text">
+                        Sending thank-you SMS… {tyJob.sent + tyJob.failed} / {tyJob.total}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            )}
+          </div>
+        )}
+
         {/* ── Invitations section ── */}
         <div className="ev-inv-section">
           <div className="ev-inv-head">
@@ -1049,121 +1192,6 @@ export default function EventDetailPage() {
             </div>
           )}
         </div>
-
-        {/* ── Post-event thank-you SMS — managers/admins, invitation events ── */}
-        {!isContribution && canSendSms && tyInfo && (
-          <div className="ev-inv-section ty-section" style={{ marginTop: '1.5rem' }}>
-            <div className="ev-inv-head">
-              <h2><MdVolunteerActivism size={17} /> Post-Event Thank You</h2>
-              <span className="log-count">{tyCounts.with_phone} with phone</span>
-            </div>
-
-            <div className="ty-body">
-              <label className="ty-label" htmlFor="ty-message">Thank You Message</label>
-              <textarea
-                id="ty-message"
-                className="ty-textarea"
-                rows={7}
-                value={tyMessage}
-                onChange={e => setTyMessage(e.target.value)}
-                placeholder="Thank-you message…"
-              />
-              <div className="ty-meta">
-                <span className={tyTooLong || tySms.segments > 2 ? 'ty-meta-warn' : ''}>
-                  {tySms.chars} characters · {tySms.segments} SMS {tySms.segments === 1 ? 'segment' : 'segments'}
-                </span>
-                <button type="button" className="ty-reset" onClick={() => setTyMessage(tyInfo.template || '')}>
-                  Reset to default
-                </button>
-              </div>
-              {tyTooLong && (
-                <p className="ty-warn ty-warn--stop">
-                  Too long to send: {tySms.chars} characters, maximum {tyMaxChars}. Shorten the message by{' '}
-                  {tySms.chars - tyMaxChars} character{tySms.chars - tyMaxChars !== 1 ? 's' : ''}.
-                </p>
-              )}
-              {!tyTooLong && tySms.segments > 2 && (
-                <p className="ty-warn">
-                  This message will be sent as {tySms.segments} SMS segments per guest — each segment is charged separately.
-                </p>
-              )}
-              {tySms.unsupported && (
-                <p className="ty-warn">
-                  Some characters are outside the standard SMS alphabet and may not display correctly on every phone.
-                </p>
-              )}
-              <p className="ty-hint">
-                {'{guest_name}'} is replaced with each guest&apos;s name. Edits here apply to this send only —
-                the event&apos;s saved SMS template is not changed.
-              </p>
-
-              <fieldset className="ty-recipients">
-                <legend>Recipients</legend>
-                <label className={`ty-radio${tyGroup === 'checked_in' ? ' is-active' : ''}`}>
-                  <input type="radio" name="ty-group" value="checked_in"
-                    checked={tyGroup === 'checked_in'} onChange={() => setTyGroup('checked_in')} />
-                  <span>Checked-in guests
-                    <em>{tyInfo.counts.checked_in.with_phone} with phone of {tyInfo.counts.checked_in.total}</em>
-                  </span>
-                </label>
-                <label className={`ty-radio${tyGroup === 'all' ? ' is-active' : ''}`}>
-                  <input type="radio" name="ty-group" value="all"
-                    checked={tyGroup === 'all'} onChange={() => setTyGroup('all')} />
-                  <span>All invited guests
-                    <em>{tyInfo.counts.all.with_phone} with phone of {tyInfo.counts.all.total}</em>
-                  </span>
-                </label>
-              </fieldset>
-
-              {tyInfo.tracking_available && tyAlready > 0 && (
-                <label className="ty-resend">
-                  <input type="checkbox" checked={tyResend} onChange={e => setTyResend(e.target.checked)} />
-                  <span>Send again to {tyAlready} guest{tyAlready !== 1 ? 's' : ''} already thanked</span>
-                </label>
-              )}
-
-              <div className="ty-actions">
-                <button
-                  className="btn-gold"
-                  onClick={() => setTyStep('count')}
-                  disabled={tyBusy || tyQueued === 0 || tySms.chars === 0 || tyTooLong}
-                >
-                  <MdVolunteerActivism size={15} />
-                  {tyBusy ? 'Sending…' : `Send Thank You to All (${tyQueued})`}
-                </button>
-                {tySkipped > 0 && (
-                  <span className="ty-skip-note">{tySkipped} without phone number will be skipped</span>
-                )}
-              </div>
-
-              {tyJob && (
-                <div className="sms-progress-wrap">
-                  {tyJob.done ? (
-                    <div className="sms-progress-done">
-                      <span>
-                        Thank-you SMS complete — <strong>{tyJob.sent}</strong> sent,{' '}
-                        <strong>{tyJob.failed}</strong> failed,{' '}
-                        <strong>{tyJob.skipped}</strong> skipped
-                        {tyJob.already > 0 && <> , <strong>{tyJob.already}</strong> already thanked</>}.
-                      </span>
-                      <button className="sms-progress-close" onClick={() => setTyJob(null)}>✕</button>
-                    </div>
-                  ) : (
-                    <div className="sms-progress-running">
-                      <div className="sms-progress-bar-track">
-                        <div className="sms-progress-bar-fill"
-                          style={{ width: `${Math.round(((tyJob.sent + tyJob.failed) / Math.max(1, tyJob.total)) * 100)}%` }} />
-                      </div>
-                      <span className="sms-progress-text">
-                        Sending thank-you SMS… {tyJob.sent + tyJob.failed} / {tyJob.total}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* ── Voice Messages section — Invitation Events only ── */}
         {!isContribution && (
