@@ -151,27 +151,29 @@
     0 8px 20px rgba(88, 68, 38, 0.12);
 }
 
+/* Fills the circle edge to edge. This suits an opaque, square logo (a photo-style or
+   solid-background mark) — with padding it would float as a pale square on the cream.
+   If your logo is a TRANSPARENT monogram, swap these two lines for:
+       object-fit: contain;  padding: 16px;                                          */
 .logo-image {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;          /* never crops or distorts the artwork */
-  padding: 16px;                /* breathing room inside the circle */
+  object-fit: cover;
+  border-radius: 50%;
   box-sizing: border-box;
-  position: relative;
-  z-index: 1;
 }
 
-/* Shown only while logo.png is absent */
+/* Rendered only when /logo.png is genuinely missing */
 .logo-fallback {
-  position: absolute;
-  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: 2.4rem;
   color: var(--si-gold);
-  z-index: 0;
 }
 
 /* ── Headings ───────────────────────────────────────────────────────────── */

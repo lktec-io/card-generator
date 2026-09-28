@@ -14,6 +14,7 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember]         = useState(true);
   const [loading, setLoading]           = useState(false);
+  const [logoFailed, setLogoFailed]     = useState(false);
 
   const update = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
   const canSubmit = form.email.trim() && form.password && !loading;
@@ -35,16 +36,19 @@ export default function SignInPage() {
 
       <main className="si-card">
         {/* ── Logo ─────────────────────────────────────────────────────────
-            Drop your file at  public/logo.png  and it appears here.
-            Until then the monogram below shows instead. */}
+            File lives at  public/logo.png  →  served by Vite at  /logo.png
+            The monogram is rendered only if that file is genuinely missing. */}
         <div className="logo-container">
-          <img
-            src="/logo.png"
-            alt="Cardhub"
-            className="logo-image"
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          />
-          <span className="logo-fallback" aria-hidden="true">C</span>
+          {logoFailed ? (
+            <span className="logo-fallback" aria-hidden="true">C</span>
+          ) : (
+            <img
+              src="/logo.png"
+              alt="Cardhub"
+              className="logo-image"
+              onError={() => setLogoFailed(true)}
+            />
+          )}
         </div>
 
         <header className="si-head">
