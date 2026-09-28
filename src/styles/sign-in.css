@@ -9,8 +9,10 @@
   --si-cream:      #f3ece1;
   --si-gold:       #b08d4f;
   --si-gold-soft:  #d4b478;
-  --si-ink:        #2c2620;
-  --si-ink-soft:   #6b6154;
+  --si-ink:        #ffffff;                 /* text sits on glass now */
+  --si-ink-soft:   rgba(255, 255, 255, 0.76);
+  --si-glass:      rgba(40, 30, 21, 0.30);     /* warm smoked tint — see-through, keeps text legible */
+  --si-glass-line: rgba(255, 255, 255, 0.26);
   --si-line:       rgba(176, 141, 79, 0.24);
   --si-radius:     8px;
   --si-radius-sm:  6px;
@@ -98,15 +100,15 @@
   max-width: 400px;
   padding: 1.75rem 1.75rem 1.5rem;
   text-align: center;
-  background: rgba(255, 252, 246, 0.86);
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
-  backdrop-filter: blur(12px) saturate(120%);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: var(--si-glass);
+  -webkit-backdrop-filter: blur(12px) saturate(135%);
+  backdrop-filter: blur(12px) saturate(135%);
+  border: 1px solid var(--si-glass-line);
   border-radius: var(--si-radius);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.85) inset,
-    0 22px 55px rgba(0, 0, 0, 0.42),
-    0 4px 14px rgba(0, 0, 0, 0.22);
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 22px 55px rgba(0, 0, 0, 0.45),
+    0 4px 14px rgba(0, 0, 0, 0.25);
   animation: siEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -186,7 +188,7 @@
   letter-spacing: 0.3em;
   text-indent: 0.3em;
   text-transform: uppercase;
-  color: var(--si-gold);
+  color: var(--si-gold-soft);
 }
 
 .si-rule {
@@ -227,7 +229,7 @@
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: var(--si-ink-soft);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .si-input-wrap {
@@ -241,16 +243,16 @@
   left: 0.8rem;
   width: 15px;
   height: 15px;
-  color: var(--si-gold);
-  opacity: 0.8;
+  color: var(--si-gold-soft);
+  opacity: 0.9;
   pointer-events: none;
 }
 
 .si-field input {
   width: 100%;
   padding: 0.7rem 0.85rem 0.7rem 2.35rem;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--si-line);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--si-glass-line);
   border-radius: var(--si-radius-sm);
   color: var(--si-ink);
   font-size: 1rem;              /* 16px keeps iOS from zooming on focus */
@@ -259,18 +261,27 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-.si-field input::placeholder { color: #b6ab9b; }
+.si-field input::placeholder { color: rgba(255, 255, 255, 0.55); }
 
-.si-field input:hover:not(:disabled):not(:focus) { border-color: rgba(176, 141, 79, 0.45); }
+.si-field input:hover:not(:disabled):not(:focus) { border-color: rgba(255, 255, 255, 0.4); }
 
 .si-field input:focus {
   outline: none;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.18);
   border-color: var(--si-gold-soft);
-  box-shadow: 0 0 0 3px rgba(212, 180, 120, 0.24);
+  box-shadow: 0 0 0 3px rgba(212, 180, 120, 0.3);
 }
 
 .si-field input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Autofill would otherwise paint a solid block over the glass */
+.si-field input:-webkit-autofill,
+.si-field input:-webkit-autofill:hover,
+.si-field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--si-ink);
+  -webkit-box-shadow: 0 0 0 1000px rgba(60, 50, 40, 0.92) inset;
+  caret-color: var(--si-ink);
+}
 
 /* Password reveal */
 .si-reveal {
@@ -289,7 +300,7 @@
   transition: color 0.18s ease, background-color 0.18s ease;
 }
 
-.si-reveal:hover:not(:disabled) { color: var(--si-gold); background: rgba(176, 141, 79, 0.1); }
+.si-reveal:hover:not(:disabled) { color: var(--si-gold-soft); background: rgba(255, 255, 255, 0.12); }
 .si-reveal:disabled { opacity: 0.5; cursor: not-allowed; }
 .si-reveal svg { width: 16px; height: 16px; }
 
@@ -326,8 +337,8 @@
   flex: none;
   width: 16px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--si-line);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--si-glass-line);
   border-radius: 4px;
   transition: background-color 0.18s ease, border-color 0.18s ease;
 }
@@ -359,12 +370,12 @@
   border-bottom: 1px solid transparent;
   font-size: 0.79rem;
   font-weight: 600;
-  color: var(--si-gold);
+  color: var(--si-gold-soft);
   cursor: pointer;
   transition: border-color 0.18s ease, color 0.18s ease;
 }
 
-.si-forgot:hover { color: #96773f; border-bottom-color: currentColor; }
+.si-forgot:hover { color: #f0d9a6; border-bottom-color: currentColor; }
 
 /* ── Messages ───────────────────────────────────────────────────────────── */
 
@@ -381,16 +392,16 @@
 }
 
 .si-error {
-  background: rgba(190, 74, 62, 0.09);
-  border: 1px solid rgba(190, 74, 62, 0.28);
-  color: #9d3a30;
+  background: rgba(190, 74, 62, 0.28);
+  border: 1px solid rgba(255, 138, 128, 0.45);
+  color: #ffdad5;
 }
 
 .si-error svg { flex: none; margin-top: 2px; width: 14px; height: 14px; }
 
 .si-hint {
-  background: rgba(176, 141, 79, 0.1);
-  border: 1px solid var(--si-line);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--si-glass-line);
   color: var(--si-ink-soft);
 }
 
@@ -407,7 +418,7 @@
   background: linear-gradient(135deg, var(--si-gold-soft) 0%, var(--si-gold) 100%);
   border: none;
   border-radius: var(--si-radius-sm);
-  color: #fffdf8;
+  color: #2a2117;
   font-size: 0.93rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -440,8 +451,8 @@
 .si-spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-top-color: #fff;
+  border: 2px solid rgba(42, 33, 23, 0.35);
+  border-top-color: #2a2117;
   border-radius: 50%;
   animation: siSpin 0.7s linear infinite;
 }
@@ -452,7 +463,7 @@
   margin: 1.1rem 0 0;
   font-size: 0.69rem;
   letter-spacing: 0.07em;
-  color: #a2957f;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
