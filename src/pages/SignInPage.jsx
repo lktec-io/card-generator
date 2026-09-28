@@ -1,30 +1,68 @@
-import { useState } from 'react';
-import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi';
+import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight, FiAlertCircle } from 'react-icons/fi';
+import { login } from '../utils/api';
 import '../styles/sign-in.css';
 
-/**
- * Sign-in screen — presentation only.
- *
- * Holds just enough state for the form to feel alive (values, reveal toggle, remember,
- * a short pretend submit). There is no auth here by design: to put this live, keep your
- * existing handleSubmit from LoginPage.jsx and swap the markup in.
- */
+// Remembered email only — a password is never stored
+const REMEMBER_KEY = 'cardhub_remember_email';
+
+const readRemembered = () => {
+  try { return localStorage.getItem(REMEMBER_KEY) || ''; } catch { return ''; }
+};
+
 export default function SignInPage() {
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [email,        setEmail]        = useState(readRemembered);
+  const [password,     setPassword]     = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember]         = useState(true);
-  const [loading, setLoading]           = useState(false);
-  const [logoFailed, setLogoFailed]     = useState(false);
+  const [remember,     setRemember]     = useState(true);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState('');
+  const [hint,         setHint]         = useState('');
+  const [logoFailed,   setLogoFailed]   = useState(false);
+  const navigate = useNavigate();
+  // State updates are async, so rapid repeat clicks can all pass a state-based check —
+  // this ref blocks a second request synchronously.
+  const submitting = useRef(false);
 
-  const update = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
-  const canSubmit = form.email.trim() && form.password && !loading;
+  const canSubmit = email.trim() && password && !loading;
 
-  const handleSubmit = (e) => {
+  /* Authentication — carried over unchanged from the previous login page:
+     same API call, same token key, same role-based redirects, same error handling. */
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (submitting.current) return;          // guards against a double submit
+    submitting.current = true;
+    setError('');
+    setHint('');
     setLoading(true);
-    // Placeholder only — replace with your real sign-in call
-    setTimeout(() => setLoading(false), 1400);
+    try {
+      const { data } = await login(email.trim(), password);
+      if (data.success) {
+        localStorage.setItem('wqr_token', data.token);
+        // Remember the address only, never the password
+        try {
+          if (remember) localStorage.setItem(REMEMBER_KEY, email.trim());
+          else localStorage.removeItem(REMEMBER_KEY);
+        } catch { /* private mode — not worth failing the sign-in over */ }
+
+        if (data.role === 'verifier' || data.role === 'gate_staff') {
+          navigate('/verify', { replace: true });
+        } else if (data.role === 'event_manager') {
+          navigate('/events', { replace: true });
+        } else {
+          // admin and super_admin both go to dashboard
+          navigate('/', { replace: true });
+        }
+      } else {
+        setError(data.message || 'Login failed.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Network error — try again.');
+    } finally {
+      submitting.current = false;
+      setLoading(false);
+    }
   };
 
   return (
@@ -37,7 +75,7 @@ export default function SignInPage() {
       <main className="si-card">
         {/* ── Logo ─────────────────────────────────────────────────────────
             File lives at  public/logo.png  →  served by Vite at  /logo.png
-            The monogram is rendered only if that file is genuinely missing. */}
+            The monogram renders only if that file is genuinely missing. */}
         <div className="logo-container">
           {logoFailed ? (
             <span className="logo-fallback" aria-hidden="true">C</span>
@@ -67,10 +105,11 @@ export default function SignInPage() {
               <input
                 id="si-email"
                 type="email"
-                value={form.email}
-                onChange={update('email')}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
+                required
                 disabled={loading}
               />
             </div>
@@ -78,15 +117,18 @@ export default function SignInPage() {
 
           <div className="si-field">
             <label htmlFor="si-password">Password</label>
+            {/* spellCheck/autoCorrect off: once revealed as text, the password must not
+                be sent to spellcheck or autocorrect */}
             <div className="si-input-wrap">
               <FiLock className="si-input-icon" aria-hidden="true" />
               <input
                 id="si-password"
                 type={showPassword ? 'text' : 'password'}
-                value={form.password}
-                onChange={update('password')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="current-password"
+                required
                 disabled={loading}
                 spellCheck={false}
                 autoCapitalize="none"
@@ -99,6 +141,7 @@ export default function SignInPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 aria-pressed={showPassword}
+                aria-controls="si-password"
                 disabled={loading}
               >
                 {showPassword ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}
@@ -118,8 +161,22 @@ export default function SignInPage() {
               <span>Remember me</span>
             </label>
 
-            <a className="si-forgot" href="#forgot">Forgot password?</a>
+            {/* No self-service reset exists yet — point this at a real route when it does */}
+            <button
+              type="button"
+              className="si-forgot"
+              onClick={() => setHint('Ask your administrator to reset your password.')}
+            >
+              Forgot password?
+            </button>
           </div>
+
+          {error && (
+            <p className="si-error" role="alert">
+              <FiAlertCircle aria-hidden="true" /> {error}
+            </p>
+          )}
+          {hint && !error && <p className="si-hint">{hint}</p>}
 
           <button type="submit" className="si-submit" disabled={!canSubmit}>
             {loading ? (

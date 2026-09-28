@@ -5,7 +5,7 @@ import DashboardPage            from './pages/DashboardPage';
 import CreatePage               from './pages/CreatePage';
 import VerifyPage               from './pages/VerifyPage';
 import AdminPage                from './pages/AdminPage';
-import LoginPage                from './pages/LoginPage';
+import SignInPage               from './pages/SignInPage';
 import EventsPage               from './pages/EventsPage';
 import EventDetailPage          from './pages/EventDetailPage';
 import VerificationHistoryPage  from './pages/VerificationHistoryPage';
@@ -55,7 +55,7 @@ function AppShell() {
       <main>
         <Routes>
           {/* Public */}
-          <Route path="/login"         element={<LoginPage />} />
+          <Route path="/login"         element={<SignInPage />} />
           <Route path="/invite/:uuid"  element={<PublicInvitePage />} />
           <Route path="/display/:uuid" element={<FieldRoute><PublicInvitePage isPreview /></FieldRoute>} />
 

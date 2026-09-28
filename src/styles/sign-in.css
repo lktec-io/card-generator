@@ -134,33 +134,32 @@
 
 /* ── Logo ───────────────────────────────────────────────────────────────── */
 
+/* Rounded square, sized for a wordmark logo */
 .logo-container {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 88px;
-  height: 88px;
+  width: 104px;
+  height: 104px;
   margin: 0 auto 1.15rem;
   overflow: hidden;
   background: linear-gradient(145deg, #ffffff 0%, var(--si-cream) 100%);
   border: 1px solid var(--si-line);
-  border-radius: 50%;
+  border-radius: 8px;
   box-shadow:
     0 0 0 6px rgba(255, 255, 255, 0.55),
     0 8px 20px rgba(88, 68, 38, 0.12);
 }
 
-/* Fills the circle edge to edge. This suits an opaque, square logo (a photo-style or
-   solid-background mark) — with padding it would float as a pale square on the cream.
-   If your logo is a TRANSPARENT monogram, swap these two lines for:
-       object-fit: contain;  padding: 16px;                                          */
+/* contain + a little padding keeps the whole wordmark readable and never crops it */
 .logo-image {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
+  object-fit: contain;
+  padding: 8px;
+  border-radius: 6px;
   box-sizing: border-box;
 }
 
@@ -368,6 +367,12 @@
 }
 
 .si-forgot {
+  padding: 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid transparent;
+  font-family: inherit;
+  cursor: pointer;
   font-size: 0.83rem;
   font-weight: 600;
   color: var(--si-gold);
@@ -461,4 +466,32 @@
   .si-glow, .si-bokeh, .si-card { animation: none; }
   .si-submit, .si-submit-arrow, .si-field input { transition: none; }
   .si-submit:hover:not(:disabled) { transform: none; }
+}
+
+/* ── Error / hint messages ──────────────────────────────────────────────── */
+
+.si-error,
+.si-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--si-radius-sm);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.si-error {
+  background: rgba(190, 74, 62, 0.08);
+  border: 1px solid rgba(190, 74, 62, 0.25);
+  color: #a23f34;
+}
+
+.si-error svg { flex: none; margin-top: 2px; width: 15px; height: 15px; }
+
+.si-hint {
+  background: rgba(176, 141, 79, 0.08);
+  border: 1px solid var(--si-line);
+  color: var(--si-ink-soft);
 }
