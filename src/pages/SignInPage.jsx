@@ -67,10 +67,10 @@ export default function SignInPage() {
 
   return (
     <div className="si-page">
-      {/* Decorative layers: warm light, soft bokeh, a faint monogram ring */}
+      {/* Decorative only — blurred wedding photograph, warm veil, soft light */}
+      <div className="si-bg" aria-hidden="true" />
+      <div className="si-veil" aria-hidden="true" />
       <div className="si-glow" aria-hidden="true" />
-      <div className="si-bokeh" aria-hidden="true" />
-      <div className="si-ring" aria-hidden="true" />
 
       <main className="si-card">
         {/* ── Logo ─────────────────────────────────────────────────────────
