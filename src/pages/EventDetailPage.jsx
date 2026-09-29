@@ -282,7 +282,7 @@ export default function EventDetailPage() {
 
     // Build compact details line (no empty lines between date/time/venue)
     const details = [
-      date  ? `📅 Tarehe: ${date}`  : null,
+      date  ? `🗓️ Tarehe: ${date}`  : null,
       time  ? `🕒 Muda: ${time}`  : null,
       venue ? `📍Mahali: ${venue}` : null,
     ].filter(Boolean).join('\n');
