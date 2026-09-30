@@ -12,7 +12,7 @@ const DEFAULT_TEMPLATE =
 Tunapenda kuchukua nafasi hii kukualika katika {event_name} itakayofanyika {venue}, siku ya tarehe {event_date} kuanzia saa {event_time}.
 
 Mualiko namba #{invitation_code}
-Type: {card_type}
+Aina: {card_type}
 Tafadhali fika na meseji hii.
 
 Karibu sana.`;
