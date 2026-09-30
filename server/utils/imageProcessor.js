@@ -370,4 +370,5 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
   return result;
 }
 
-module.exports = { processCardImage };
+// typeLabel is exported so the SMS text uses the same Single/Double wording as the card
+module.exports = { processCardImage, typeLabel };

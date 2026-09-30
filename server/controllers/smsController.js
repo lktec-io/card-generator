@@ -3,6 +3,8 @@
 const pool       = require('../config/db');
 const SmsService = require('../services/sms/SmsService');
 const { eventScopeSQL } = require('../middleware/authMiddleware');
+// Same Single/Double wording that is printed on the card itself
+const { typeLabel } = require('../utils/imageProcessor');
 
 // ── Default SMS template ──────────────────────────────────────────────────────
 const DEFAULT_TEMPLATE =
@@ -10,6 +12,7 @@ const DEFAULT_TEMPLATE =
 Tunapenda kuchukua nafasi hii kukualika katika {event_name} itakayofanyika {venue}, siku ya tarehe {event_date} kuanzia saa {event_time}.
 
 Mualiko namba #{invitation_code}
+Type: {card_type}
 Tafadhali fika na meseji hii.
 
 Karibu sana.`;
@@ -113,6 +116,29 @@ async function writeLog({ event_id, invitation_id, phone_number, provider, messa
   }
 }
 
+// invitations.card_type ('single' | 'double') is set when the card is generated and is
+// added by migration_card_type.sql. Guarded like the other optional columns so a database
+// without it can never break invitation SMS — the Type line is simply left out.
+let _cardTypeColumn    = null;
+let _cardTypeCheckedAt = 0;
+
+async function hasCardTypeColumn() {
+  if (_cardTypeColumn === true) return true;
+  if (_cardTypeColumn === false && Date.now() - _cardTypeCheckedAt < COLUMN_RECHECK_MS) return false;
+  try {
+    _cardTypeColumn = await columnExists('invitations', 'card_type');
+  } catch {
+    _cardTypeColumn = false;
+  }
+  _cardTypeCheckedAt = Date.now();
+  return _cardTypeColumn;
+}
+
+// A custom per-event template is used exactly as the admin wrote it. The built-in default
+// carries the Type line, and drops it when the type is not known for that guest.
+const invitationTemplate = (event, label) =>
+  event.sms_template || (label ? DEFAULT_TEMPLATE : DEFAULT_TEMPLATE.replace('Type: {card_type}\n', ''));
+
 // ── In-memory bulk job tracker ────────────────────────────────────────────────
 // Simple polling model — no SSE or WebSockets needed for this scale.
 const _jobs   = new Map();
@@ -141,8 +167,9 @@ async function sendSingle(req, res) {
   if (!invId) return res.status(400).json({ success: false, message: 'Invalid invitation ID.' });
 
   try {
+    const typeCol = (await hasCardTypeColumn()) ? ', card_type' : '';
     const [[inv]] = await pool.execute(
-      `SELECT id, guest_name, phone_number, code, event_id
+      `SELECT id, guest_name, phone_number, code, event_id${typeCol}
          FROM invitations WHERE id = ?`,
       [invId]
     );
@@ -155,13 +182,15 @@ async function sendSingle(req, res) {
     );
     if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
 
-    const message  = buildMessage(event.sms_template, {
+    const cardTypeLabel = inv.card_type ? typeLabel(inv.card_type) : '';
+    const message  = buildMessage(invitationTemplate(event, cardTypeLabel), {
       guest_name:      inv.guest_name,
       event_name:      event.event_name,
       venue:           event.venue    || '',
       event_date:      formatEventDate(event.event_date),
       event_time:      event.event_time || '',
       invitation_code: inv.code,
+      card_type:       cardTypeLabel,
     });
 
     const provider = SmsService.providerName();
@@ -197,8 +226,9 @@ async function sendBulk(req, res) {
     );
     if (!event) return res.status(404).json({ success: false, message: 'Event not found.' });
 
+    const typeCol = (await hasCardTypeColumn()) ? ', card_type' : '';
     const [invitations] = await pool.execute(
-      `SELECT id, guest_name, phone_number, code
+      `SELECT id, guest_name, phone_number, code${typeCol}
          FROM invitations
         WHERE event_id = ? AND phone_number IS NOT NULL AND phone_number != ''`,
       [eventId]
@@ -221,13 +251,15 @@ async function sendBulk(req, res) {
       for (const inv of invitations) {
         if (!job) break;
 
-        const message = buildMessage(event.sms_template, {
+        const cardTypeLabel = inv.card_type ? typeLabel(inv.card_type) : '';
+        const message = buildMessage(invitationTemplate(event, cardTypeLabel), {
           guest_name:      inv.guest_name,
           event_name:      event.event_name,
           venue:           event.venue    || '',
           event_date:      formatEventDate(event.event_date),
           event_time:      event.event_time || '',
           invitation_code: inv.code,
+          card_type:       cardTypeLabel,
         });
 
         try {
