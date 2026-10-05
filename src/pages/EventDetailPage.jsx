@@ -290,7 +290,7 @@ export default function EventDetailPage() {
     const fullMessage = [
       `KADI YA MWALIKO`,
       `Habari ${inv.guest_name},`,
-      `Tunafurahi kukualika kuhudhuria:`,
+      `Tunafurahi kukualika/kuwaalika kuhudhuria:`,
       `${emoji} ${name}`,
       details ? `\n${details}` : '',
       `\nBonyeza link 👇 hapa chini kuona mwaliko wako rasmi, kuthibitisha uwepo wako, na kupata ramani ya kufika kwenye tukio:`,
