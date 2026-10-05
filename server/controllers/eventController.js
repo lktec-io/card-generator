@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { eventScopeSQL } = require('../middleware/authMiddleware');
+const { deleteEventCardImages } = require('../services/cardStorage');
 
 const VALID_TYPES = [
   'Wedding', 'Kitchen Party', 'Birthday', 'Sendoff',
@@ -300,6 +301,9 @@ async function deleteEvent(req, res) {
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'Event not found.' });
     }
+    // Remove this event's stored card images. The directory is built from the trusted
+    // numeric event id only, and a failure here never fails the delete.
+    deleteEventCardImages(id);
     res.json({ success: true, message: 'Event deleted.' });
   } catch (err) {
     console.error('[deleteEvent]', err);

@@ -1,0 +1,4 @@
+# Generated card images live here (and in /var/www/card-generator/storage on the VPS).
+# Keep the folder, never commit the images.
+*
+!.gitignore

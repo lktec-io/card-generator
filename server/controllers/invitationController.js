@@ -3,7 +3,9 @@ const fs     = require('fs');
 const crypto = require('crypto');
 
 const pool                        = require('../config/db');
-const { uploadBuffer }            = require('../config/cloudinary');
+// Card images live on this server's filesystem (Cloudinary is still used elsewhere,
+// for voice messages and contribution templates — see server/config/cloudinary.js)
+const { saveCardImage, deleteCardImage } = require('../services/cardStorage');
 const { getNextCode }             = require('../utils/codeGenerator');
 const { generateStyledQRBuffer }  = require('../utils/qrGenerator');
 const { processCardImage }        = require('../utils/imageProcessor');
@@ -99,7 +101,7 @@ async function generateCard(req, res) {
 
   const connection = await pool.getConnection();
   const t0 = Date.now();
-  let code, uuid, finalBuffer;
+  let code, uuid, finalBuffer, invitationId, storedCard;
 
   try {
     await connection.beginTransaction();
@@ -115,13 +117,14 @@ async function generateCard(req, res) {
     code = await getNextCode(connection);
     uuid = crypto.randomUUID();
 
-    // 3 — Insert invitation row
-    await connection.execute(
+    // 3 — Insert invitation row (id is used to name the stored card file)
+    const [inserted] = await connection.execute(
       `INSERT INTO invitations
          (code, guest_name, card_type, phone_number, status, event_id, invitation_uuid)
        VALUES (?, ?, ?, ?, 'unused', ?, ?)`,
       [code, guestName, cardType, phone, eventId, uuid]
     );
+    invitationId = inserted.insertId;
 
     // 4 — Generate QR buffer (400px is enough quality; smaller = faster PNG encode)
     console.time(`[timer:${code}] qr-generate`);
@@ -147,14 +150,13 @@ async function generateCard(req, res) {
     });
     console.timeEnd(`[timer:${code}] processCardImage`);
 
-    // 6 — Save locally
-    const localFile = path.join(GENERATED_DIR, `${code}.png`);
-    fs.writeFileSync(localFile, finalBuffer);
+    // 6 — Save the card to VPS storage: storage/cards/<event>/<invitation>.png
+    storedCard = saveCardImage(eventId, invitationId, finalBuffer, 'png');
 
-    // 7 — Commit with local URL; background job will update to Cloudinary URL
+    // 7 — Commit with the stored path (no Cloudinary upload — see cardStorage.js)
     await connection.execute(
       `UPDATE invitations SET image_url = ? WHERE code = ?`,
-      [`/generated/${code}.png`, code]
+      [storedCard.url, code]
     );
     await connection.commit();
 
@@ -183,30 +185,12 @@ async function generateCard(req, res) {
     invitation_uuid: uuid,
     guest_name:      guestName,
     card_type:       cardType,
-    image_url:       `/generated/${code}.png`,
-    local_url:       `/generated/${code}.png`,
+    image_url:       storedCard.url,
+    local_url:       storedCard.url,
   });
 
-  // ── Background: upload to Cloudinary + update DB (non-blocking) ────────────
-  setImmediate(async () => {
-    try {
-      console.time(`[bg:${code}] cloudinary`);
-      const finalUpload = await uploadBuffer(finalBuffer, {
-        public_id:     `wedding-qr/generated/card_${code}`,
-        resource_type: 'image',
-        overwrite:     true,
-        quality:       'auto:best',
-      });
-      console.timeEnd(`[bg:${code}] cloudinary`);
-      await pool.execute(
-        `UPDATE invitations SET image_url = ? WHERE code = ?`,
-        [finalUpload.secure_url, code]
-      );
-      console.log(`[bg:${code}] Cloudinary synced: ${finalUpload.secure_url}`);
-    } catch (err) {
-      console.error(`[bg:${code}] Cloudinary upload failed:`, err.message);
-    }
-  });
+  // Card images are stored on this server now — no Cloudinary upload happens here.
+  console.log(`[generateCard] ${code} stored at ${storedCard.file} (${storedCard.bytes} bytes)`);
 }
 
 // ── verifyCode ────────────────────────────────────────────────────────────────
@@ -395,12 +379,21 @@ async function deleteInvitation(req, res) {
 
   const connection = await pool.getConnection();
   try {
+    // read the owning event first, so the stored card file can be removed after the row
+    const [[owner]] = await connection.execute(
+      'SELECT event_id, image_url FROM invitations WHERE id = ?',
+      [id]
+    );
     const [result] = await connection.execute(
       'DELETE FROM invitations WHERE id = ?',
       [id]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'Invitation not found.' });
+    }
+    // Storage cleanup — never fails the request, and only ever touches this card's file
+    if (owner && /^\/uploads\/cards\//.test(owner.image_url || '')) {
+      deleteCardImage(owner.event_id, id, 'png');
     }
     console.log(`[deleteInvitation] Deleted id=${id}`);
     return res.status(200).json({ success: true, message: 'Invitation deleted.' });

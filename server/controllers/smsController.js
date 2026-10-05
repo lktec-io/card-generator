@@ -136,8 +136,10 @@ async function hasCardTypeColumn() {
 
 // A custom per-event template is used exactly as the admin wrote it. The built-in default
 // carries the Type line, and drops it when the type is not known for that guest.
+// The whole line carrying {card_type} is dropped when the type is unknown, whatever the
+// label around it says — so re-wording the template cannot leave a dangling "Aina:".
 const invitationTemplate = (event, label) =>
-  event.sms_template || (label ? DEFAULT_TEMPLATE : DEFAULT_TEMPLATE.replace('Type: {card_type}\n', ''));
+  event.sms_template || (label ? DEFAULT_TEMPLATE : DEFAULT_TEMPLATE.replace(/^.*\{card_type\}.*(\r?\n)?/m, ''));
 
 // ── In-memory bulk job tracker ────────────────────────────────────────────────
 // Simple polling model — no SSE or WebSockets needed for this scale.

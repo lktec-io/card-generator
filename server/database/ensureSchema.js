@@ -31,6 +31,11 @@ const REQUIRED_COLUMNS = [
     migration: 'migration_thank_you_template.sql', purpose: 'saved post-event thank-you message',
   },
   {
+    table: 'invitations', column: 'cloudinary_url',
+    ddl: 'ALTER TABLE invitations ADD COLUMN cloudinary_url TEXT NULL AFTER image_url',
+    migration: 'migration_card_storage.sql', purpose: 'previous Cloudinary URL kept for rollback',
+  },
+  {
     table: 'invitations', column: 'card_type',
     ddl: "ALTER TABLE invitations ADD COLUMN card_type ENUM('single','double') NOT NULL DEFAULT 'single' AFTER guest_name",
     migration: 'migration_card_type.sql', purpose: 'Single/Double invitations and analytics',
