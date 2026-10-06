@@ -101,6 +101,7 @@ export default function BulkCardGenerator() {
   const startGuard = useRef(false);                     // one click = one run
 
   const [downloading, setDownloading] = useState(false);
+  const [imageError,  setImageError]  = useState('');
 
   const selectedEvent = events.find((e) => String(e.id) === String(eventId)) || null;
   // The card is previewed with the first guest actually in the file, so what is
@@ -140,7 +141,13 @@ export default function BulkCardGenerator() {
       .then(setQrDataUrl).catch(() => setQrDataUrl(''));
   }, []);
 
-  useEffect(() => () => { if (imagePreview) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
+  /* Release the previous object URL only once a NEW one has replaced it, and the
+     current one only when the component goes away. Revoking the URL that is
+     still set on <img> is what turns the preview into a broken image. */
+  useEffect(() => {
+    if (!imagePreview) return undefined;
+    return () => URL.revokeObjectURL(imagePreview);
+  }, [imagePreview]);
 
   /* ── geometry ─────────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -221,10 +228,30 @@ export default function BulkCardGenerator() {
   /* ── 4: card design ───────────────────────────────────────────────────── */
   const handleImage = (file) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) { showToast('The card design must be an image file.', 'error'); return; }
-    if (file.size > 10 * 1024 * 1024)    { showToast('The card design must be under 10 MB.', 'error'); return; }
+    setImageError('');
+
+    // Some pickers (notably Android galleries and a few desktop file managers)
+    // hand over a file with an empty or generic MIME type. Judging only by
+    // file.type silently refused perfectly good images, leaving the preview
+    // looking as if nothing had been chosen — so fall back to the extension.
+    const looksLikeImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(file.name || '');
+    if (!looksLikeImage) {
+      setImageError(`"${file.name || 'That file'}" is not a PNG, JPG or WebP image.`);
+      showToast('The card design must be a PNG, JPG or WebP image.', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setImageError(`"${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB. The card design must be under 10 MB.`);
+      showToast('The card design must be under 10 MB.', 'error');
+      return;
+    }
+
     setImageFile(file);
-    setImagePreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
+    // Revoking happens in the effect below, not inside the updater: a state
+    // updater must stay pure, or React may run it twice and revoke a URL that
+    // is still on screen.
+    setImagePreview(URL.createObjectURL(file));
+    setNatural({ w: 0, h: 0 });
     setPos(null);
   };
 
@@ -555,22 +582,49 @@ export default function BulkCardGenerator() {
             </div>
           </div>
 
+          {/* The card design comes first and spans the width: nothing can be
+              previewed until it is chosen, so it must not look like decoration
+              tucked in beside the font-size boxes. */}
+          <div className={`bcg-design${imagePreview ? ' bcg-design--has' : ''}`}>
+            {imagePreview ? (
+              <>
+                <img className="bcg-design-thumb" src={imagePreview} alt="Chosen card design" />
+                <div className="bcg-design-text">
+                  <strong>{imageFile?.name || 'Card design'}</strong>
+                  <small>
+                    {natural.w ? `${natural.w} × ${natural.h}px` : 'loading…'}
+                    {imageFile ? ` · ${(imageFile.size / 1024 / 1024).toFixed(1)} MB` : ''}
+                  </small>
+                </div>
+                <button type="button" className="btn-outline" onClick={() => imageRef.current?.click()}>
+                  Change design
+                </button>
+              </>
+            ) : (
+              <>
+                <MdImage size={30} />
+                <div className="bcg-design-text">
+                  <strong>Choose the card design to preview</strong>
+                  <small>The same image you use for a single invitation · PNG, JPG or WebP · max 10 MB</small>
+                </div>
+                <button type="button" className="btn-gold" onClick={() => imageRef.current?.click()}>
+                  <MdUploadFile size={16} /> Choose card design
+                </button>
+              </>
+            )}
+          </div>
+          <input
+            ref={imageRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/*,.png,.jpg,.jpeg,.webp"
+            style={{ display: 'none' }}
+            onChange={(e) => { handleImage(e.target.files[0]); e.target.value = ''; }}
+          />
+          {imageError && <p className="bcg-alert bcg-alert--error"><MdError size={17} /> {imageError}</p>}
+
           <div className="bcg-layout">
             {/* controls */}
             <div className="bcg-controls">
-              <div
-                className={`bcg-imgbox${imagePreview ? ' bcg-imgbox--has' : ''}`}
-                onClick={() => imageRef.current?.click()}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && imageRef.current?.click()}
-              >
-                {imagePreview
-                  ? <img src={imagePreview} alt="Card design" />
-                  : <><MdImage size={26} /><span>Upload card design</span><small>PNG / JPG / WebP · max 10 MB</small></>}
-              </div>
-              <input ref={imageRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImage(e.target.files[0])} />
-
               <div className="bcg-sizes">
                 <label><span>Name size</span><input type="number" placeholder="150" value={nameFontSizeStr} onChange={(e) => setNameFontSizeStr(e.target.value)} /></label>
                 <label><span>CN size</span><input type="number" placeholder="100" value={cnFontSizeStr} onChange={(e) => setCnFontSizeStr(e.target.value)} /></label>
@@ -607,7 +661,13 @@ export default function BulkCardGenerator() {
                   </div>
 
                   <div ref={overlayRef} className="bcg-canvas" style={{ touchAction: 'none' }}>
-                    <img src={imagePreview} alt="Card" onLoad={onImgLoad} draggable={false} />
+                    <img
+                      src={imagePreview}
+                      alt="Card design preview"
+                      onLoad={onImgLoad}
+                      onError={() => setImageError('That image could not be displayed. Try choosing the card design again, or re-save it as a PNG or JPG.')}
+                      draggable={false}
+                    />
 
                     {dragReady && (
                       <>
@@ -673,9 +733,12 @@ export default function BulkCardGenerator() {
               ) : (
                 <div className="bcg-canvas-empty">
                   <MdImage size={34} />
-                  <p><strong>Upload the card design to see the preview</strong></p>
-                  <p>This is the same card image you use for a single invitation. Once it is
-                    uploaded, the guest name, QR and CN appear on it and can be dragged into place.</p>
+                  <p><strong>Choose the card design above to see the preview</strong></p>
+                  <p>Once it loads, {sampleGuest?.guest_name || 'the guest name'}, the QR code and
+                    CN appear on the card and can be dragged into place.</p>
+                  <button type="button" className="btn-gold" onClick={() => imageRef.current?.click()}>
+                    <MdUploadFile size={16} /> Choose card design
+                  </button>
                 </div>
               )}
             </div>

@@ -747,3 +747,81 @@
   .bcg-templates { width: 100%; }
   .bcg-templates .btn-outline { flex: 1 1 0; justify-content: center; }
 }
+
+/* ── card design chooser ────────────────────────────────────────────────
+   Full width, above the preview: nothing can be previewed until a design is
+   chosen, so this must read as the next action, not as a placeholder box. */
+
+.bcg-design {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1rem;
+  border: 1.5px dashed rgba(212, 175, 55, 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(212, 175, 55, 0.05);
+  color: var(--gold);
+}
+
+.bcg-design--has {
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.bcg-design > svg { flex: 0 0 auto; }
+
+.bcg-design-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.bcg-design-text strong {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--white);
+  overflow-wrap: anywhere;
+}
+
+.bcg-design-text small {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.bcg-design .btn-gold,
+.bcg-design .btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.bcg-design-thumb {
+  width: 52px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  flex: 0 0 auto;
+  display: block;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.bcg-canvas-empty .btn-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 520px) {
+  .bcg-design { gap: 0.6rem; }
+  .bcg-design .btn-gold,
+  .bcg-design .btn-outline { flex: 1 1 100%; justify-content: center; }
+}
