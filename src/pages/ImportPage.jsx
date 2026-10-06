@@ -6,6 +6,7 @@ import {
 } from 'react-icons/md';
 import { listEvents, bulkImport } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import BulkCardGenerator from '../components/BulkCardGenerator';
 import '../styles/import.css';
 
 /* ── CSV parser (no dependencies) ──────────────────────────────────────── */
@@ -59,6 +60,12 @@ function downloadTemplate() {
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
 export default function ImportPage() {
+  // Two separate workflows live in this module:
+  //   'guests' — the original: create invitation records from a list (no cards)
+  //   'cards'  — bulk card generation: records AND a rendered card for each guest
+  // They share nothing but this switch, so the original flow below is unchanged.
+  const [mode, setMode] = useState('guests');
+
   const [events,    setEvents]    = useState([]);
   const [eventId,   setEventId]   = useState('');
   const [parsed,    setParsed]    = useState(null);   // { rows, error }
@@ -161,11 +168,39 @@ export default function ImportPage() {
             <h1>Import Guests</h1>
             <p>Upload a CSV or Excel file to create invitations in bulk</p>
           </div>
-          <button className="btn-outline" onClick={() => downloadTemplate()}>
-            <MdDownload size={15} /> Download Template
+          {mode === 'guests' && (
+            <button className="btn-outline" onClick={() => downloadTemplate()}>
+              <MdDownload size={15} /> Download Template
+            </button>
+          )}
+        </div>
+
+        {/* ── Workflow switch ── */}
+        <div className="import-modes" role="tablist" aria-label="Import workflow">
+          <button
+            role="tab"
+            aria-selected={mode === 'guests'}
+            className={`import-mode${mode === 'guests' ? ' import-mode--on' : ''}`}
+            onClick={() => setMode('guests')}
+          >
+            Guest List Only
+            <small>Create invitations — no cards</small>
+          </button>
+          <button
+            role="tab"
+            aria-selected={mode === 'cards'}
+            className={`import-mode${mode === 'cards' ? ' import-mode--on' : ''}`}
+            onClick={() => setMode('cards')}
+          >
+            Generate Cards
+            <small>Invitations + a card for every guest</small>
           </button>
         </div>
 
+        {mode === 'cards' && <BulkCardGenerator />}
+
+        {mode === 'guests' && (
+        <>
         {/* ── Event selector ── */}
         <div className="import-event-select">
           <label>Assign to Event <span className="import-required">*</span></label>
@@ -321,6 +356,8 @@ export default function ImportPage() {
               Each guest gets a unique CN code and invitation link automatically.
             </p>
           </div>
+        )}
+        </>
         )}
 
       </div>

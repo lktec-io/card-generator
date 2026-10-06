@@ -107,6 +107,44 @@ export const trackInvitationShare = (id)           => api.post(`/invitations/${i
 export const bulkImport           = (guests, eventId) =>
   api.post('/import', { guests, event_id: eventId });
 
+// ── Bulk card generation (Import → Generate Cards) ───────────────────────────
+// The spreadsheet is validated and re-read server-side, so the rows that get
+// generated are exactly the rows the file describes.
+export const validateGuestSheet = (file, eventId) => {
+  const form = new FormData();
+  form.append('sheet', file);
+  form.append('event_id', eventId);
+  return api.post('/import/validate', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60_000,
+  });
+};
+
+export const startBulkCardGeneration = (eventId, { sheet, image, layout }) => {
+  const form = new FormData();
+  form.append('sheet', sheet);
+  form.append('image', image);
+  for (const [k, v] of Object.entries(layout || {})) {
+    if (v !== null && v !== undefined) form.append(k, v);
+  }
+  return api.post(`/import/bulk-generate/${eventId}`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120_000,
+  });
+};
+
+export const getBulkCardProgress = (jobId) =>
+  api.get(`/import/bulk-generate/progress/${jobId}`);
+
+export const retryBulkCards = (jobId, image) => {
+  const form = new FormData();
+  form.append('image', image);
+  return api.post(`/import/bulk-generate/retry/${jobId}`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120_000,
+  });
+};
+
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const listUsers         = ()           => api.get('/users');
 export const listUsersDropdown = ()           => api.get('/users/dropdown');

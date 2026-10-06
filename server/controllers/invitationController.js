@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const pool                        = require('../config/db');
 // Card images live on this server's filesystem (Cloudinary is still used elsewhere,
 // for voice messages and contribution templates — see server/config/cloudinary.js)
-const { saveCardImage, deleteCardImage } = require('../services/cardStorage');
+const { saveCardImageWithToken, deleteCardImageByUrl, isVpsCardUrl } = require('../services/cardStorage');
 const { getNextCode }             = require('../utils/codeGenerator');
 const { generateStyledQRBuffer }  = require('../utils/qrGenerator');
 const { processCardImage }        = require('../utils/imageProcessor');
@@ -117,7 +117,7 @@ async function generateCard(req, res) {
     code = await getNextCode(connection);
     uuid = crypto.randomUUID();
 
-    // 3 — Insert invitation row (id is used to name the stored card file)
+    // 3 — Insert invitation row
     const [inserted] = await connection.execute(
       `INSERT INTO invitations
          (code, guest_name, card_type, phone_number, status, event_id, invitation_uuid)
@@ -150,8 +150,9 @@ async function generateCard(req, res) {
     });
     console.timeEnd(`[timer:${code}] processCardImage`);
 
-    // 6 — Save the card to VPS storage: storage/cards/<event>/<invitation>.png
-    storedCard = saveCardImage(eventId, invitationId, finalBuffer, 'png');
+    // 6 — Save the card to VPS storage: storage/cards/<event>/<random-token>.png
+    //     The file name is a random token, so the public URL exposes no sequential id.
+    storedCard = saveCardImageWithToken(eventId, finalBuffer, 'png');
 
     // 7 — Commit with the stored path (no Cloudinary upload — see cardStorage.js)
     await connection.execute(
@@ -190,7 +191,7 @@ async function generateCard(req, res) {
   });
 
   // Card images are stored on this server now — no Cloudinary upload happens here.
-  console.log(`[generateCard] ${code} stored at ${storedCard.file} (${storedCard.bytes} bytes)`);
+  console.log(`[generateCard] ${code} (invitation ${invitationId}) stored at ${storedCard.file} (${storedCard.bytes} bytes)`);
 }
 
 // ── verifyCode ────────────────────────────────────────────────────────────────
@@ -391,9 +392,11 @@ async function deleteInvitation(req, res) {
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'Invitation not found.' });
     }
-    // Storage cleanup — never fails the request, and only ever touches this card's file
-    if (owner && /^\/uploads\/cards\//.test(owner.image_url || '')) {
-      deleteCardImage(owner.event_id, id, 'png');
+    // Storage cleanup — never fails the request, and only ever touches this card's file.
+    // Driven by the stored URL, so it finds the file whatever its name or extension
+    // (token-named, legacy <id>.png, or a .jpg/.webp copied over from Cloudinary).
+    if (owner && isVpsCardUrl(owner.image_url)) {
+      deleteCardImageByUrl(owner.image_url);
     }
     console.log(`[deleteInvitation] Deleted id=${id}`);
     return res.status(200).json({ success: true, message: 'Invitation deleted.' });

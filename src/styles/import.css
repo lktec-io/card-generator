@@ -369,3 +369,56 @@
   .import-preview-head { flex-direction: column; align-items: flex-start; }
   .import-result-actions { flex-direction: column; }
 }
+
+/* ── Workflow switch (Guest List Only / Generate Cards) ───────────────────
+   Two separate workflows share this page; the switch only chooses which one
+   is on screen. Added for bulk card generation — nothing above is affected. */
+
+.import-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.import-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  align-items: flex-start;
+  text-align: left;
+  padding: 0.75rem 0.95rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.import-mode small {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.import-mode:hover {
+  border-color: rgba(212, 175, 55, 0.35);
+  color: var(--text);
+}
+
+.import-mode:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.import-mode--on {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.import-mode--on small { color: rgba(212, 175, 55, 0.7); }

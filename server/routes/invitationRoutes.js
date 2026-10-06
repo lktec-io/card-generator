@@ -26,6 +26,11 @@ const {
   searchGuests,
 } = require('../controllers/invitationController');
 
+const {
+  sheetUpload, generateUpload, retryUpload,
+  validateImport, bulkGenerate, bulkGenerateProgress, bulkGenerateRetry,
+} = require('../controllers/bulkGenerateController');
+
 const { getDashboard }           = require('../controllers/adminController');
 const { listEvents, createEvent, getEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
 const { submitRSVP, getPublicInvite } = require('../controllers/rsvpController');
@@ -45,6 +50,14 @@ router.get('/templates', listTemplates);
 // ── Public (no auth) ────────────────────────────────────────────────────────
 router.post('/reserve',       reserveCode);
 router.post('/import',        requireManager, bulkImport);
+
+// Bulk card generation — the Import module's second workflow. Separate from
+// /generate (single card) and from /import (guest rows only, no cards).
+router.post('/import/validate',                    requireManager, sheetUpload,    validateImport);
+router.post('/import/bulk-generate/:event_id',     requireManager, generateUpload, bulkGenerate);
+router.get( '/import/bulk-generate/progress/:job_id', requireManager, bulkGenerateProgress);
+router.post('/import/bulk-generate/retry/:job_id', requireManager, retryUpload,    bulkGenerateRetry);
+
 router.post('/generate',      upload.single('image'), generateCard);
 router.post('/render',        upload.single('image'), renderCard);
 router.post('/verify',        optionalAuth, verifyCode);

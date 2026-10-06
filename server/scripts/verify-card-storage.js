@@ -43,14 +43,22 @@ const EVENT_DATE = arg('event-date');
     params
   );
 
-  const stat = { vps_ok: 0, vps_missing: [], cloudinary: 0, legacy_generated: 0, no_image: 0 };
+  const stat = { vps_ok: 0, vps_missing: [], cloudinary: 0, legacy_generated: 0, no_image: 0,
+                 token_named: 0, id_named: 0, unreadable: [] };
 
   for (const r of rows) {
     const url = r.image_url || '';
     if (/^\/uploads\/cards\//.test(url)) {
+      // token-named (new, unguessable) vs <invitationId>.png (written before tokens)
+      const name = url.split('/').pop().replace(/\.[^.]+$/, '');
+      if (/^\d+$/.test(name)) stat.id_named++; else stat.token_named++;
+
       const file = pathFromUrl(url);
+      // a URL this server would refuse to resolve means the row was altered by
+      // something other than this application — worth seeing
+      if (!file) { stat.unreadable.push(`${r.code} → ${url}`); continue; }
       let ok = false;
-      try { ok = !!file && fs.statSync(file).size > 0; } catch { ok = false; }
+      try { ok = fs.statSync(file).size > 0; } catch { ok = false; }
       if (ok) stat.vps_ok++;
       else stat.vps_missing.push(`${r.code} → ${url}`);
     } else if (/cloudinary\.com/i.test(url)) stat.cloudinary++;
@@ -63,6 +71,8 @@ const EVENT_DATE = arg('event-date');
   }
   console.log(`  cards total          : ${rows.length}`);
   console.log(`  on VPS, file present : ${stat.vps_ok}`);
+  console.log(`    token-named (new)  : ${stat.token_named}`);
+  console.log(`    id-named (older)   : ${stat.id_named}`);
   console.log(`  on VPS, FILE MISSING : ${stat.vps_missing.length}`);
   console.log(`  still on Cloudinary  : ${stat.cloudinary}`);
   console.log(`  legacy /generated/   : ${stat.legacy_generated}`);
@@ -75,10 +85,14 @@ const EVENT_DATE = arg('event-date');
     for (const m of stat.vps_missing.slice(0, 20)) console.log(`    ${m}`);
     if (stat.vps_missing.length > 20) console.log(`    … and ${stat.vps_missing.length - 20} more`);
   }
+  if (stat.unreadable.length) {
+    console.log('\n  MALFORMED image_url (this application would never write these):');
+    for (const m of stat.unreadable.slice(0, 20)) console.log(`    ${m}`);
+  }
   console.log('');
 
   await pool.end();
-  process.exit(stat.vps_missing.length ? 1 : 0);
+  process.exit(stat.vps_missing.length || stat.unreadable.length ? 1 : 0);
 })().catch(async (e) => { console.error(e.message); try { await pool.end(); } catch {} process.exit(2); });
 
 async function hasCloudinaryCol() {
