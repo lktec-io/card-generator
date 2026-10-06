@@ -163,8 +163,31 @@ export const deleteUser        = (id)         => api.delete(`/users/${id}`);
 export const sendInvitationSms   = (invitationId)  => api.post(`/sms/send/${invitationId}`);
 export const sendBulkSms         = (eventId)       => api.post(`/sms/bulk/${eventId}`);
 export const getBulkSmsProgress  = (jobId)         => api.get(`/sms/bulk/progress/${jobId}`);
-export const getSmsLogs          = (eventId)       => api.get(`/sms/logs/${eventId}`);
+// Server-side search + pagination. Called with no options it behaves as before.
+export const getSmsLogs = (eventId, { q = '', status = '', page = 1, pageSize = 50 } = {}) =>
+  api.get(`/sms/logs/${eventId}`, { params: { q, status, page, page_size: pageSize } });
 export const retrySms            = (logId)         => api.post(`/sms/retry/${logId}`);
+
+// ── WhatsApp (Beem) ───────────────────────────────────────────────────────────
+// A separate channel from SMS: its own provider, its own logs, its own routes.
+// Credentials never reach the browser — the status endpoint only reports whether
+// the server is configured and which template is live.
+export const getWhatsAppStatus   = ()        => api.get('/whatsapp/status');
+export const getWhatsAppSummary  = (eventId) => api.get(`/whatsapp/summary/${eventId}`);
+
+export const sendWhatsAppInvitation = (invitationId, opts = {}) =>
+  api.post(`/whatsapp/send/${invitationId}`, opts);
+
+/** Omit invitationIds to message every eligible guest in the event. */
+export const sendWhatsAppBulk = (eventId, invitationIds = null) =>
+  api.post(`/whatsapp/bulk/${eventId}`, invitationIds ? { invitation_ids: invitationIds } : {});
+
+export const getWhatsAppProgress = (jobId)   => api.get(`/whatsapp/bulk/progress/${jobId}`);
+export const retryWhatsAppFailed = (eventId) => api.post(`/whatsapp/retry/${eventId}`);
+
+/** Server-side search + pagination — never load every row into the browser. */
+export const getWhatsAppLogs = (eventId, { q = '', status = '', page = 1, pageSize = 25 } = {}) =>
+  api.get(`/whatsapp/logs/${eventId}`, { params: { q, status, page, page_size: pageSize } });
 
 // Post-event thank-you SMS (same Beem service, recipients resolved server-side per event)
 export const getThankYouInfo     = (eventId)       => api.get(`/sms/thank-you/${eventId}`);

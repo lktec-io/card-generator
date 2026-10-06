@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight, FiAlertCircle } from 'react-icons/fi';
+import {
+  ArrowRight, CircleAlert, Eye, EyeOff, Lock, Mail,
+} from 'lucide-react';
 import { login } from '../utils/api';
 import '../styles/sign-in.css';
 
@@ -101,7 +103,7 @@ export default function SignInPage() {
           <div className="si-field">
             <label htmlFor="si-email">Email address</label>
             <div className="si-input-wrap">
-              <FiMail className="si-input-icon" aria-hidden="true" />
+              <Mail className="si-input-icon" aria-hidden="true" />
               <input
                 id="si-email"
                 type="email"
@@ -120,7 +122,7 @@ export default function SignInPage() {
             {/* spellCheck/autoCorrect off: once revealed as text, the password must not
                 be sent to spellcheck or autocorrect */}
             <div className="si-input-wrap">
-              <FiLock className="si-input-icon" aria-hidden="true" />
+              <Lock className="si-input-icon" aria-hidden="true" />
               <input
                 id="si-password"
                 type={showPassword ? 'text' : 'password'}
@@ -144,7 +146,7 @@ export default function SignInPage() {
                 aria-controls="si-password"
                 disabled={loading}
               >
-                {showPassword ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}
+                {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
               </button>
             </div>
           </div>
@@ -173,7 +175,7 @@ export default function SignInPage() {
 
           {error && (
             <p className="si-error" role="alert">
-              <FiAlertCircle aria-hidden="true" /> {error}
+              <CircleAlert aria-hidden="true" /> {error}
             </p>
           )}
           {hint && !error && <p className="si-hint">{hint}</p>}
@@ -182,7 +184,7 @@ export default function SignInPage() {
             {loading ? (
               <><span className="si-spinner" aria-hidden="true" /> Signing in…</>
             ) : (
-              <>Sign In <FiArrowRight className="si-submit-arrow" aria-hidden="true" /></>
+              <>Sign In <ArrowRight className="si-submit-arrow" aria-hidden="true" /></>
             )}
           </button>
         </form>

@@ -312,23 +312,57 @@ function getBulkProgress(req, res) {
 }
 
 // ── GET /sms/logs/:event_id ───────────────────────────────────────────────────
+// Server-side search, filtering and pagination. The previous version returned a
+// flat LIMIT 300, which quietly hid older messages on a large event and left the
+// browser to filter whatever it got. The response still carries `logs`, so any
+// caller reading just that keeps working.
+const SMS_PAGE_SIZE_MAX = 100;
+
 async function getSmsLogs(req, res) {
   const eventId = parseInt(req.params.event_id, 10);
   if (!eventId) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
 
   try {
+    const q      = String(req.query.q || '').trim();
+    const status = String(req.query.status || '').trim().toLowerCase();
+    const page   = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const size   = Math.min(SMS_PAGE_SIZE_MAX, Math.max(1, parseInt(req.query.page_size, 10) || 50));
+
+    const where  = ['sl.event_id = ?'];
+    const params = [eventId];
+
+    if (status && status !== 'all') { where.push('sl.status = ?'); params.push(status); }
+    if (q) {
+      const like = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+      where.push('(i.guest_name LIKE ? OR sl.phone_number LIKE ? OR i.code LIKE ? OR sl.message LIKE ?)');
+      params.push(like, like, like, like);
+    }
+    const whereSql = where.join(' AND ');
+
+    const [[{ n: total }]] = await pool.execute(
+      `SELECT COUNT(*) AS n FROM sms_logs sl
+         LEFT JOIN invitations i ON i.id = sl.invitation_id
+        WHERE ${whereSql}`,
+      params
+    );
+
     const [logs] = await pool.execute(
-      `SELECT sl.id, sl.invitation_id, sl.phone_number, sl.provider,
+      `SELECT sl.id, sl.invitation_id, sl.phone_number, sl.provider, sl.message,
               sl.status, sl.provider_message_id, sl.error_message, sl.sent_at,
-              i.guest_name
+              i.guest_name, i.code AS invitation_code
          FROM sms_logs sl
          LEFT JOIN invitations i ON i.id = sl.invitation_id
-        WHERE sl.event_id = ?
-        ORDER BY sl.sent_at DESC
-        LIMIT 300`,
-      [eventId]
+        WHERE ${whereSql}
+        ORDER BY sl.sent_at DESC, sl.id DESC
+        LIMIT ${size} OFFSET ${(page - 1) * size}`,
+      params
     );
-    res.json({ success: true, logs });
+
+    res.json({
+      success: true, logs,
+      page, page_size: size, total: Number(total) || 0,
+      pages: Math.max(1, Math.ceil((Number(total) || 0) / size)),
+    });
   } catch (err) {
     console.error('[getSmsLogs]', err);
     res.status(500).json({ success: false, message: 'Failed to fetch SMS logs.' });

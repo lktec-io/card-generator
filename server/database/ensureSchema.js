@@ -52,7 +52,57 @@ const REQUIRED_COLUMNS = [
   },
 ];
 
+// Whole tables the application needs. Created with IF NOT EXISTS, so this is
+// add-only in exactly the same sense as the column list above: an existing table
+// is never altered or dropped here.
+const REQUIRED_TABLES = [
+  {
+    table: 'whatsapp_logs',
+    migration: 'migration_whatsapp_logs.sql',
+    purpose: 'WhatsApp sends and their delivery reports',
+    ddl: `CREATE TABLE IF NOT EXISTS whatsapp_logs (
+      id                  INT AUTO_INCREMENT PRIMARY KEY,
+      event_id            INT NULL,
+      invitation_id       INT NULL,
+      guest_name          VARCHAR(100) NULL,
+      phone_number        VARCHAR(32)  NOT NULL,
+      template_id         VARCHAR(190) NULL,
+      template_name       VARCHAR(190) NULL,
+      template_language   VARCHAR(16)  NULL,
+      message_reference   VARCHAR(64)  NULL,
+      beem_job_id         VARCHAR(190) NULL,
+      provider_message_id VARCHAR(190) NULL,
+      provider            VARCHAR(40)  NOT NULL DEFAULT 'beem_whatsapp',
+      message             TEXT NULL,
+      media_url           TEXT NULL,
+      status              ENUM('pending','sending','accepted','sent','delivered','read','failed')
+                            NOT NULL DEFAULT 'pending',
+      provider_status     VARCHAR(40) NULL,
+      error_message       TEXT NULL,
+      sent_at             TIMESTAMP NULL DEFAULT NULL,
+      accepted_at         TIMESTAMP NULL DEFAULT NULL,
+      delivered_at        TIMESTAMP NULL DEFAULT NULL,
+      read_at             TIMESTAMP NULL DEFAULT NULL,
+      failed_at           TIMESTAMP NULL DEFAULT NULL,
+      created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  },
+];
+
 const REQUIRED_INDEXES = [
+  { table: 'whatsapp_logs', index: 'idx_wa_event_created',
+    ddl: 'CREATE INDEX idx_wa_event_created ON whatsapp_logs (event_id, created_at)' },
+  { table: 'whatsapp_logs', index: 'idx_wa_event_status',
+    ddl: 'CREATE INDEX idx_wa_event_status ON whatsapp_logs (event_id, status)' },
+  { table: 'whatsapp_logs', index: 'idx_wa_job',
+    ddl: 'CREATE INDEX idx_wa_job ON whatsapp_logs (beem_job_id)' },
+  { table: 'whatsapp_logs', index: 'idx_wa_reference',
+    ddl: 'CREATE INDEX idx_wa_reference ON whatsapp_logs (message_reference)' },
+  { table: 'whatsapp_logs', index: 'idx_wa_provider_msg',
+    ddl: 'CREATE INDEX idx_wa_provider_msg ON whatsapp_logs (provider_message_id)' },
+  { table: 'whatsapp_logs', index: 'idx_wa_invitation',
+    ddl: 'CREATE INDEX idx_wa_invitation ON whatsapp_logs (invitation_id, status)' },
   { table: 'verification_logs', index: 'idx_vl_verifier_time',
     ddl: 'CREATE INDEX idx_vl_verifier_time ON verification_logs (verified_by_user_id, verified_at)' },
   { table: 'sms_logs', index: 'idx_sms_event_kind',
@@ -113,6 +163,20 @@ async function ensureSchema({ verbose = true } = {}) {
 
   log(`[schema] checking database "${result.database}"`);
 
+  // Tables first — the columns and indexes below may belong to one of them.
+  for (const { table, ddl, migration, purpose } of REQUIRED_TABLES) {
+    try {
+      if (await tableExists(table)) { result.present.push(table); continue; }
+      await pool.execute(ddl);
+      result.added.push(table);
+      console.log(`[schema] created table ${table} (${purpose}) — equivalent to ${migration}`);
+    } catch (err) {
+      if (err.code === 'ER_TABLE_EXISTS_ERROR') { result.present.push(table); continue; }
+      result.failed.push({ target: table, reason: err.message });
+      console.error(`[schema] could not create ${table}: ${err.message}`);
+    }
+  }
+
   for (const { table, column, ddl, migration, purpose } of REQUIRED_COLUMNS) {
     try {
       if (!(await tableExists(table))) {
@@ -154,7 +218,7 @@ async function ensureSchema({ verbose = true } = {}) {
   return result;
 }
 
-module.exports = { ensureSchema, REQUIRED_COLUMNS, REQUIRED_INDEXES };
+module.exports = { ensureSchema, REQUIRED_TABLES, REQUIRED_COLUMNS, REQUIRED_INDEXES };
 
 // Also runnable on its own:  node server/database/ensureSchema.js
 if (require.main === module) {

@@ -1,45 +1,43 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { GiDiamondRing } from 'react-icons/gi';
 import {
-  MdDashboard, MdQrCodeScanner, MdAdminPanelSettings,
-  MdMenu, MdClose, MdAddPhotoAlternate, MdLogout,
-  MdEvent, MdHistory, MdShield, MdUploadFile,
-  MdPeople,
-} from 'react-icons/md';
+  CalendarDays, FileUp, Gem, History, ImagePlus, LayoutDashboard,
+  LogOut, Menu, ScanLine, Shield, ShieldCheck, Users,
+  X,
+} from 'lucide-react';
 import { isAdmin, isSuperAdmin, isEventManager, canManage, getRole, getUserName } from '../utils/auth';
 import '../styles/components.css';
 
 // Super admin: platform owner — no operational access
 const SUPER_ADMIN_LINKS = [
-  { to: '/',      end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard' },
-  { to: '/users', end: false, icon: <MdPeople size={16} />,             label: 'Users'     },
-  { to: '/history', end: false, icon: <MdHistory size={16} />,          label: 'History'   },
-  { to: '/admin', end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'     },
+  { to: '/',      end: true,  icon: <LayoutDashboard size={16} />,          label: 'Dashboard' },
+  { to: '/users', end: false, icon: <Users size={16} />,             label: 'Users'     },
+  { to: '/history', end: false, icon: <History size={16} />,          label: 'History'   },
+  { to: '/admin', end: false, icon: <ShieldCheck size={16} />, label: 'Admin'     },
 ];
 
 const ADMIN_LINKS = [
-  { to: '/',        end: true,  icon: <MdDashboard size={16} />,          label: 'Dashboard'    },
-  { to: '/events',  end: false, icon: <MdEvent size={16} />,              label: 'Events'       },
-  { to: '/create',  end: false, icon: <MdAddPhotoAlternate size={16} />,  label: 'Create Cards' },
-  { to: '/import',  end: false, icon: <MdUploadFile size={16} />,         label: 'Import'       },
-  { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />,      label: 'Verify'       },
-  { to: '/history', end: false, icon: <MdHistory size={16} />,            label: 'History'      },
-  { to: '/users',   end: false, icon: <MdPeople size={16} />,             label: 'Users'        },
-  { to: '/admin',   end: false, icon: <MdAdminPanelSettings size={16} />, label: 'Admin'        },
+  { to: '/',        end: true,  icon: <LayoutDashboard size={16} />,          label: 'Dashboard'    },
+  { to: '/events',  end: false, icon: <CalendarDays size={16} />,              label: 'Events'       },
+  { to: '/create',  end: false, icon: <ImagePlus size={16} />,  label: 'Create Cards' },
+  { to: '/import',  end: false, icon: <FileUp size={16} />,         label: 'Import'       },
+  { to: '/verify',  end: false, icon: <ScanLine size={16} />,      label: 'Verify'       },
+  { to: '/history', end: false, icon: <History size={16} />,            label: 'History'      },
+  { to: '/users',   end: false, icon: <Users size={16} />,             label: 'Users'        },
+  { to: '/admin',   end: false, icon: <ShieldCheck size={16} />, label: 'Admin'        },
 ];
 
 const MANAGER_LINKS = [
-  { to: '/events',  end: false, icon: <MdEvent size={16} />,             label: 'Events'       },
-  { to: '/create',  end: false, icon: <MdAddPhotoAlternate size={16} />, label: 'Create Cards' },
-  { to: '/import',  end: false, icon: <MdUploadFile size={16} />,        label: 'Import'       },
-  { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />,     label: 'Verify'       },
-  { to: '/history', end: false, icon: <MdHistory size={16} />,           label: 'History'      },
+  { to: '/events',  end: false, icon: <CalendarDays size={16} />,             label: 'Events'       },
+  { to: '/create',  end: false, icon: <ImagePlus size={16} />, label: 'Create Cards' },
+  { to: '/import',  end: false, icon: <FileUp size={16} />,        label: 'Import'       },
+  { to: '/verify',  end: false, icon: <ScanLine size={16} />,     label: 'Verify'       },
+  { to: '/history', end: false, icon: <History size={16} />,           label: 'History'      },
 ];
 
 const VERIFIER_LINKS = [
-  { to: '/verify',  end: false, icon: <MdQrCodeScanner size={16} />, label: 'Scan & Verify'   },
-  { to: '/history', end: false, icon: <MdHistory size={16} />,       label: 'My Scan History' },
+  { to: '/verify',  end: false, icon: <ScanLine size={16} />, label: 'Scan & Verify'   },
+  { to: '/history', end: false, icon: <History size={16} />,       label: 'My Scan History' },
 ];
 
 function getRoleLabel(role) {
@@ -90,7 +88,7 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <Link to={logoTo} className="navbar-logo" onClick={close}>
-        <GiDiamondRing className="logo-icon" />
+        <Gem className="logo-icon" />
       Hi! Cardhub Invitation
       </Link>
 
@@ -98,17 +96,17 @@ export default function Navbar() {
       {role && (
         <span className={`nav-role-chip nav-role-chip--${role}`}>
           {(role === 'admin' || role === 'super_admin')
-            ? <MdAdminPanelSettings size={12}/>
+            ? <ShieldCheck size={12}/>
             : role === 'event_manager'
-              ? <MdPeople size={12}/>
-              : <MdShield size={12}/>
+              ? <Users size={12}/>
+              : <Shield size={12}/>
           }
           {name ? `${getRoleLabel(role)}: ${name}` : getRoleLabel(role)}
         </span>
       )}
 
       <button className="nav-hamburger" onClick={() => setOpen(o => !o)} aria-label="Toggle menu">
-        {open ? <MdClose /> : <MdMenu />}
+        {open ? <X /> : <Menu />}
       </button>
 
       {open && <div className="nav-overlay" onClick={close} aria-hidden="true" />}
@@ -128,7 +126,7 @@ export default function Navbar() {
         ))}
         <li>
           <button className="nav-logout" onClick={handleLogout} aria-label="Sign out">
-            <MdLogout size={16} /> Logout
+            <LogOut size={16} /> Logout
           </button>
         </li>
       </ul>

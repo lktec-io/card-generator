@@ -1,18 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  MdArrowBack, MdCalendarToday, MdLocationOn,
-  MdMap, MdPeople, MdCheckCircle, MdHourglassEmpty,
-  MdThumbUp, MdThumbDown, MdDownload, MdShare, MdDelete,
-  MdEdit, MdSave, MdClose, MdContentCopy,
-  MdOpenInNew, MdVisibility, MdGridView, MdViewList, MdAddPhotoAlternate,
-  MdSms, MdSearch, MdShield, MdVolunteerActivism, MdInsights, MdGroups, MdConfirmationNumber,
-} from 'react-icons/md';
+  ArrowLeft, Calendar, ChartColumn, CircleCheck, Download,
+  Eye, Heart, Hourglass, ImagePlus, LayoutGrid,
+  List, Map, MapPin, MessageSquareText, Pencil, Save,
+  Search, Share2, Shield, ThumbsDown, ThumbsUp, Ticket,
+  Trash2, Users, UsersRound, X, MessageCircle,
+} from 'lucide-react';
 import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage,
   sendInvitationSms, sendBulkSms, getBulkSmsProgress, getSmsLogs, retrySms as apiRetrySms,
   listUsersDropdown, getThankYouInfo, saveThankYouTemplate, sendThankYouSms, sendThankYouBulkSms,
+  sendWhatsAppInvitation,
 } from '../utils/api';
 import { isAdmin, canManage } from '../utils/auth';
+import WhatsAppPanel from '../components/WhatsAppPanel';
 import SendProgressModal from '../components/SendProgressModal';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
@@ -163,6 +164,10 @@ export default function EventDetailPage() {
 
   // SMS state
   const [smsSending,     setSmsSending]     = useState({}); // { [invId]: 'idle'|'sending'|'sent'|'failed' }
+  // WhatsApp is a separate channel with its own per-row state and its own panel.
+  const [waSending,      setWaSending]      = useState({});
+  const [waRefresh,      setWaRefresh]      = useState(0);  // bump to reload the panel
+  const [selectedIds,    setSelectedIds]    = useState([]); // for "send to selected"
   const [smsConfirm,     setSmsConfirm]     = useState(null);  // invitation | null
   const [bulkSmsConfirm, setBulkSmsConfirm] = useState(false);
   const [bulkJob,        setBulkJob]        = useState(null);  // { jobId, total, sent, failed, done }
@@ -316,13 +321,8 @@ export default function EventDetailPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(fullMessage)}`, '_blank');
   };
 
-  /* ── Copy invite link ── */
-  const handleCopyLink = (inv) => {
-    const url = inviteLink(inv);
-    navigator.clipboard.writeText(url)
-      .then(() => showToast('Link copied successfully!', 'success'))
-      .catch(() => showToast('Failed to copy.', 'error'));
-  };
+  /* Copy-link was removed from the row actions: Share already hands the guest
+     the link, so the two buttons did the same job. */
 
   /* ── Open guest view ── */
   const handleOpen = (inv) => window.open(inviteLink(inv), '_blank');
@@ -516,14 +516,8 @@ export default function EventDetailPage() {
     if (tyPollRef.current) clearInterval(tyPollRef.current);
   }, []);
 
-  /* ── Admin preview (with banner) ── */
-  const handlePreview = (inv) => {
-    const base = window.location.origin;
-    const url  = inv.invitation_uuid
-      ? `${base}/display/${inv.invitation_uuid}`
-      : inviteLink(inv);
-    window.open(url, '_blank');
-  };
+  /* The separate "admin preview" button was removed: Show opens the same
+     invitation, so having both only made the row longer. */
 
   /* ── Delete invitation ── */
   const openDelModal  = (inv) => { setDelInvId(inv.id); setDelInv(inv); };
@@ -544,25 +538,39 @@ export default function EventDetailPage() {
     }
   };
 
-  /* ── Action buttons shared between list and grid ── */
+  /* ── WhatsApp: one guest ───────────────────────────────────────────────
+     The button goes straight to the backend, which validates the number,
+     checks for an existing successful send and writes the log. */
+  const handleWhatsApp = async (inv) => {
+    if (waSending[inv.id] === 'sending') return;          // double-click guard
+    if (!inv.phone_number) return showToast('This guest has no phone number.', 'info');
+    setWaSending((s) => ({ ...s, [inv.id]: 'sending' }));
+    try {
+      await sendWhatsAppInvitation(inv.id);
+      setWaSending((s) => ({ ...s, [inv.id]: 'sent' }));
+      showToast(`WhatsApp invitation sent to ${inv.guest_name}.`, 'success');
+      setWaRefresh((n) => n + 1);
+    } catch (err) {
+      setWaSending((s) => ({ ...s, [inv.id]: 'failed' }));
+      // 409 = already sent, 503 = not configured, 502 = provider/number problem.
+      showToast(err.response?.data?.message || 'WhatsApp send failed.', 'error');
+    }
+  };
+
+  /* ── Action buttons shared between list and grid ──
+     Share · Download · SMS · WhatsApp · Show · Thanks · Delete.
+     Copy-link and the duplicate "admin preview" were removed: Share already
+     hands over the link, and Show opens the same invitation. */
   const ActionButtons = ({ inv }) => {
     const smsState = smsSending[inv.id] || 'idle';
+    const waState  = waSending[inv.id] || 'idle';
     return (
       <div className="row-actions">
-        <button className="btn-action btn-download" onClick={() => handleDownload(inv)} disabled={!inv.image_url} title="Download card">
-          <MdDownload size={14} />
+        <button className="btn-action btn-share"   onClick={() => handleShare(inv)}   title="Share" aria-label="Share">
+          <Share2 size={14} />
         </button>
-        <button className="btn-action btn-share"   onClick={() => handleShare(inv)}   title="Share">
-          <MdShare size={14} />
-        </button>
-        <button className="btn-action btn-copy"    onClick={() => handleCopyLink(inv)} title="Copy invite link">
-          <MdContentCopy size={14} />
-        </button>
-        <button className="btn-action btn-open"    onClick={() => handleOpen(inv)}    title="Open guest view">
-          <MdOpenInNew size={14} />
-        </button>
-        <button className="btn-action btn-preview" onClick={() => handlePreview(inv)} title="Admin preview">
-          <MdVisibility size={14} />
+        <button className="btn-action btn-download" onClick={() => handleDownload(inv)} disabled={!inv.image_url} title="Download card" aria-label="Download card">
+          <Download size={14} />
         </button>
         <button
           className={`btn-action btn-sms${smsState === 'sent' ? ' btn-sms--sent' : smsState === 'failed' ? ' btn-sms--failed' : ''}`}
@@ -572,7 +580,22 @@ export default function EventDetailPage() {
         >
           {smsState === 'sending'
             ? <span className="sms-retry-spin" />
-            : <MdSms size={14} />}
+            : <MessageSquareText size={14} />}
+        </button>
+        {/* WhatsApp. Lucide has no WhatsApp brand mark and importing one from
+            another icon set would break the single-library rule, so MessageCircle
+            carries the label and tooltip instead. */}
+        <button
+          className={`btn-action btn-wa-row${waState === 'sent' ? ' btn-wa-row--sent' : waState === 'failed' ? ' btn-wa-row--failed' : ''}`}
+          onClick={() => handleWhatsApp(inv)}
+          disabled={waState === 'sending'}
+          title={inv.phone_number ? `Send WhatsApp to ${inv.phone_number}` : 'No phone number'}
+          aria-label="WhatsApp"
+        >
+          {waState === 'sending' ? <span className="sms-retry-spin" /> : <MessageCircle size={14} />}
+        </button>
+        <button className="btn-action btn-open" onClick={() => handleOpen(inv)} title="Show invitation" aria-label="Show invitation">
+          <Eye size={14} />
         </button>
         {canSendSms && !isContribution && (
           <button
@@ -586,11 +609,11 @@ export default function EventDetailPage() {
             title={!inv.phone_number ? 'No phone number'
               : tySentIds.includes(inv.id) ? 'Thank You Sent — send again' : 'Send Thank You'}
           >
-            {tySendingId === inv.id ? <span className="sms-retry-spin" /> : <MdVolunteerActivism size={14} />}
+            {tySendingId === inv.id ? <span className="sms-retry-spin" /> : <Heart size={14} />}
           </button>
         )}
-        <button className="btn-action btn-delete"  onClick={() => openDelModal(inv)}  title="Delete">
-          <MdDelete size={14} />
+        <button className="btn-action btn-delete"  onClick={() => openDelModal(inv)}  title="Delete" aria-label="Delete">
+          <Trash2 size={14} />
         </button>
       </div>
     );
@@ -622,6 +645,9 @@ export default function EventDetailPage() {
   const guestsWithPhone = invs.filter(i => i.phone_number).length;
   // This event's cards only — `invs` is loaded for the current event id
   const shownInvs      = cardQuery.trim() ? invs.filter(inv => matchesCardQuery(inv, cardQuery)) : invs;
+  // "Select all" covers the rows actually on screen that can be messaged, so it
+  // follows the card search rather than silently selecting hidden guests.
+  const selectableIds  = shownInvs.filter(inv => inv.phone_number).map(inv => inv.id);
   const analytics      = data?.analytics || null;
 
   // Thank-you recipients — counts come from the server; the server resolves the guests itself
@@ -654,7 +680,7 @@ export default function EventDetailPage() {
 
         {/* ── Breadcrumb ── */}
         <button className="ev-back" onClick={() => navigate('/events')}>
-          <MdArrowBack size={16} /> Events
+          <ArrowLeft size={16} /> Events
         </button>
 
         {/* ── Event header ── */}
@@ -675,15 +701,15 @@ export default function EventDetailPage() {
             {editing ? (
               <>
                 <button className="btn-gold" onClick={handleSave} disabled={saving}>
-                  <MdSave size={15} /> {saving ? 'Saving…' : 'Save'}
+                  <Save size={15} /> {saving ? 'Saving…' : 'Save'}
                 </button>
                 <button className="btn-outline" onClick={() => { setEditing(false); setForm(initForm(ev)); }}>
-                  <MdClose size={15} /> Cancel
+                  <X size={15} /> Cancel
                 </button>
               </>
             ) : (
               <button className="btn-outline" onClick={() => setEditing(true)}>
-                <MdEdit size={15} /> Edit Event
+                <Pencil size={15} /> Edit Event
               </button>
             )}
           </div>
@@ -692,15 +718,15 @@ export default function EventDetailPage() {
         {/* ── Stats row ── */}
         {isContribution ? (
           <div className="ev-stats-row">
-            <div className="ev-mini-stat"><MdPeople size={18}/><span>{invs.length}</span><label>Total Cards</label></div>
+            <div className="ev-mini-stat"><Users size={18}/><span>{invs.length}</span><label>Total Cards</label></div>
           </div>
         ) : (
           <div className="ev-stats-row">
-            <div className="ev-mini-stat"><MdPeople size={18}/><span>{stats.total ?? 0}</span><label>Invited</label></div>
-            <div className="ev-mini-stat ev-mini--green"><MdCheckCircle size={18}/><span>{stats.checked_in ?? 0}</span><label>Checked In</label></div>
-            <div className="ev-mini-stat"><MdHourglassEmpty size={18}/><span>{stats.pending ?? 0}</span><label>Pending</label></div>
-            <div className="ev-mini-stat ev-mini--green"><MdThumbUp size={18}/><span>{rsvp.attending ?? 0}</span><label>RSVP Yes</label></div>
-            <div className="ev-mini-stat ev-mini--red"><MdThumbDown size={18}/><span>{rsvp.declined ?? 0}</span><label>RSVP No</label></div>
+            <div className="ev-mini-stat"><Users size={18}/><span>{stats.total ?? 0}</span><label>Invited</label></div>
+            <div className="ev-mini-stat ev-mini--green"><CircleCheck size={18}/><span>{stats.checked_in ?? 0}</span><label>Checked In</label></div>
+            <div className="ev-mini-stat"><Hourglass size={18}/><span>{stats.pending ?? 0}</span><label>Pending</label></div>
+            <div className="ev-mini-stat ev-mini--green"><ThumbsUp size={18}/><span>{rsvp.attending ?? 0}</span><label>RSVP Yes</label></div>
+            <div className="ev-mini-stat ev-mini--red"><ThumbsDown size={18}/><span>{rsvp.declined ?? 0}</span><label>RSVP No</label></div>
           </div>
         )}
 
@@ -708,7 +734,7 @@ export default function EventDetailPage() {
         {!isContribution && analytics && (
           <div className="ev-analytics">
             <div className="ev-an-head">
-              <h3><MdInsights size={16} /> Invitation Analytics</h3>
+              <h3><ChartColumn size={16} /> Invitation Analytics</h3>
               {analytics.card_type_available && analytics.total > 0 && (
                 <span className="ev-an-note">Expected = Single + (Double × 2)</span>
               )}
@@ -718,19 +744,19 @@ export default function EventDetailPage() {
               <>
                 <div className="ev-an-grid">
                   <div className="ev-an-tile">
-                    <span className="ev-an-label"><MdConfirmationNumber size={13} /> Single</span>
+                    <span className="ev-an-label"><Ticket size={13} /> Single</span>
                     <strong className="ev-an-value">{analytics.single}</strong>
                   </div>
                   <div className="ev-an-tile">
-                    <span className="ev-an-label"><MdConfirmationNumber size={13} /> Double</span>
+                    <span className="ev-an-label"><Ticket size={13} /> Double</span>
                     <strong className="ev-an-value">{analytics.double}</strong>
                   </div>
                   <div className="ev-an-tile">
-                    <span className="ev-an-label"><MdPeople size={13} /> Total</span>
+                    <span className="ev-an-label"><Users size={13} /> Total</span>
                     <strong className="ev-an-value">{analytics.total}</strong>
                   </div>
                   <div className="ev-an-tile ev-an-tile--gold">
-                    <span className="ev-an-label"><MdGroups size={13} /> Expected Guests</span>
+                    <span className="ev-an-label"><UsersRound size={13} /> Expected Guests</span>
                     <strong className="ev-an-value">{analytics.expected_guests}</strong>
                   </div>
                 </div>
@@ -838,12 +864,12 @@ export default function EventDetailPage() {
                 </>
               ) : (
                 <>
-                  {ev?.event_date && <div className="ev-info-row"><MdCalendarToday size={15}/><span>{formatDate(ev.event_date)}</span></div>}
+                  {ev?.event_date && <div className="ev-info-row"><Calendar size={15}/><span>{formatDate(ev.event_date)}</span></div>}
                   {!isContribution && ev?.event_time && <div className="ev-info-row"><span style={{width:15,textAlign:'center'}}>🕒</span><span>{ev.event_time}</span></div>}
-                  {!isContribution && ev?.venue && <div className="ev-info-row"><MdLocationOn size={15}/><span>{ev.venue}</span></div>}
+                  {!isContribution && ev?.venue && <div className="ev-info-row"><MapPin size={15}/><span>{ev.venue}</span></div>}
                   {!isContribution && ev?.maps_link && (
                     <div className="ev-info-row">
-                      <MdMap size={15}/>
+                      <Map size={15}/>
                       <a href={ev.maps_link} target="_blank" rel="noreferrer" className="ev-maps-link">Open Directions</a>
                     </div>
                   )}
@@ -854,7 +880,7 @@ export default function EventDetailPage() {
                     </div>
                   )}
                   {!isContribution && (
-                    <div className="ev-info-row"><MdShield size={15}/><span>{assigneeLabel(ev)}</span></div>
+                    <div className="ev-info-row"><Shield size={15}/><span>{assigneeLabel(ev)}</span></div>
                   )}
                   {!ev?.event_date && !ev?.venue && <p className="ev-info-empty">No details added</p>}
                 </>
@@ -930,7 +956,7 @@ export default function EventDetailPage() {
         {!isContribution && canSendSms && (
           <div className="ev-inv-section ty-section" style={{ marginTop: '1.5rem' }}>
             <div className="ev-inv-head">
-              <h2><MdVolunteerActivism size={17} /> Post-Event Thank You</h2>
+              <h2><Heart size={17} /> Post-Event Thank You</h2>
               {tyInfo && <span className="log-count">{tyCounts.with_phone} with phone</span>}
             </div>
 
@@ -988,15 +1014,15 @@ export default function EventDetailPage() {
                 {tyEditing ? (
                   <>
                     <button className="btn-outline" onClick={cancelTyEdit} disabled={tySaving}>
-                      <MdClose size={14} /> Cancel
+                      <X size={14} /> Cancel
                     </button>
                     <button className="btn-gold" onClick={saveTyMessage} disabled={tySaving || tyTooLong || !tyDraft.trim()}>
-                      <MdSave size={14} /> {tySaving ? 'Saving…' : 'Save'}
+                      <Save size={14} /> {tySaving ? 'Saving…' : 'Save'}
                     </button>
                   </>
                 ) : (
                   <button className="btn-outline" onClick={startTyEdit} disabled={tyBusy}>
-                    <MdEdit size={14} /> Edit Message
+                    <Pencil size={14} /> Edit Message
                   </button>
                 )}
               </div>
@@ -1052,7 +1078,7 @@ export default function EventDetailPage() {
                   onClick={() => setTyStep('count')}
                   disabled={tyBusy || tyEditing || tyQueued === 0 || tySms.chars === 0 || tyTooLong}
                 >
-                  <MdVolunteerActivism size={15} className="ty-send-icon" />
+                  <Heart size={15} className="ty-send-icon" />
                   {tyBusy ? 'Sending…' : `Send Thank You to All (${tyQueued})`}
                 </button>
                 {tyEditing ? (
@@ -1065,6 +1091,16 @@ export default function EventDetailPage() {
             </div>
             )}
           </div>
+        )}
+
+        {/* ── WhatsApp (separate channel, separate provider, separate logs) ── */}
+        {canSendSms && !isContribution && (
+          <WhatsAppPanel
+            key={waRefresh}
+            eventId={id}
+            selectedIds={selectedIds}
+            onClearSelection={() => setSelectedIds([])}
+          />
         )}
 
         {/* ── Invitations section ── */}
@@ -1080,24 +1116,24 @@ export default function EventDetailPage() {
                     onClick={() => switchInvView('list')}
                     title="List view"
                   >
-                    <MdViewList size={18} />
+                    <List size={18} />
                   </button>
                   <button
                     className={`view-toggle-btn${invView === 'grid' ? ' active' : ''}`}
                     onClick={() => switchInvView('grid')}
                     title="Grid view"
                   >
-                    <MdGridView size={18} />
+                    <LayoutGrid size={18} />
                   </button>
                 </div>
               )}
               {guestsWithPhone > 0 && !bulkJob && (
                 <button className="btn-sms-bulk" onClick={() => setBulkSmsConfirm(true)}>
-                  <MdSms size={14} /> Send SMS to All ({guestsWithPhone})
+                  <MessageSquareText size={14} /> Send SMS/Text to All ({guestsWithPhone})
                 </button>
               )}
               <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
-                <MdAddPhotoAlternate size={15} /> {isContribution ? 'Generate Cards' : 'Add Invitations'}
+                <ImagePlus size={15} /> {isContribution ? 'Generate Cards' : 'Add Invitations'}
               </button>
             </div>
 
@@ -1128,7 +1164,7 @@ export default function EventDetailPage() {
 
           {invs.length > 0 && (
             <div className="card-search" role="search">
-              <MdSearch size={18} className="card-search-icon" aria-hidden="true" />
+              <Search size={18} className="card-search-icon" aria-hidden="true" />
               <input
                 type="search"
                 value={cardQuery}
@@ -1140,7 +1176,7 @@ export default function EventDetailPage() {
               />
               {cardQuery && (
                 <button type="button" className="card-search-clear" onClick={() => setCardQuery('')} aria-label="Clear search">
-                  <MdClose size={16} />
+                  <X size={16} />
                 </button>
               )}
               {cardQuery.trim() && (
@@ -1155,11 +1191,11 @@ export default function EventDetailPage() {
             <p className="card-search-empty">No cards in this event match “{cardQuery.trim()}”.</p>
           ) : invs.length === 0 ? (
             <div className="events-empty" style={{ padding: '3rem 1rem' }}>
-              <MdPeople size={48} style={{ opacity: 0.25 }} />
+              <Users size={48} style={{ opacity: 0.25 }} />
               <h3>No {isContribution ? 'Contributors' : 'Invitations'} Yet</h3>
               <p>{isContribution ? 'Generate personalised contribution cards for your guests.' : 'Add invitations to start tracking guests.'}</p>
               <button className="btn-gold" onClick={() => navigate(`/create?event=${id}`)}>
-                <MdAddPhotoAlternate size={15} /> {isContribution ? 'Generate First Card' : 'Create First Invitation'}
+                <ImagePlus size={15} /> {isContribution ? 'Generate First Card' : 'Create First Invitation'}
               </button>
             </div>
           ) : isContribution ? (
@@ -1194,13 +1230,36 @@ export default function EventDetailPage() {
               <table className="inv-table">
                 <thead>
                   <tr>
+                    {canSendSms && (
+                      <th className="inv-pick">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all guests with a phone number"
+                          checked={selectableIds.length > 0 && selectedIds.length === selectableIds.length}
+                          ref={(el) => { if (el) el.indeterminate = selectedIds.length > 0 && selectedIds.length < selectableIds.length; }}
+                          onChange={(e) => setSelectedIds(e.target.checked ? selectableIds : [])}
+                        />
+                      </th>
+                    )}
                     <th>Card</th><th>Code</th><th>Guest Name</th><th>Phone</th>
                     <th>RSVP</th><th>Voice</th><th>Status</th><th>Created</th><th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {shownInvs.map(inv => (
-                    <tr key={inv.id}>
+                    <tr key={inv.id} className={selectedIds.includes(inv.id) ? 'inv-row--picked' : undefined}>
+                      {canSendSms && (
+                        <td className="inv-pick">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${inv.guest_name}`}
+                            disabled={!inv.phone_number}
+                            checked={selectedIds.includes(inv.id)}
+                            onChange={(e) => setSelectedIds((ids) =>
+                              e.target.checked ? [...ids, inv.id] : ids.filter((x) => x !== inv.id))}
+                          />
+                        </td>
+                      )}
                       <td>
                         {inv.image_url
                           ? <a href={inv.image_url} target="_blank" rel="noreferrer"><img src={inv.image_url} alt={inv.code} className="thumb" /></a>
@@ -1234,7 +1293,7 @@ export default function EventDetailPage() {
                   <div className="inv-grid-img">
                     {inv.image_url
                       ? <img src={inv.image_url} alt={inv.code} />
-                      : <div className="inv-grid-no-img"><MdAddPhotoAlternate size={28} /></div>
+                      : <div className="inv-grid-no-img"><ImagePlus size={28} /></div>
                     }
                   </div>
                   {/* Info */}
@@ -1300,7 +1359,7 @@ export default function EventDetailPage() {
                         >
                           {deletingVmId === vm.id
                             ? <span style={{ width: 14, height: 14, border: '2px solid rgba(239,68,68,0.25)', borderTopColor: '#ef4444', borderRadius: '50%', display: 'inline-block', animation: 'spin .78s linear infinite' }} />
-                            : <MdDelete size={14} />
+                            : <Trash2 size={14} />
                           }
                         </button>
                       </td>
@@ -1359,7 +1418,7 @@ export default function EventDetailPage() {
                             >
                               {retryingLogId === log.id
                                 ? <span className="sms-retry-spin" />
-                                : <MdSms size={14} />}
+                                : <MessageSquareText size={14} />}
                             </button>
                           )}
                         </td>
@@ -1437,7 +1496,7 @@ export default function EventDetailPage() {
         confirmLabel="Send"
         cancelLabel="Cancel"
         danger={false}
-        icon={<MdVolunteerActivism size={26} />}
+        icon={<Heart size={26} />}
         onConfirm={() => handleThankYouSingle(tySingle)}
         onCancel={() => setTySingle(null)}
       />
@@ -1460,7 +1519,7 @@ export default function EventDetailPage() {
         confirmLabel="Continue"
         cancelLabel="Cancel"
         danger={false}
-        icon={<MdVolunteerActivism size={26} />}
+        icon={<Heart size={26} />}
         onConfirm={() => setTyStep('preview')}
         onCancel={() => setTyStep(null)}
       />
@@ -1480,7 +1539,7 @@ export default function EventDetailPage() {
         confirmLabel={tyBusy ? 'Sending…' : 'Send Now'}
         cancelLabel="Back"
         danger={false}
-        icon={<MdVolunteerActivism size={26} />}
+        icon={<Heart size={26} />}
         onConfirm={startThankYouBulk}
         onCancel={() => setTyStep('count')}
       />

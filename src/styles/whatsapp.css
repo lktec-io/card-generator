@@ -1,0 +1,356 @@
+/* ── WhatsApp panel ───────────────────────────────────────────────────────
+   Uses the existing design tokens. Deliberately a different accent (green)
+   from the gold SMS controls, so staff cannot mistake one channel for the
+   other at a glance.                                                       */
+
+.wa-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.wa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.wa-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.wa-title svg { color: #25d366; }
+
+.wa-chip {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.18rem 0.6rem;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  overflow-wrap: anywhere;
+}
+
+.wa-muted { color: var(--text-muted); font-size: 0.78rem; margin: 0; }
+
+.wa-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.79rem;
+  line-height: 1.55;
+}
+
+.wa-alert svg { flex: 0 0 auto; margin-top: 2px; }
+.wa-alert--warn { background: var(--warning-dim); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; }
+.wa-alert code {
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 0.74rem;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+
+/* ── summary tiles ───────────────────────────────────────────────────────── */
+
+.wa-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  gap: 0.5rem;
+}
+
+.wa-tile {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+}
+
+.wa-n {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.wa-l { display: block; font-size: 0.65rem; color: var(--text-muted); margin-top: 0.1rem; }
+
+.wa-tile--info { border-color: rgba(96, 165, 250, 0.3); }
+.wa-tile--info .wa-n { color: #60a5fa; }
+.wa-tile--ok   { border-color: rgba(37, 211, 102, 0.3); background: rgba(37, 211, 102, 0.08); }
+.wa-tile--ok   .wa-n { color: #25d366; }
+.wa-tile--read { border-color: rgba(167, 139, 250, 0.3); }
+.wa-tile--read .wa-n { color: #a78bfa; }
+.wa-tile--bad  { border-color: rgba(239, 68, 68, 0.3); background: var(--error-dim); }
+.wa-tile--bad  .wa-n { color: #f87171; }
+
+/* ── actions ─────────────────────────────────────────────────────────────── */
+
+.wa-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.btn-wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-btn);
+  border: 1px solid #25d366;
+  background: #25d366;
+  color: #04240f;
+  font-family: var(--font-main);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-wa:hover:not(:disabled) { background: #1fbb59; border-color: #1fbb59; }
+.btn-wa:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.btn-wa:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-wa--ghost {
+  background: transparent;
+  color: #25d366;
+}
+.btn-wa--ghost:hover:not(:disabled) { background: rgba(37, 211, 102, 0.12); }
+
+.wa-count {
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-wa--ghost .wa-count { background: rgba(37, 211, 102, 0.18); }
+
+.wa-spin { animation: wa-rotate 0.9s linear infinite; }
+@keyframes wa-rotate { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .wa-spin { animation-duration: 3s; } }
+
+/* ── progress ────────────────────────────────────────────────────────────── */
+
+.wa-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-sm);
+}
+
+.wa-progress-top {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.wa-progress-top strong { font-size: 1.1rem; color: #25d366; }
+
+.wa-bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.wa-bar > span { display: block; height: 100%; background: #25d366; transition: width 0.4s ease; }
+@media (prefers-reduced-motion: reduce) { .wa-bar > span { transition: none; } }
+
+.wa-failures {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.76rem;
+  color: #f87171;
+}
+
+.wa-failures li { display: flex; align-items: flex-start; gap: 0.35rem; overflow-wrap: anywhere; }
+.wa-failures svg { flex: 0 0 auto; margin-top: 2px; }
+
+/* ── logs ────────────────────────────────────────────────────────────────── */
+
+.wa-logs { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.wa-logs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.wa-logs-head h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wa-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.6rem;
+  flex: 1 1 220px;
+  max-width: 340px;
+  color: var(--text-muted);
+}
+
+.wa-search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--white);
+  font-family: var(--font-main);
+  font-size: 0.82rem;
+}
+
+.wa-search:focus-within { border-color: var(--gold); }
+
+.wa-filters { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+
+.wa-filter {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.22rem 0.7rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-main);
+  transition: var(--transition);
+}
+
+.wa-filter:hover { color: var(--text); }
+.wa-filter--on { background: rgba(37, 211, 102, 0.15); border-color: #25d366; color: #25d366; }
+.wa-filter:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+.wa-table-wrap {
+  overflow-x: auto;
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+}
+
+.wa-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; min-width: 560px; }
+
+.wa-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  background: #1a1a1a;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wa-table td {
+  padding: 0.45rem 0.7rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.wa-mono { font-family: ui-monospace, 'Cascadia Code', monospace; font-size: 0.73rem; color: var(--text-muted); }
+.wa-detail { color: var(--text-muted); max-width: 220px; overflow-wrap: anywhere; }
+
+.wa-status {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.wa-status--accepted  { background: rgba(96, 165, 250, 0.16); color: #60a5fa; }
+.wa-status--sent      { background: rgba(96, 165, 250, 0.16); color: #60a5fa; }
+.wa-status--delivered { background: rgba(37, 211, 102, 0.16); color: #25d366; }
+.wa-status--read      { background: rgba(167, 139, 250, 0.18); color: #a78bfa; }
+.wa-status--failed    { background: var(--error-dim); color: #f87171; }
+.wa-status--sending,
+.wa-status--pending   { background: var(--warning-dim); color: #fbbf24; }
+
+.wa-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.wa-pager button {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.wa-pager button:disabled { opacity: 0.35; cursor: not-allowed; }
+.wa-pager button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+@media (max-width: 520px) {
+  .wa-panel { padding: 1rem; }
+  .wa-actions .btn-wa { flex: 1 1 100%; justify-content: center; }
+  .wa-search { max-width: none; }
+}
+
+/* ── guest-list additions: selection column + WhatsApp row button ───────── */
+
+.inv-pick { width: 34px; text-align: center; }
+.inv-pick input { accent-color: #25d366; cursor: pointer; }
+.inv-pick input:disabled { cursor: not-allowed; opacity: 0.35; }
+.inv-row--picked { background: rgba(37, 211, 102, 0.07); }
+
+.btn-wa-row:hover:not(:disabled) {
+  background: rgba(37, 211, 102, 0.16) !important;
+  border-color: #25d366 !important;
+  color: #25d366 !important;
+}
+
+.btn-wa-row--sent   { border-color: rgba(37, 211, 102, 0.5) !important; color: #25d366 !important; }
+.btn-wa-row--failed { border-color: rgba(239, 68, 68, 0.5)  !important; color: #f87171 !important; }

@@ -31,6 +31,12 @@ const {
   validateImport, bulkGenerate, bulkGenerateProgress, bulkGenerateRetry, downloadTemplate,
 } = require('../controllers/bulkGenerateController');
 
+const {
+  getStatus: waStatus, sendSingle: waSendSingle, sendBulk: waSendBulk,
+  getProgress: waProgress, retryFailed: waRetryFailed, getSummary: waSummary,
+  getLogs: waLogs, deliveryWebhook: waWebhook,
+} = require('../controllers/whatsappController');
+
 const { getDashboard }           = require('../controllers/adminController');
 const { listEvents, createEvent, getEvent, updateEvent, deleteEvent } = require('../controllers/eventController');
 const { submitRSVP, getPublicInvite } = require('../controllers/rsvpController');
@@ -48,6 +54,13 @@ router.get('/', (_req, res) => res.json({ status: 'ok', service: 'Nardio Events 
 router.get('/templates', listTemplates);
 
 // ── Public (no auth) ────────────────────────────────────────────────────────
+// Beem delivery reports. Public by necessity — the provider cannot log in —
+// so the handler validates the payload itself and, when
+// BEEM_WHATSAPP_CALLBACK_SECRET is set, requires it. GET answers Beem's
+// callback-verification handshake.
+router.post('/webhooks/beem/whatsapp', waWebhook);
+router.get( '/webhooks/beem/whatsapp', waWebhook);
+
 router.post('/reserve',       reserveCode);
 router.post('/import',        requireManager, bulkImport);
 
@@ -101,6 +114,17 @@ router.post('/sms/bulk/:event_id',           requireManager, sendBulk);
 router.get( '/sms/bulk/progress/:job_id',   requireManager, getBulkProgress);
 router.get( '/sms/logs/:event_id',          requireAuth,    getSmsLogs);
 router.post('/sms/retry/:log_id',           requireManager, retrySms);
+
+// ── WhatsApp ────────────────────────────────────────────────────────────────
+// A separate channel with its own provider, its own logs and its own routes.
+// The SMS routes above are untouched.
+router.get( '/whatsapp/status',                  requireManager, waStatus);
+router.post('/whatsapp/send/:invitation_id',     requireManager, waSendSingle);
+router.post('/whatsapp/bulk/:event_id',          requireManager, waSendBulk);
+router.get( '/whatsapp/bulk/progress/:job_id',   requireManager, waProgress);
+router.post('/whatsapp/retry/:event_id',         requireManager, waRetryFailed);
+router.get( '/whatsapp/summary/:event_id',       requireManager, waSummary);
+router.get( '/whatsapp/logs/:event_id',          requireAuth,    waLogs);
 
 // Post-event thank-you — same requireManager rule as the other SMS routes (verifiers excluded)
 router.get( '/sms/thank-you/:event_id',            requireManager, getThankYouInfo);

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GiDiamondRing } from 'react-icons/gi';
-import { FiEye, FiEyeOff, FiMail, FiLock, FiLogIn } from 'react-icons/fi';
+import {
+  Eye, EyeOff, Gem, Lock, LogIn, Mail,
+} from 'lucide-react';
 import { login } from '../utils/api';
 import '../styles/login.css';
 
@@ -47,7 +48,7 @@ export default function LoginPage() {
 
       <div className="login-card">
         <div className="login-brand">
-          <GiDiamondRing className="login-ring-icon" />
+          <Gem className="login-ring-icon" />
           <h1>Cardhub Digital Invitation</h1>
           <p className="login-welcome">Welcome back</p>
           <p>Sign in to manage your events</p>
@@ -56,7 +57,7 @@ export default function LoginPage() {
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className="login-field">
             <label htmlFor="login-email">
-              <FiMail size={14} /> Email
+              <Mail size={14} /> Email
             </label>
             <input
               id="login-email"
@@ -72,7 +73,7 @@ export default function LoginPage() {
 
           <div className="login-field">
             <label htmlFor="login-password">
-              <FiLock size={14} /> Password
+              <Lock size={14} /> Password
             </label>
             {/* spellCheck/autoCorrect off: once revealed as text, the password must not
                 be sent to spellcheck or autocorrect */}
@@ -101,8 +102,8 @@ export default function LoginPage() {
                 disabled={loading}
               >
                 {showPassword
-                  ? <FiEyeOff className="login-eye-icon" aria-hidden="true" />
-                  : <FiEye    className="login-eye-icon" aria-hidden="true" />}
+                  ? <EyeOff className="login-eye-icon" aria-hidden="true" />
+                  : <Eye    className="login-eye-icon" aria-hidden="true" />}
               </button>
             </div>
           </div>
@@ -117,7 +118,7 @@ export default function LoginPage() {
             {loading ? (
               <><span className="login-spinner" /> Signing in…</>
             ) : (
-              <><FiLogIn size={16} /> Sign In</>
+              <><LogIn size={16} /> Sign In</>
             )}
           </button>
         </form>

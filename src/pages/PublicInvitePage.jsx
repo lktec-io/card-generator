@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  MdCalendarToday, MdLocationOn, MdMap, MdPalette,
-  MdCheckCircle, MdCancel, MdQrCodeScanner, MdVisibility,
-  MdDownload, MdSms, MdContentCopy,
-} from 'react-icons/md';
-import { GiDiamondRing } from 'react-icons/gi';
-import { FaWhatsapp } from 'react-icons/fa';
+  Calendar, CircleCheck, CircleX, Copy, Download, Eye,
+  Gem, Map, MapPin, MessageCircle, MessageSquareText, Palette,
+  ScanLine,
+} from 'lucide-react';
 import QRCode from 'qrcode';
 import { getPublicInvite, submitRSVP } from '../utils/api';
 import { celebrateRSVP, playSuccessSound } from '../utils/confettiCelebration';
@@ -161,7 +159,7 @@ export default function PublicInvitePage({ isPreview = false }) {
   if (error) return (
     <div className="invite-page">
       <div className="invite-not-found">
-        <GiDiamondRing size={52} />
+        <Gem size={52} />
         <h2>Mwaliko Haupatikani</h2>
         <p>Kiungo hiki hakifanyi kazi au kimeisha.</p>
         <p className="invite-not-found-sub">This invitation link is invalid or has expired.</p>
@@ -183,7 +181,7 @@ export default function PublicInvitePage({ isPreview = false }) {
 
       {isPreview && (
         <div className="invite-preview-banner">
-          <MdVisibility size={16} />
+          <Eye size={16} />
           Maoni ya Msimamizi — Admin Preview Mode
         </div>
       )}
@@ -191,7 +189,7 @@ export default function PublicInvitePage({ isPreview = false }) {
       <div className="invite-container">
 
         <div className="invite-brand">
-          <GiDiamondRing className="invite-ring" />
+          <Gem className="invite-ring" />
           <span>Cardhub Events</span>
         </div>
 
@@ -229,7 +227,7 @@ export default function PublicInvitePage({ isPreview = false }) {
             <div className="invite-details">
               {event.event_date && (
                 <div className="invite-detail-row">
-                  <MdCalendarToday className="invite-detail-icon" />
+                  <Calendar className="invite-detail-icon" />
                   <span>{formatDate(event.event_date)}</span>
                 </div>
               )}
@@ -241,13 +239,13 @@ export default function PublicInvitePage({ isPreview = false }) {
               )}
               {event.venue && (
                 <div className="invite-detail-row">
-                  <MdLocationOn className="invite-detail-icon" />
+                  <MapPin className="invite-detail-icon" />
                   <span>{event.venue}</span>
                 </div>
               )}
               {event.maps_link && (
                 <div className="invite-detail-row">
-                  <MdMap className="invite-detail-icon" />
+                  <Map className="invite-detail-icon" />
                   <a href={event.maps_link} target="_blank" rel="noreferrer" className="invite-maps-btn">
                     📍 Fungua Ramani
                   </a>
@@ -272,7 +270,7 @@ export default function PublicInvitePage({ isPreview = false }) {
         {hasDresscode && (
           <section className="invite-section invite-section--dress">
             <h3 className="invite-section-title">
-              <MdPalette size={16} /> Mavazi ya Sherehe
+              <Palette size={16} /> Mavazi ya Sherehe
             </h3>
             <div className="invite-color-swatches">
               <div className="invite-color-chip">
@@ -298,7 +296,7 @@ export default function PublicInvitePage({ isPreview = false }) {
         {isContribution && (
           <section className="invite-section">
             <h3 className="invite-section-title">
-              <MdDownload size={16} /> Pakua na Shiriki Kadi Yako
+              <Download size={16} /> Pakua na Shiriki Kadi Yako
             </h3>
             {inv?.image_url && (
               <a
@@ -307,18 +305,18 @@ export default function PublicInvitePage({ isPreview = false }) {
                 download={`${inv.code || 'kadi'}.png`}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', textDecoration: 'none', width: '100%', marginBottom: '1rem' }}
               >
-                <MdDownload size={18} /> Pakua Kadi (PNG)
+                <Download size={18} /> Pakua Kadi (PNG)
               </a>
             )}
             <div className="cc-share-row">
               <button className="cc-share-btn cc-share-btn--whatsapp" onClick={() => handleShareContribution('whatsapp')}>
-                <FaWhatsapp size={18} /> WhatsApp
+                <MessageCircle size={18} /> WhatsApp
               </button>
               <button className="cc-share-btn cc-share-btn--sms" onClick={() => handleShareContribution('sms')}>
-                <MdSms size={18} /> SMS
+                <MessageSquareText size={18} /> SMS
               </button>
               <button className="cc-share-btn" onClick={() => handleShareContribution('copy')}>
-                <MdContentCopy size={18} /> Nakili Ujumbe
+                <Copy size={18} /> Nakili Ujumbe
               </button>
             </div>
           </section>
@@ -329,7 +327,7 @@ export default function PublicInvitePage({ isPreview = false }) {
             {/* ── SECTION 5: QR Code ── */}
             <section className="invite-section invite-section--qr">
               <h3 className="invite-section-title">
-                <MdQrCodeScanner size={16} /> QR Code ya Mwaliko
+                <ScanLine size={16} /> QR Code ya Mwaliko
               </h3>
               <div className="invite-qr-wrap">
                 {qrUrl && (
@@ -356,29 +354,29 @@ export default function PublicInvitePage({ isPreview = false }) {
                 <div className={`invite-rsvp-done invite-rsvp-done--${rsvpState}`}>
                   {rsvpState === 'attending' ? (
                     <>
-                      <MdCheckCircle size={28} />
+                      <CircleCheck size={28} />
                       <div><strong>Utahudhuria!</strong><p>{rsvpMsg || 'Asante! Tunafurahi kukuona.'}</p></div>
                     </>
                   ) : (
                     <>
-                      <MdCancel size={28} />
+                      <CircleX size={28} />
                       <div><strong>Hutahudhuria</strong><p>{rsvpMsg || 'Asante kwa kutujulisha.'}</p></div>
                     </>
                   )}
                 </div>
               ) : rsvpState === 'already' ? (
                 <div className="invite-rsvp-done invite-rsvp-done--already">
-                  <MdCheckCircle size={24} />
+                  <CircleCheck size={24} />
                   <div><strong>Tayari Ulijibu</strong><p>Tayari umeshajibu mwaliko huu.</p></div>
                 </div>
               ) : (
                 <div className="invite-rsvp-btns">
                   <button className="invite-btn-attend" onClick={() => handleRSVP('attending')} disabled={rsvping}>
-                    {rsvping ? <span className="invite-btn-spinner" /> : <MdCheckCircle size={20} />}
+                    {rsvping ? <span className="invite-btn-spinner" /> : <CircleCheck size={20} />}
                     NITAHUDHURIA
                   </button>
                   <button className="invite-btn-decline" onClick={() => handleRSVP('declined')} disabled={rsvping}>
-                    {rsvping ? <span className="invite-btn-spinner" /> : <MdCancel size={20} />}
+                    {rsvping ? <span className="invite-btn-spinner" /> : <CircleX size={20} />}
                     SITAHUDHURIA
                   </button>
                 </div>
@@ -394,7 +392,7 @@ export default function PublicInvitePage({ isPreview = false }) {
         <div className="rsvp-modal-overlay" onClick={() => setShowModal(false)}>
           <div className={`rsvp-modal rsvp-modal--${rsvpState}`} onClick={e => e.stopPropagation()}>
             <div className="rsvp-modal-icon">
-              {rsvpState === 'attending' ? <MdCheckCircle size={48} /> : <MdCancel size={48} />}
+              {rsvpState === 'attending' ? <CircleCheck size={48} /> : <CircleX size={48} />}
             </div>
             {rsvpState === 'attending' ? (
               <>
