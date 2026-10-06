@@ -693,3 +693,57 @@
   .bcg-actions .btn-outline { flex: 1 1 100%; }
   .bcg-progress-count strong { font-size: 1.8rem; }
 }
+
+/* ── preview header: what this card preview actually represents ─────────── */
+
+.bcg-previewmeta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  background: rgba(212, 175, 55, 0.06);
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-radius: var(--radius-sm);
+}
+
+.bcg-previewmeta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.bcg-previewmeta span {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bcg-previewmeta strong {
+  font-size: 0.88rem;
+  color: var(--white);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.bcg-templates {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.bcg-templates .btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.bcg-canvas-empty strong { color: var(--text); }
+.bcg-canvas-empty p + p { font-size: 0.74rem; max-width: 42ch; }
+
+@media (max-width: 520px) {
+  .bcg-templates { width: 100%; }
+  .bcg-templates .btn-outline { flex: 1 1 0; justify-content: center; }
+}

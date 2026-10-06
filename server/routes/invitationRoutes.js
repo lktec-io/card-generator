@@ -28,7 +28,7 @@ const {
 
 const {
   sheetUpload, generateUpload, retryUpload,
-  validateImport, bulkGenerate, bulkGenerateProgress, bulkGenerateRetry,
+  validateImport, bulkGenerate, bulkGenerateProgress, bulkGenerateRetry, downloadTemplate,
 } = require('../controllers/bulkGenerateController');
 
 const { getDashboard }           = require('../controllers/adminController');
@@ -53,6 +53,7 @@ router.post('/import',        requireManager, bulkImport);
 
 // Bulk card generation — the Import module's second workflow. Separate from
 // /generate (single card) and from /import (guest rows only, no cards).
+router.get( '/import/template',                    requireManager, downloadTemplate);
 router.post('/import/validate',                    requireManager, sheetUpload,    validateImport);
 router.post('/import/bulk-generate/:event_id',     requireManager, generateUpload, bulkGenerate);
 router.get( '/import/bulk-generate/progress/:job_id', requireManager, bulkGenerateProgress);

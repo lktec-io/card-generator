@@ -8,7 +8,7 @@ import {
 } from 'react-icons/md';
 import {
   listEvents, validateGuestSheet, startBulkCardGeneration,
-  getBulkCardProgress, retryBulkCards,
+  getBulkCardProgress, retryBulkCards, downloadImportTemplate,
 } from '../utils/api';
 import { useToast } from '../context/ToastContext';
 import '../styles/bulk-generate.css';
@@ -20,20 +20,33 @@ const QR_PAD   = 16;
 const QR_BLOCK = QR_SIZE + QR_PAD * 2;
 const ANCHOR_R = 7;
 
-const STEPS = ['Event', 'Upload', 'Review', 'Layout', 'Generate'];
+const STEPS = ['Event', 'Upload', 'Review', 'Preview', 'Generate'];
 
-/* A sample guest so the layout can be positioned against realistic text */
-const SAMPLE = { name: 'Bwana & Bibi Mfano', code: 'CN-000' };
+/* Shown in the preview in place of a real CN. No code is reserved until the
+   invitations are actually created, so previewing cannot burn a CN number. */
+const SAMPLE_CODE = 'CN-000';
 
-function downloadTemplate() {
-  const csv = 'name,phone,type\nJohn Doe,0712345678,Double\nMary John,0755555555,Single\nPeter Joseph,0766666666,Double\n';
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
-  const a    = Object.assign(document.createElement('a'), { href: url, download: 'bulk-cards-template.csv' });
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+/**
+ * Turn an axios failure into something that names the actual problem.
+ * A plain "could not start" hides the two cases that matter most: the request
+ * never reached the application (a proxy refused the upload first), or it
+ * reached it and the application said why.
+ */
+function describeError(err, fallback) {
+  const res = err.response;
+  if (!res) {
+    return err.code === 'ECONNABORTED'
+      ? 'The request timed out before the server answered.'
+      : `${fallback} The server could not be reached (${err.message}).`;
+  }
+  const data = res.data;
+  if (data && typeof data === 'object' && data.message) return data.message;
+  if (res.status === 413) {
+    return 'The upload was rejected as too large before it reached the application — the web server\'s upload limit (nginx client_max_body_size) is smaller than the card design.';
+  }
+  // an HTML error page, an empty body, a gateway error — say what came back
+  const body = typeof data === 'string' ? data.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140) : '';
+  return `${fallback} Server replied HTTP ${res.status}${body ? `: ${body}` : '.'}`;
 }
 
 export default function BulkCardGenerator() {
@@ -80,13 +93,39 @@ export default function BulkCardGenerator() {
   const qrBoxRef      = useRef(null);
 
   // 5 — the run
-  const [starting, setStarting] = useState(false);
+  const [starting,   setStarting]   = useState(false);
+  const [startError, setStartError] = useState('');
   const [job,      setJob]      = useState(null);      // live progress payload
   const [jobId,    setJobId]    = useState(null);
   const [retrying, setRetrying] = useState(false);
   const startGuard = useRef(false);                     // one click = one run
 
+  const [downloading, setDownloading] = useState(false);
+
   const selectedEvent = events.find((e) => String(e.id) === String(eventId)) || null;
+  // The card is previewed with the first guest actually in the file, so what is
+  // positioned is a real name of a real length — not a placeholder that fits.
+  const sampleGuest = report?.guests?.[0] || null;
+  const sampleType  = sampleGuest?.card_type === 'double' ? 'Double' : 'Single';
+
+  const handleDownloadTemplate = async (format) => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const res  = await downloadImportTemplate(format);
+      const blob = res.data instanceof Blob ? res.data : new Blob([res.data]);
+      const url  = URL.createObjectURL(blob);
+      const a    = Object.assign(document.createElement('a'), { href: url, download: `bulk-invitations.${format}` });
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showToast(describeError(err, 'Could not download the template.'), 'error');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useEffect(() => {
     listEvents()
@@ -94,9 +133,10 @@ export default function BulkCardGenerator() {
       .catch(() => showToast('Could not load your events.', 'error'));
   }, [showToast]);
 
-  /* A real QR in the preview, same library and payload as the generated card */
+  /* A real QR in the preview — same library, options and payload (the bare code)
+     as the card the server renders, so what is positioned is what is printed. */
   useEffect(() => {
-    QRCode.toDataURL(SAMPLE.code, { errorCorrectionLevel: 'M', margin: 1, width: 400 })
+    QRCode.toDataURL(SAMPLE_CODE, { errorCorrectionLevel: 'M', margin: 1, width: 400 })
       .then(setQrDataUrl).catch(() => setQrDataUrl(''));
   }, []);
 
@@ -164,7 +204,7 @@ export default function BulkCardGenerator() {
     } catch (err) {
       const data = err.response?.data;
       if (data?.invalidRows || data?.total) setReport(data);
-      setSheetError(data?.message || 'Could not read that file.');
+      setSheetError(describeError(err, 'Could not read that file.'));
       if (data?.invalidRows?.length) setStep(2);
     } finally {
       setValidating(false);
@@ -211,20 +251,32 @@ export default function BulkCardGenerator() {
   /* ── 5: generate ──────────────────────────────────────────────────────── */
   const handleGenerate = async () => {
     if (startGuard.current) return;             // a second click must not start a second batch
-    if (!sheetFile || !imageFile || !eventId) return;
+    // Each of these has its own message: "nothing happened" is never an answer.
+    if (!eventId)   { showToast('No event selected. Go back to step 1.', 'error'); return; }
+    if (!sheetFile) { showToast('The guest list is no longer loaded. Upload it again.', 'error'); return; }
+    if (!imageFile) { showToast('Upload the card design first.', 'error'); return; }
+
     startGuard.current = true;
     setStarting(true);
+    setStartError('');
     try {
       const { data } = await startBulkCardGeneration(eventId, {
         sheet: sheetFile, image: imageFile, layout: layoutPayload(),
       });
       setJobId(data.job_id);
-      setJob({ total: data.total, completed: 0, generated: 0, failed: 0, percent: 0, finished: false, failures: [] });
+      setJob({ total: data.total, completed: 0, generated: 0, failed: 0, percent: 0,
+               finished: false, failures: [], stage: 'preparing', prepared: 0 });
       setStep(4);
     } catch (err) {
       const data = err.response?.data;
-      if (data?.invalidRows) { setReport(data); setStep(2); }
-      showToast(data?.message || 'Could not start generation.', 'error');
+      const message = describeError(err, 'Could not start generation.');
+      // Rows that went stale between preview and generate send the user back to
+      // the review screen with the reasons, rather than a dead end.
+      if (data?.invalidRows?.length) { setReport(data); setStep(2); }
+      else setStartError(message);
+      showToast(message, 'error');
+      // the full failure stays in the console for support
+      console.error('[bulk] generation did not start:', err.response?.status, err.response?.data || err.message);
       startGuard.current = false;
     } finally {
       setStarting(false);
@@ -244,8 +296,10 @@ export default function BulkCardGenerator() {
         if (data.finished) {
           startGuard.current = false;
           showToast(
-            data.failed ? `${data.generated} cards generated, ${data.failed} failed.` : `All ${data.generated} cards generated.`,
-            data.failed ? 'error' : 'success'
+            data.error  ? data.error
+              : data.failed ? `${data.generated} cards generated, ${data.failed} failed.`
+                : `All ${data.generated} cards generated.`,
+            data.failed || data.error ? 'error' : 'success'
           );
         }
       } catch {
@@ -343,9 +397,14 @@ export default function BulkCardGenerator() {
                 CN numbers and QR codes are created automatically — leave them out.
               </p>
             </div>
-            <button className="btn-outline" onClick={downloadTemplate}>
-              <MdDownload size={15} /> Template
-            </button>
+            <div className="bcg-templates">
+              <button className="btn-outline" disabled={downloading} onClick={() => handleDownloadTemplate('xlsx')}>
+                <MdDownload size={15} /> Template .xlsx
+              </button>
+              <button className="btn-outline" disabled={downloading} onClick={() => handleDownloadTemplate('csv')}>
+                <MdDownload size={15} /> .csv
+              </button>
+            </div>
           </div>
 
           <div className="bcg-example">
@@ -473,8 +532,28 @@ export default function BulkCardGenerator() {
       {/* ══ STEP 4 — layout ═════════════════════════════════════════════ */}
       {step === 3 && (
         <section className="bcg-panel">
-          <h2 className="bcg-h2">Position the layout once</h2>
+          <h2 className="bcg-h2">Preview &amp; position the card</h2>
           <p className="bcg-sub">Drag the guest name, QR code and CN where they should sit. Every card uses these same positions.</p>
+
+          {/* What this preview represents — the real event, and the first guest in the file */}
+          <div className="bcg-previewmeta">
+            <div>
+              <span>Event</span>
+              <strong>{selectedEvent?.event_name || '—'}</strong>
+            </div>
+            <div>
+              <span>Preview guest</span>
+              <strong>{sampleGuest?.guest_name || '—'}</strong>
+            </div>
+            <div>
+              <span>Phone</span>
+              <strong className="bcg-mono">{sampleGuest?.phone_number || '—'}</strong>
+            </div>
+            <div>
+              <span>Type</span>
+              <strong><span className={`bcg-type bcg-type--${sampleGuest?.card_type || 'single'}`}>{sampleType}</span></strong>
+            </div>
+          </div>
 
           <div className="bcg-layout">
             {/* controls */}
@@ -488,7 +567,7 @@ export default function BulkCardGenerator() {
               >
                 {imagePreview
                   ? <img src={imagePreview} alt="Card design" />
-                  : <><MdImage size={26} /><span>Upload card design</span><small>PNG / JPG · max 10 MB</small></>}
+                  : <><MdImage size={26} /><span>Upload card design</span><small>PNG / JPG / WebP · max 10 MB</small></>}
               </div>
               <input ref={imageRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleImage(e.target.files[0])} />
 
@@ -511,7 +590,8 @@ export default function BulkCardGenerator() {
               </div>
 
               <p className="bcg-note">
-                The CN shown here is a placeholder — each guest gets their own number automatically.
+                <strong>{SAMPLE_CODE}</strong> is a sample. No invitation, CN or card is created by
+                previewing — each guest gets their own CN when you generate.
               </p>
             </div>
 
@@ -549,16 +629,16 @@ export default function BulkCardGenerator() {
                         <svg className="bcg-canvas-svg" aria-hidden="true">
                           <text x={pos.nameX * posScale} y={pos.nameY * posScale} textAnchor="middle"
                                 fontFamily="Georgia, serif" fontSize={previewNamePx} fontWeight="700"
-                                fill={nameColor} letterSpacing="2">{SAMPLE.name}</text>
+                                fill={nameColor} letterSpacing="2">{sampleGuest?.guest_name || 'Guest Name'}</text>
                           {showCN && (
                             <text x={pos.codeX * posScale} y={pos.codeY * posScale} textAnchor="middle"
                                   fontFamily="Georgia, serif" fontSize={previewCnPx} fontWeight="600"
-                                  fill={cnColor} letterSpacing="4">{SAMPLE.code}</text>
+                                  fill={cnColor} letterSpacing="4">{SAMPLE_CODE}</text>
                           )}
                           {showType && (
                             <text x={pos.typeX * posScale} y={pos.typeY * posScale} textAnchor="middle"
                                   fontFamily="Georgia, serif" fontSize={previewTypePx} fontWeight="600"
-                                  fill={typeColor} letterSpacing="3">Double</text>
+                                  fill={typeColor} letterSpacing="3">{sampleType}</text>
                           )}
                         </svg>
 
@@ -593,7 +673,9 @@ export default function BulkCardGenerator() {
               ) : (
                 <div className="bcg-canvas-empty">
                   <MdImage size={34} />
-                  <p>Upload the card design to position the layout</p>
+                  <p><strong>Upload the card design to see the preview</strong></p>
+                  <p>This is the same card image you use for a single invitation. Once it is
+                    uploaded, the guest name, QR and CN appear on it and can be dragged into place.</p>
                 </div>
               )}
             </div>
@@ -613,6 +695,9 @@ export default function BulkCardGenerator() {
               </button>
             </div>
             {!imageFile && <p className="bcg-note">Upload the card design to continue.</p>}
+            {startError && (
+              <p className="bcg-alert bcg-alert--error"><MdError size={17} /> {startError}</p>
+            )}
           </div>
         </section>
       )}
@@ -622,10 +707,18 @@ export default function BulkCardGenerator() {
         <section className="bcg-panel">
           {!job.finished ? (
             <>
-              <h2 className="bcg-h2">Generating invitations…</h2>
+              <h2 className="bcg-h2">
+                {job.stage === 'preparing' ? 'Creating invitations…' : 'Generating invitations…'}
+              </h2>
               <p className="bcg-sub">{selectedEvent?.event_name}</p>
 
               <div className="bcg-progress">
+                {job.stage === 'preparing' && (
+                  <p className="bcg-note">
+                    Issuing CN numbers for {job.total ?? 0} guests
+                    {job.prepared ? ` — ${job.prepared} done` : ''}. Card rendering starts next.
+                  </p>
+                )}
                 <div className="bcg-progress-count">
                   <strong>{job.completed ?? 0}</strong> / {job.total ?? 0}
                 </div>
@@ -664,6 +757,10 @@ export default function BulkCardGenerator() {
                 <p className="bcg-alert bcg-alert--warn">
                   <MdWarning size={17} /> Lost contact with the job. Open the event to see which cards were created.
                 </p>
+              )}
+
+              {job.error && (
+                <p className="bcg-alert bcg-alert--error"><MdError size={17} /> {job.error}</p>
               )}
 
               <div className="bcg-tiles">

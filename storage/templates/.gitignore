@@ -1,0 +1,4 @@
+# The guest-list template is built by the API on first request (see
+# bulkGenerateController.ensureTemplate). Keep the folder, not the built files.
+*
+!.gitignore

@@ -40,9 +40,19 @@ it that could drift.
 A second workflow inside the Import module:
 
 ```
-Select event → upload spreadsheet → validate → position the layout once
+Select event → upload spreadsheet → validate → preview & position the card once
             → generate every card → live progress → summary
 ```
+
+The preview shows the real card: the event's own design with the **first guest
+from the uploaded file**, their type, a QR, and a sample `CN-000`. Previewing
+creates nothing — no invitation, no CN, no file — so the layout can be adjusted
+freely before committing to 400 cards.
+
+The downloadable template (`name`, `phone`, `type`, five Tanzanian sample
+guests) is built by the API and kept in `storage/templates/`, beside
+`storage/cards`. It is not assembled in the browser and does not come from
+Cloudinary or any external URL.
 
 The existing "Guest List Only" import, and the existing single-card generator,
 are unchanged and still reachable.
@@ -65,7 +75,33 @@ pm2 restart <APP> --update-env && pm2 logs <APP> --lines 20 --nostream
 Nothing else is required. The storage directory and `invitations.cloudinary_url`
 already exist from the Cloudinary migration.
 
-### Check nginx while you are there
+### Check the upload limit — do this one first
+
+Bulk generation posts the card design (up to 10 MB) together with the guest
+list. nginx's default `client_max_body_size` is **1 MB**, and it refuses anything
+larger with an HTML `413` **before the request reaches Node** — so nothing
+appears in the API log at all, and the browser gets an error page rather than a
+message from the application.
+
+```bash
+sudo nginx -T | grep -n client_max_body_size      # nothing printed = the 1 MB default
+```
+
+If it is missing or below 12M, add it inside the `server { }` block for
+`card.clixworks.co.tz`:
+
+```nginx
+client_max_body_size 12M;
+```
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+The UI now names this case explicitly instead of saying only that generation
+could not start, so if it is the cause you will see it said plainly on screen.
+
+### Check the card location while you are there
 
 The `/uploads/cards/` block in `deploy/nginx/card-uploads.location.conf` was
 **corrected** in this change. The earlier version nested a regex `location`
@@ -91,6 +127,31 @@ If `nginx -t` fails, **stop** and do not reload.
 
 Token file names need no nginx change on their own — any rule that matches on
 the image extension already serves them.
+
+---
+
+## 2b. If generation still will not start
+
+The API now logs the whole attempt. Watch it while clicking **Generate All**:
+
+```bash
+pm2 logs <APP> --lines 0 | grep BULK
+```
+
+A healthy run prints:
+
+```
+[BULK] request received: event=45 user=7 role=admin sheet=guests.xlsx 1749B image=image/png 3464B fields=16
+[BULK] event 45 "HARUSI YA KENNEDY & GLORIA"
+[BULK] rows read=6 valid=5 invalid=0
+[BULK] config received: positions=yes qr=true cn=true type=true canvas=1200x1700
+[BULK] 5 invitations created (CN-001 … CN-005)
+[BULK] generation job bg_45_… created for 5 cards — starting
+```
+
+If **nothing at all** is printed, the request never reached the application —
+that is the proxy, almost always `client_max_body_size` above. If a line is
+printed and then `[BULK ERROR]`, that line names the real cause.
 
 ---
 
@@ -130,12 +191,20 @@ Limits: 1000 guests per file, 5 MB spreadsheet, 10 MB card design.
 row is invalid the request is refused with the row numbers and reasons, and zero
 invitations exist afterwards.
 
-**Then two phases:**
+**Then two phases, both in the background:**
 
-1. Every valid guest is INSERTed — CN, UUID, name, phone, type, event — in
-   transactions of 100.
-2. Cards are rendered and stored one at a time, writing `image_url` per
-   invitation as each finishes.
+1. `preparing` — every valid guest is INSERTed (CN, UUID, name, phone, type,
+   event) in transactions of 100.
+2. `rendering` — cards are rendered and stored one at a time, writing
+   `image_url` per invitation as each finishes.
+
+The HTTP request returns its job id **immediately** and the browser watches both
+phases through the progress endpoint. That matters at 400 guests: creating the
+invitations is 400 round trips to MySQL, and holding the request open for them
+risked passing a reverse proxy's read timeout (nginx `proxy_read_timeout`
+defaults to 60s) — whose error page carries no JSON, leaving the browser with
+nothing useful to show. Measured with a deliberately slow database (25 ms per
+insert, 120 guests = 3 s of database work), the reply now arrives in **37 ms**.
 
 A rendering failure therefore leaves a real invitation with a real CN and no
 image. **Retry re-renders that invitation** rather than creating a second one,
@@ -209,6 +278,7 @@ cannot generate cards onto somebody else's event.
 
 | | |
 |---|---|
+| `GET /api/import/template?format=xlsx\|csv` | the guest-list template, built and stored by the API itself |
 | `POST /api/import/validate` | read the sheet, report what would be generated. Writes nothing. |
 | `POST /api/import/bulk-generate/:event_id` | sheet + card design → creates invitations, returns `job_id` |
 | `GET /api/import/bulk-generate/progress/:job_id` | real counters: completed / generated / failed / current guest |

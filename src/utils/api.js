@@ -110,6 +110,11 @@ export const bulkImport           = (guests, eventId) =>
 // ── Bulk card generation (Import → Generate Cards) ───────────────────────────
 // The spreadsheet is validated and re-read server-side, so the rows that get
 // generated are exactly the rows the file describes.
+// The template is built and stored by the API (storage/templates), not assembled
+// in the browser — so what staff fill in is exactly what the server parses.
+export const downloadImportTemplate = (format = 'xlsx') =>
+  api.get('/import/template', { params: { format }, responseType: 'blob' });
+
 export const validateGuestSheet = (file, eventId) => {
   const form = new FormData();
   form.append('sheet', file);

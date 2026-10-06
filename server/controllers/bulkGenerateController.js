@@ -31,6 +31,8 @@
 
 const crypto = require('crypto');
 const multer = require('multer');
+const fs     = require('fs');
+const path   = require('path');
 
 const pool = require('../config/db');
 const { getNextCode }            = require('../utils/codeGenerator');
@@ -38,6 +40,7 @@ const { generateStyledQRBuffer } = require('../utils/qrGenerator');
 const { processCardImage }       = require('../utils/imageProcessor');
 const { saveCardImageWithToken } = require('../services/cardStorage');
 const { readSpreadsheet }        = require('../utils/xlsxReader');
+const { writeXlsx, writeCsv }    = require('../utils/xlsxWriter');
 const { validateGuestRows, MAX_GUESTS } = require('../utils/guestImport');
 const { eventScopeSQL } = require('../middleware/authMiddleware');
 
@@ -63,6 +66,78 @@ const INSERT_CHUNK = 100;   // invitations per transaction in phase 1
 
 const SHEET_MAX_BYTES = 5 * 1024 * 1024;
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+
+// ── the downloadable guest-list template ────────────────────────────────────
+// Served from this server's own storage — no Cloudinary, no external URL, and
+// not assembled in the browser. It lives beside storage/cards, outside dist/,
+// so a frontend build cannot remove it.
+
+const TEMPLATE_DIR = process.env.TEMPLATE_STORAGE_DIR
+  ? path.resolve(process.env.TEMPLATE_STORAGE_DIR)
+  : path.resolve(__dirname, '..', '..', 'storage', 'templates');
+
+// Deliberately only the three columns staff must fill in. CN, invitation code,
+// QR data, event id and image path are the backend's job and are not accepted
+// from a file, so showing them here would only invite someone to fill them in.
+const TEMPLATE_GRID = [
+  ['name',             'phone',      'type'],
+  ['John Michael',     '0712345678', 'Single'],
+  ['Asha Joseph',      '0712345679', 'Double'],
+  ['Daniel Peter',     '0712345680', 'Single'],
+  ['Neema Grace',      '0712345681', 'Double'],
+  ['Kelvin James',     '0712345682', 'Single'],
+];
+
+const TEMPLATES = {
+  xlsx: {
+    file: 'bulk-invitations.xlsx',
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    build: () => writeXlsx(TEMPLATE_GRID, { sheetName: 'Guests', widths: [26, 18, 12] }),
+  },
+  csv: {
+    file: 'bulk-invitations.csv',
+    type: 'text/csv; charset=utf-8',
+    build: () => writeCsv(TEMPLATE_GRID),
+  },
+};
+
+/**
+ * Return the template's path on disk, writing it if it is not there yet.
+ * Built once and then reused, so a deployment that ships an empty storage
+ * directory still serves a working template on the first click.
+ */
+function ensureTemplate(format) {
+  const spec = TEMPLATES[format];
+  const file = path.join(TEMPLATE_DIR, spec.file);
+  try {
+    if (fs.statSync(file).size > 0) return file;
+  } catch { /* not built yet */ }
+
+  fs.mkdirSync(TEMPLATE_DIR, { recursive: true });
+  const tmp = `${file}.tmp-${process.pid}-${Date.now()}`;
+  fs.writeFileSync(tmp, spec.build());
+  fs.renameSync(tmp, file);
+  console.log(`[bulkGenerate] built guest-list template ${file}`);
+  return file;
+}
+
+// GET /import/template?format=xlsx|csv
+function downloadTemplate(req, res) {
+  const format = String(req.query.format || 'xlsx').toLowerCase();
+  if (!TEMPLATES[format]) {
+    return res.status(400).json({ success: false, message: 'Template format must be xlsx or csv.' });
+  }
+  try {
+    const file = ensureTemplate(format);
+    res.setHeader('Content-Type', TEMPLATES[format].type);
+    res.setHeader('Content-Disposition', `attachment; filename="${TEMPLATES[format].file}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(fs.readFileSync(file));
+  } catch (err) {
+    console.error('[bulkGenerate] template download failed:', err.message);
+    return res.status(500).json({ success: false, message: 'Could not build the template file.' });
+  }
+}
 
 // ── uploads ─────────────────────────────────────────────────────────────────
 
@@ -146,6 +221,9 @@ function createJob({ eventId, eventName, userId, total, layout }) {
   _jobs.set(id, {
     id, eventId, eventName, userId,
     total,
+    stage:     'preparing',   // preparing → rendering → done (or failed)
+    prepared:  0,             // invitation rows created so far
+    error:     null,
     completed: 0,
     generated: 0,
     failed:    0,
@@ -261,8 +339,11 @@ async function validateImport(req, res) {
     });
   } catch (err) {
     const status = err.status || 500;
-    if (status === 500) console.error('[validateImport]', err);
-    return res.status(status).json({ success: false, message: status === 500 ? 'Could not read that file.' : err.message });
+    if (status === 500) console.error(`[BULK ERROR] validate failed: ${err.message}\n${err.stack || ''}`);
+    return res.status(status).json({
+      success: false,
+      message: status === 500 ? `Could not read that file: ${err.message}` : err.message,
+    });
   }
 }
 
@@ -270,18 +351,40 @@ async function validateImport(req, res) {
 
 async function bulkGenerate(req, res) {
   const eventId = parseInt(req.params.event_id, 10);
-  if (!eventId) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
-  if (!req.files?.image?.[0]) {
+  const sheetFile = req.files?.sheet?.[0];
+  const imageFile = req.files?.image?.[0];
+
+  // Enough to diagnose a failed run from the log alone — no tokens, no credentials.
+  console.log(`[BULK] request received: event=${req.params.event_id} user=${req.user?.id} role=${req.user?.role} ` +
+    `sheet=${sheetFile ? `${sheetFile.originalname} ${sheetFile.size}B` : 'MISSING'} ` +
+    `image=${imageFile ? `${imageFile.mimetype} ${imageFile.size}B` : 'MISSING'} ` +
+    `fields=${Object.keys(req.body || {}).length}`);
+
+  if (!eventId) {
+    console.error(`[BULK ERROR] unusable event id: ${JSON.stringify(req.params.event_id)}`);
+    return res.status(400).json({ success: false, message: 'No event was selected. Go back to step 1 and choose the event.' });
+  }
+  if (!imageFile) {
+    console.error('[BULK ERROR] no card design in the request');
     return res.status(400).json({ success: false, message: 'Upload the card design image.' });
+  }
+  if (!sheetFile) {
+    console.error('[BULK ERROR] no spreadsheet in the request');
+    return res.status(400).json({ success: false, message: 'The guest list was not received. Upload the file again.' });
   }
 
   let event, guests, layout;
   try {
     event = await loadScopedEvent(eventId, req.user);
-    if (!event) return res.status(404).json({ success: false, message: 'Event not found, or you do not have access to it.' });
+    if (!event) {
+      console.error(`[BULK ERROR] event ${eventId} not found or out of scope for user ${req.user?.id}`);
+      return res.status(404).json({ success: false, message: 'Event not found, or you do not have access to it.' });
+    }
+    console.log(`[BULK] event ${eventId} "${event.event_name}"`);
 
-    const rows   = parseSheetFile(req.files?.sheet?.[0]);
+    const rows   = parseSheetFile(sheetFile);
     const result = validateGuestRows(rows, { existing: await existingGuests(eventId) });
+    console.log(`[BULK] rows read=${rows.length} valid=${result.valid} invalid=${result.invalid}`);
 
     // Note the spread comes FIRST in both replies: validateGuestRows returns a
     // `message` key that is undefined on success, and spreading it last would
@@ -306,14 +409,55 @@ async function bulkGenerate(req, res) {
     }
     guests = result.guests;
     layout = readLayout(req.body);
+    console.log(`[BULK] config received: positions=${layout.positions ? 'yes' : 'auto'} ` +
+      `qr=${!layout.skipQR} cn=${!layout.skipCN} type=${!layout.skipType} canvas=${layout.naturalW}x${layout.naturalH}`);
   } catch (err) {
     const status = err.status || 500;
-    if (status === 500) console.error('[bulkGenerate] setup', err);
-    return res.status(status).json({ success: false, message: status === 500 ? 'Could not start generation.' : err.message });
+    // The real reason always reaches the log, and a 500 says plainly what broke
+    // instead of hiding behind a generic phrase.
+    console.error(`[BULK ERROR] setup failed (${status}): ${err.message}\n${err.stack || ''}`);
+    return res.status(status).json({
+      success: false,
+      message: status === 500 ? `Could not start generation: ${err.message}` : err.message,
+    });
   }
 
-  // ── phase 1: create the invitations ───────────────────────────────────────
-  // Chunked so the code-sequence lock is never held for the whole file.
+  // ── answer immediately, then do the work ─────────────────────────────────
+  // Creating 400 invitations is 400 round trips to MySQL. Doing that before
+  // replying kept the HTTP request open for as long as it took, and a reverse
+  // proxy that gives up first (nginx proxy_read_timeout defaults to 60s) returns
+  // its own error page — which carries no JSON message, so the browser could
+  // only say something generic. The browser now gets its job id straight away
+  // and watches both phases through the progress endpoint.
+  const job = createJob({
+    eventId,
+    eventName: event.event_name,
+    userId:    req.user?.id ?? null,
+    total:     guests.length,
+    layout,
+  });
+  job.stage = 'preparing';
+
+  res.status(202).json({
+    success: true,
+    job_id:  job.id,
+    total:   guests.length,
+    event:   { id: event.id, event_name: event.event_name },
+    single:  guests.filter((g) => g.card_type === 'single').length,
+    double:  guests.filter((g) => g.card_type === 'double').length,
+  });
+
+  console.log(`[BULK] generation job ${job.id} created for ${guests.length} cards — preparing invitations`);
+  const template = imageFile.buffer;
+  setImmediate(() => createThenRender(job, guests, eventId, template, layout, event));
+}
+
+/**
+ * Phase 1 (create the invitation rows) then phase 2 (render their cards).
+ * Runs in the background so neither phase can time the HTTP request out.
+ */
+async function createThenRender(job, guests, eventId, template, layout, event) {
+  // Chunked so the CN sequence lock is never held for the whole file.
   const created = [];
   try {
     for (let i = 0; i < guests.length; i += INSERT_CHUNK) {
@@ -339,37 +483,27 @@ async function bulkGenerate(req, res) {
       } finally {
         connection.release();
       }
+      job.prepared = created.length;
     }
   } catch (err) {
-    console.error('[bulkGenerate] invitation insert failed:', err.message);
-    return res.status(500).json({
-      success: false,
-      message: created.length
-        ? `Created ${created.length} of ${guests.length} invitations before failing: ${err.message}. The cards were not generated — check the event's guest list before retrying.`
-        : `Could not create the invitations: ${err.message}`,
-    });
+    console.error(`[BULK ERROR] invitation insert failed after ${created.length}/${guests.length}: ${err.code || ''} ${err.message}\n${err.stack || ''}`);
+    job.stage    = 'failed';
+    job.error    = created.length
+      ? `Created ${created.length} of ${guests.length} invitations before failing: ${err.message}. Check the event's guest list before retrying.`
+      : `Could not create the invitations: ${err.message}`;
+    job.total    = created.length;
+    job.finished = true;
+    job.finishedAt = Date.now();
+    if (!created.length) return;
+    // whatever did get created still deserves its cards
   }
 
-  const job = createJob({
-    eventId,
-    eventName: event.event_name,
-    userId:    req.user?.id ?? null,
-    total:     created.length,
-    layout,
-  });
-
-  // Answer now — the browser follows the job from here.
-  res.status(202).json({
-    success: true,
-    job_id:  job.id,
-    total:   created.length,
-    event:   { id: event.id, event_name: event.event_name },
-    single:  created.filter((g) => g.card_type === 'single').length,
-    double:  created.filter((g) => g.card_type === 'double').length,
-  });
-
-  const template = req.files.image[0].buffer;
-  setImmediate(() => runRenderQueue(job, created, template, layout, event));
+  console.log(`[BULK] ${created.length} invitations created (${created[0]?.code} … ${created[created.length - 1]?.code}) — rendering`);
+  job.prepared = created.length;
+  job.total    = created.length;
+  job.stage    = 'rendering';
+  job.finished = false;
+  await runRenderQueue(job, created, template, layout, event);
 }
 
 // ── the rendering queue ─────────────────────────────────────────────────────
@@ -444,6 +578,7 @@ async function runRenderQueue(job, items, templateBuffer, layout, event) {
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length || 1) }, worker));
 
   job.current    = null;
+  if (job.stage !== 'failed') job.stage = 'done';
   job.finished   = true;
   job.finishedAt = Date.now();
   console.log(`[bulkGenerate] job=${job.id} event=${job.eventId} generated=${job.generated} failed=${job.failed} in ${Math.round((job.finishedAt - job.startedAt) / 1000)}s`);
@@ -467,6 +602,9 @@ function bulkGenerateProgress(req, res) {
     job_id:    job.id,
     event_id:  job.eventId,
     event_name: job.eventName,
+    stage:     job.stage,
+    prepared:  job.prepared,
+    error:     job.error,
     total:     job.total,
     completed: job.completed,
     generated: job.generated,
@@ -534,6 +672,7 @@ module.exports = {
   generateUpload: wrapUpload(generateUpload),
   retryUpload:    wrapUpload(retryUpload),
   validateImport, bulkGenerate, bulkGenerateProgress, bulkGenerateRetry,
+  downloadTemplate,
   // exported for tests
-  readLayout, CONCURRENCY,
+  readLayout, ensureTemplate, TEMPLATE_DIR, TEMPLATE_GRID, CONCURRENCY,
 };
