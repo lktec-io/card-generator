@@ -26,6 +26,43 @@ const STEPS = ['Event', 'Upload', 'Review', 'Preview', 'Generate'];
    invitations are actually created, so previewing cannot burn a CN number. */
 const SAMPLE_CODE = 'CN-000';
 
+const EXT_MIME = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg',
+  jfif: 'image/jpeg', webp: 'image/webp',
+};
+
+/**
+ * Identify an image from its first bytes.
+ *
+ * Phone galleries report MIME types that cannot be trusted — empty strings,
+ * `application/octet-stream`, or `image/jpeg` for a file that is really HEIC.
+ * The magic bytes are not negotiable, so they decide, and HEIC is recognised
+ * specifically in order to say so plainly instead of failing to decode.
+ */
+function sniffImageType(b) {
+  const ascii = (from, to) => String.fromCharCode(...b.slice(from, to));
+  if (b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b.length > 12 && ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return 'image/webp';
+  if (b.length > 12 && ascii(4, 8) === 'ftyp' && /heic|heix|hevc|heim|heis|hevm|mif1|msf1/i.test(ascii(8, 12))) return 'image/heic';
+  if (b.length > 2 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif';
+  return null;
+}
+
+/** Decode an image URL, reporting why if it cannot be decoded. */
+function decodeImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const done = (result) => { clearTimeout(timer); img.onload = null; img.onerror = null; resolve(result); };
+    const timer = setTimeout(() => done({ ok: false, reason: 'it took too long to decode (the image may be too large for this device)' }), 20000);
+    img.onload  = () => (img.naturalWidth > 0 && img.naturalHeight > 0
+      ? done({ ok: true, width: img.naturalWidth, height: img.naturalHeight })
+      : done({ ok: false, reason: 'it decoded to nothing (the file may be damaged or too large)' }));
+    img.onerror = () => done({ ok: false, reason: 'the browser could not decode it' });
+    img.src = url;
+  });
+}
+
 /**
  * Turn an axios failure into something that names the actual problem.
  * A plain "could not start" hides the two cases that matter most: the request
@@ -102,6 +139,10 @@ export default function BulkCardGenerator() {
 
   const [downloading, setDownloading] = useState(false);
   const [imageError,  setImageError]  = useState('');
+  const [imageBusy,   setImageBusy]   = useState(false);
+  // the decoded bytes, kept so a released object URL can be rebuilt on mobile
+  const imageBlobRef = useRef(null);
+  const healedRef    = useRef(false);
 
   const selectedEvent = events.find((e) => String(e.id) === String(eventId)) || null;
   // The card is previewed with the first guest actually in the file, so what is
@@ -226,33 +267,111 @@ export default function BulkCardGenerator() {
   };
 
   /* ── 4: card design ───────────────────────────────────────────────────── */
-  const handleImage = (file) => {
+
+  /**
+   * Choosing the card design, written for Android as much as for desktop.
+   *
+   * On a phone the picker hands back a File backed by a `content://` provider
+   * owned by another app. That handle is not guaranteed to stay readable once
+   * the picker closes and Chrome reclaims memory, and the gallery often reports
+   * an empty or wrong MIME type. An object URL made straight from that File can
+   * therefore fail to load — which is what produced "That image could not be
+   * displayed" on mobile for a file that opens perfectly on a desktop.
+   *
+   * So: read the bytes immediately, decide the real format from the bytes, and
+   * build the preview from an in-memory Blob we own. The original File is still
+   * what gets uploaded, so the generated cards are byte-for-byte unaffected.
+   */
+  const handleImage = async (file) => {
     if (!file) return;
     setImageError('');
+    setImageBusy(true);
 
-    // Some pickers (notably Android galleries and a few desktop file managers)
-    // hand over a file with an empty or generic MIME type. Judging only by
-    // file.type silently refused perfectly good images, leaving the preview
-    // looking as if nothing had been chosen — so fall back to the extension.
-    const looksLikeImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(file.name || '');
-    if (!looksLikeImage) {
-      setImageError(`"${file.name || 'That file'}" is not a PNG, JPG or WebP image.`);
-      showToast('The card design must be a PNG, JPG or WebP image.', 'error');
+    try {
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error(`"${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB. The card design must be under 10 MB.`);
+      }
+      if (file.size === 0) {
+        throw new Error(`"${file.name || 'That file'}" is empty. Pick the image again — some gallery apps hand over an empty file the first time.`);
+      }
+
+      // Read now, while the picker's handle is certainly still valid.
+      let buffer;
+      try {
+        buffer = await file.arrayBuffer();
+      } catch (err) {
+        throw new Error(`The phone could not read "${file.name || 'that file'}" (${err.name || 'read error'}). ` +
+          'This happens when the gallery app releases it — try picking it again, or from Files instead of Photos.',
+        { cause: err });
+      }
+
+      // The bytes are the truth: Android pickers mislabel types routinely, and
+      // a photo named .jpg is quite often really HEIC.
+      const sniffed = sniffImageType(new Uint8Array(buffer.slice(0, 16)));
+      if (sniffed === 'image/heic') {
+        throw new Error(`"${file.name}" is a HEIC photo (Android and iPhone cameras save these), not a JPG or PNG. ` +
+          'Open it and export/share it as JPG, then choose that.');
+      }
+      const byExt  = EXT_MIME[(file.name || '').split('.').pop()?.toLowerCase()] || null;
+      const byMime = /^image\/(png|jpeg|webp)$/i.test(file.type) ? file.type.toLowerCase() : null;
+      const mime   = sniffed || byMime || byExt;
+      if (!mime) {
+        throw new Error(`"${file.name || 'That file'}" is not a PNG, JPG or WebP image.`);
+      }
+
+      // Our own Blob, with a type the browser will definitely accept.
+      const blob = new Blob([buffer], { type: mime });
+      const url  = URL.createObjectURL(blob);
+
+      // Decode once before showing it, so a failure can say what went wrong
+      // rather than leaving a broken <img> and a generic message.
+      const probe = await decodeImage(url);
+      if (!probe.ok) {
+        URL.revokeObjectURL(url);
+        throw new Error(`"${file.name}" could not be opened on this device — ${probe.reason}. ` +
+          (probe.reason.includes('too large')
+            ? 'Save it at a smaller size and try again.'
+            : 'Re-save it as a standard JPG or PNG and try again.'));
+      }
+
+      imageBlobRef.current = blob;    // kept so the preview can rebuild its URL
+      healedRef.current = false;
+
+      // Upload the SAME BYTES, correctly labelled. A phone gallery hands over a
+      // file with an empty type, which the browser then posts as
+      // application/octet-stream — and the server's upload filter only accepts
+      // image/jpeg, image/png and image/webp, so generation was refused even
+      // though the preview looked fine. The type here comes from the file's own
+      // magic bytes, so it is more trustworthy than anything the picker said.
+      // Nothing is re-encoded: byte-for-byte the same image reaches the server.
+      setImageFile(
+        file.type === mime ? file : new File([buffer], file.name || `card.${mime.split('/')[1]}`, { type: mime })
+      );
+      setImagePreview(url);
+      setNatural({ w: probe.width, h: probe.height });
+      setPos(null);
+    } catch (err) {
+      imageBlobRef.current = null;
+      setImageError(err.message);
+      showToast(err.message, 'error');
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  /**
+   * The preview <img> failed after we had already decoded the same bytes once.
+   * In practice that means the object URL was released underneath it — so mint
+   * a fresh one from the Blob we kept instead of making the user start again.
+   * Only once, so a genuinely undecodable image cannot loop.
+   */
+  const handlePreviewError = () => {
+    if (imageBlobRef.current && !healedRef.current) {
+      healedRef.current = true;
+      setImagePreview(URL.createObjectURL(imageBlobRef.current));
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setImageError(`"${file.name}" is ${(file.size / 1024 / 1024).toFixed(1)} MB. The card design must be under 10 MB.`);
-      showToast('The card design must be under 10 MB.', 'error');
-      return;
-    }
-
-    setImageFile(file);
-    // Revoking happens in the effect below, not inside the updater: a state
-    // updater must stay pure, or React may run it twice and revoke a URL that
-    // is still on screen.
-    setImagePreview(URL.createObjectURL(file));
-    setNatural({ w: 0, h: 0 });
-    setPos(null);
+    setImageError('The preview image stopped loading on this device. Choose the card design again.');
   };
 
   const layoutPayload = () => ({
@@ -596,8 +715,8 @@ export default function BulkCardGenerator() {
                     {imageFile ? ` · ${(imageFile.size / 1024 / 1024).toFixed(1)} MB` : ''}
                   </small>
                 </div>
-                <button type="button" className="btn-outline" onClick={() => imageRef.current?.click()}>
-                  Change design
+                <button type="button" className="btn-outline" disabled={imageBusy} onClick={() => imageRef.current?.click()}>
+                  {imageBusy ? <><span className="bcg-spinner bcg-spinner--sm" /> Opening…</> : 'Change design'}
                 </button>
               </>
             ) : (
@@ -607,16 +726,22 @@ export default function BulkCardGenerator() {
                   <strong>Choose the card design to preview</strong>
                   <small>The same image you use for a single invitation · PNG, JPG or WebP · max 10 MB</small>
                 </div>
-                <button type="button" className="btn-gold" onClick={() => imageRef.current?.click()}>
-                  <MdUploadFile size={16} /> Choose card design
+                <button type="button" className="btn-gold" disabled={imageBusy} onClick={() => imageRef.current?.click()}>
+                  {imageBusy
+                    ? <><span className="bcg-spinner bcg-spinner--sm" /> Opening…</>
+                    : <><MdUploadFile size={16} /> Choose card design</>}
                 </button>
               </>
             )}
           </div>
+          {/* Plain image/* on purpose: Android pickers are known to refuse to
+              open ("no app can perform this action") when a long list mixing
+              MIME types and extensions is given. The file is validated from its
+              bytes once chosen, which is stricter than any accept filter. */}
           <input
             ref={imageRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/*,.png,.jpg,.jpeg,.webp"
+            accept="image/*"
             style={{ display: 'none' }}
             onChange={(e) => { handleImage(e.target.files[0]); e.target.value = ''; }}
           />
@@ -665,7 +790,7 @@ export default function BulkCardGenerator() {
                       src={imagePreview}
                       alt="Card design preview"
                       onLoad={onImgLoad}
-                      onError={() => setImageError('That image could not be displayed. Try choosing the card design again, or re-save it as a PNG or JPG.')}
+                      onError={handlePreviewError}
                       draggable={false}
                     />
 
