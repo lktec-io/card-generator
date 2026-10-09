@@ -43,7 +43,25 @@ class BeemProvider extends SmsProvider {
 
     const auth = Buffer.from(`${this.apiKey}:${this.secretKey}`).toString('base64');
 
+    // Hard deadline for the whole call. Without it a stalled Beem connection
+    // holds the HTTP request (and a bulk job's loop) open forever. Kept below
+    // the frontend's 30 s timeout so the server always answers first.
+    const timeoutMs = Number(process.env.BEEM_SMS_TIMEOUT_MS) || 20000;
+
     return new Promise((resolve, reject) => {
+      let settled = false;
+      let flushed = false;   // request body fully handed to the OS → Beem may have it
+      const done = (fn, v) => { if (settled) return; settled = true; clearTimeout(timer); fn(v); };
+      const timer = setTimeout(() => {
+        const err = new Error(flushed
+          ? `Beem did not answer within ${Math.round(timeoutMs / 1000)}s — delivery is unconfirmed; check before resending.`
+          : `Could not reach Beem within ${Math.round(timeoutMs / 1000)}s — the SMS was not sent.`);
+        err.code = 'PROVIDER_TIMEOUT';
+        if (flushed) err.unconfirmed = true;
+        done(reject, err);
+        req.destroy();
+      }, timeoutMs);
+
       const req = https.request(
         {
           hostname: 'apisms.beem.africa',
@@ -65,18 +83,20 @@ class BeemProvider extends SmsProvider {
             // Beem returns { successful: true, request_id: ..., code: 100 } on success
             const ok = res.statusCode >= 200 && res.statusCode < 300 && json.successful !== false;
             if (ok) {
-              resolve({
+              done(resolve, {
                 success:             true,
                 provider_message_id: json.request_id != null ? String(json.request_id) : null,
               });
             } else {
-              reject(new Error(json.message || `Beem HTTP ${res.statusCode}`));
+              done(reject, new Error(json.message || `Beem HTTP ${res.statusCode}`));
             }
           });
+          res.on('error', (e) => done(reject, e));
         }
       );
 
-      req.on('error', reject);
+      req.on('finish', () => { flushed = true; });
+      req.on('error', (e) => done(reject, e));
       req.write(body);
       req.end();
     });

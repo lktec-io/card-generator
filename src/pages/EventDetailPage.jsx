@@ -338,7 +338,9 @@ export default function EventDetailPage() {
       setTimeout(() => setSmsSending(prev => ({ ...prev, [inv.id]: 'idle' })), 6000);
     } catch (err) {
       setSmsSending(prev => ({ ...prev, [inv.id]: 'failed' }));
-      showToast(err.response?.data?.message || 'Failed to send SMS.', 'error');
+      // No response means we don't know whether it went out — say so rather than "failed".
+      showToast(err.response?.data?.message
+        || (err.response ? 'Failed to send SMS.' : 'No answer from the server — check the SMS log before resending.'), 'error');
       setTimeout(() => setSmsSending(prev => ({ ...prev, [inv.id]: 'idle' })), 6000);
     }
   };
@@ -359,7 +361,16 @@ export default function EventDetailPage() {
             pollRef.current = null;
             showToast(`Bulk SMS complete — ${p.sent} sent, ${p.failed} failed.`, 'success');
           }
-        } catch { /* ignore transient poll errors */ }
+        } catch (pollErr) {
+          // 404 = job expired or the server restarted: it will never report done.
+          // Stop instead of spinning forever; other errors are transient.
+          if (pollErr.response?.status === 404) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+            setBulkJob(null);
+            showToast('Lost track of the bulk SMS job — check the SMS log for what was sent.', 'error');
+          }
+        }
       }, 1200);
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to start bulk SMS.', 'error');
@@ -476,7 +487,16 @@ export default function EventDetailPage() {
             tyPollRef.current = null;
             loadThankYou();      // refresh the already-thanked list behind the modal
           }
-        } catch { /* ignore transient poll errors */ }
+        } catch (pollErr) {
+          if (pollErr.response?.status === 404) {   // job gone — it will never finish
+            clearInterval(tyPollRef.current);
+            tyPollRef.current = null;
+            setTyJob(null);
+            setTySpeed(null);
+            showToast('Lost track of the thank-you job — check the SMS log for what was sent.', 'error');
+            loadThankYou();
+          }
+        }
       }, 700);
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to start thank-you SMS.', 'error');

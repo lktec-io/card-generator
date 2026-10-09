@@ -46,20 +46,39 @@ function canAssign(user) {
 async function listEvents(req, res) {
   const scope = eventScopeSQL(req.user);
   try {
+    // Each table is aggregated ONCE, then joined one row per event.
+    //
+    // The previous form joined invitations and rsvp_responses to events side by
+    // side, both on event_id only — so every event produced invitations × RSVPs
+    // rows before GROUP BY. Two consequences, both measured on a production-scale
+    // copy (45 events, 8,743 guests):
+    //   - cost: 1.3–2.0 s per call, growing as guests RSVP; under 12 concurrent
+    //     page loads it held all 10 pool connections, and SMS sends, dashboard
+    //     stats and WhatsApp logs queued behind it for 8–18 s
+    //   - wrong totals: each checked-in guest counted once per RSVP, each RSVP
+    //     once per guest (event 45: 104,512 "checked in" against 184 real)
+    // The columns returned are unchanged.
     const [events] = await pool.execute(
       `SELECT
          e.*,
          (SELECT u.name FROM users u WHERE u.id = e.assigned_to) AS assigned_to_name,
          (SELECT u.role FROM users u WHERE u.id = e.assigned_to) AS assigned_to_role,
-         COUNT(DISTINCT i.id)                       AS total_invitations,
-         COALESCE(SUM(i.status = 'used'),        0) AS checked_in,
-         COALESCE(SUM(r.response = 'attending'), 0) AS rsvp_attending,
-         COALESCE(SUM(r.response = 'declined'),  0) AS rsvp_declined
+         COALESCE(ic.total_invitations, 0) AS total_invitations,
+         COALESCE(ic.checked_in,        0) AS checked_in,
+         COALESCE(rc.rsvp_attending,    0) AS rsvp_attending,
+         COALESCE(rc.rsvp_declined,     0) AS rsvp_declined
        FROM events e
-       LEFT JOIN invitations    i ON i.event_id = e.id
-       LEFT JOIN rsvp_responses r ON r.event_id = e.id
+       LEFT JOIN (
+         SELECT event_id, COUNT(*) AS total_invitations, SUM(status = 'used') AS checked_in
+           FROM invitations GROUP BY event_id
+       ) ic ON ic.event_id = e.id
+       LEFT JOIN (
+         SELECT event_id,
+                SUM(response = 'attending') AS rsvp_attending,
+                SUM(response = 'declined')  AS rsvp_declined
+           FROM rsvp_responses GROUP BY event_id
+       ) rc ON rc.event_id = e.id
        WHERE 1=1 ${scope.where}
-       GROUP BY e.id
        ORDER BY e.created_at DESC`,
       scope.params
     );

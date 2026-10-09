@@ -164,6 +164,25 @@ function RsvpBreakdown({ attending, declined, awaiting }) {
   );
 }
 
+/* ── Load errors ─────────────────────────────────────────────────────── */
+
+function loadFailure(err, what) {
+  const status = err?.response?.status;
+  if (status === 503) return `The server is busy — could not load ${what}. Try again in a moment.`;
+  if (status === 504 || err?.code === 'ECONNABORTED') return `Loading ${what} took too long. Try again.`;
+  if (!err?.response) return `Could not reach the server to load ${what}. Check your connection.`;
+  return err.response.data?.message || `Could not load ${what}.`;
+}
+
+function LoadError({ message, onRetry }) {
+  return (
+    <div className="dash-error" role="alert">
+      <span>{message}</span>
+      <button type="button" className="dash-retry" onClick={onRetry}>Try again</button>
+    </div>
+  );
+}
+
 /* ── Page component ──────────────────────────────────────────────────── */
 
 export default function DashboardPage() {
@@ -172,20 +191,39 @@ export default function DashboardPage() {
   const [recentRSVP,    setRecentRSVP]    = useState([]);
   const [events,        setEvents]        = useState([]);
   const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState('');
+  // Each source fails on its own: a slow or failed events list must not hide
+  // the stats, and failed stats must never be shown as zeros.
+  const [statsError,    setStatsError]    = useState('');
+  const [eventsError,   setEventsError]   = useState('');
+  const [reloadKey,     setReloadKey]     = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
-    Promise.all([getGlobalStats(), listEvents()])
-      .then(([statsRes, eventsRes]) => {
-        setStats(statsRes.data.stats);
-        setRecentCheckins(statsRes.data.recent_checkins || []);
-        setRecentRSVP(statsRes.data.recent_rsvp || []);
-        setEvents(eventsRes.data.events?.slice(0, 5) || []);
-      })
-      .catch(() => setError('Could not load dashboard. Check your connection.'))
-      .finally(() => setLoading(false));
-  }, []);
+    let alive = true;
+    Promise.allSettled([getGlobalStats(), listEvents()]).then(([s, e]) => {
+      if (!alive) return;
+      if (s.status === 'fulfilled' && s.value.data?.stats) {
+        setStatsError('');
+        setStats(s.value.data.stats);
+        setRecentCheckins(s.value.data.recent_checkins || []);
+        setRecentRSVP(s.value.data.recent_rsvp || []);
+      } else {
+        setStats(null);
+        setStatsError(loadFailure(s.reason, 'dashboard figures'));
+      }
+      if (e.status === 'fulfilled') {
+        setEventsError('');
+        setEvents(e.value.data?.events?.slice(0, 5) || []);
+      } else {
+        setEvents([]);
+        setEventsError(loadFailure(e.reason, 'recent events'));
+      }
+      setLoading(false);
+    });
+    return () => { alive = false; };
+  }, [reloadKey]);
+
+  const retry = () => { setLoading(true); setReloadKey((k) => k + 1); };
 
   const attendanceRate = stats?.attendance_rate ?? 0;
   const rsvpTotal = (stats?.rsvp_attending ?? 0) + (stats?.rsvp_declined ?? 0);
@@ -211,8 +249,6 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {error && <p className="dash-error">{error}</p>}
-
       {loading ? (
         <div className="dash-loading">
           <div className="dash-loading-spinner" />
@@ -220,8 +256,10 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
+          {statsError && <LoadError message={statsError} onRetry={retry} />}
+
           {/* ── Overview: the headline figure first, then the key counts ── */}
-          <div className="dash-overview">
+          {stats && <div className="dash-overview">
             <section className="dash-card dash-hero" aria-labelledby="dash-attendance-title">
               <div className="dash-card-head">
                 <h2 id="dash-attendance-title" className="dash-card-title">Attendance rate</h2>
@@ -249,11 +287,11 @@ export default function DashboardPage() {
                 <Kpi icon={<MdEvent />} label="Campaigns" value={stats.total_campaigns} />
               )}
             </section>
-          </div>
+          </div>}
 
           {/* ── RSVP breakdown + recent events ── */}
           <div className="dash-panels">
-            <section className="dash-card" aria-labelledby="dash-rsvp-title">
+            {stats && <section className="dash-card" aria-labelledby="dash-rsvp-title">
               <div className="dash-card-head">
                 <h2 id="dash-rsvp-title" className="dash-card-title">RSVP responses</h2>
                 <span className="dash-card-hint">
@@ -265,14 +303,16 @@ export default function DashboardPage() {
                 declined={stats?.rsvp_declined ?? 0}
                 awaiting={rsvpPending}
               />
-            </section>
+            </section>}
 
             <section className="dash-card" aria-labelledby="dash-events-title">
               <div className="dash-card-head">
                 <h2 id="dash-events-title" className="dash-card-title">Recent events</h2>
                 <Link to="/events" className="dash-see-all">See all <MdArrowForward size={14} /></Link>
               </div>
-              {events.length === 0 ? (
+              {eventsError ? (
+                <LoadError message={eventsError} onRetry={retry} />
+              ) : events.length === 0 ? (
                 <div className="dash-empty">
                   <MdEvent size={32} />
                   <p>No events yet. <button className="dash-link-btn" onClick={() => navigate('/events')}>Create your first event</button></p>
@@ -310,7 +350,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Recent activity ── */}
-          <div className="dash-activity-row">
+          {stats && <div className="dash-activity-row">
 
             <section className="dash-card" aria-labelledby="dash-recent-rsvp-title">
               <div className="dash-card-head">
@@ -370,7 +410,7 @@ export default function DashboardPage() {
               )}
             </section>
 
-          </div>
+          </div>}
 
           {/* ── Quick actions ── */}
           <nav className="dash-quick-actions" aria-label="Quick actions">

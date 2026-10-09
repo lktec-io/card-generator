@@ -449,8 +449,25 @@ async function retryFailed(req, res) {
 const READ_ACQUIRE_TIMEOUT_MS = 8000;   // well inside the browser's 30 s
 const READ_QUERY_TIMEOUT_MS   = 10000;  // a runaway statement cannot hold a connection
 
-/** True once the client has disconnected — no point querying for nobody. */
-const clientGone = (req) => Boolean(req.destroyed || req.socket?.destroyed || req.aborted);
+/**
+ * Track whether the client really went away, from the RESPONSE side.
+ *
+ * An earlier version read `req.destroyed`. Node marks a request "destroyed" as
+ * soon as its body has been fully read — so any request whose body was parsed
+ * (express.json() reads even a GET's body) looked "gone", and the handler
+ * returned without ever answering. Reproduced: an idle-server GET with a JSON
+ * body hung for the full 30 s. The response's 'close' firing before the
+ * response finished is the one signal that means the client actually left.
+ */
+function trackClient(res) {
+  const state = { gone: false };
+  // Called before the handler's try: it must never throw (Express 4 would
+  // leave the request unanswered), so tolerate a response without .on().
+  if (typeof res.on === 'function') {
+    res.on('close', () => { if (!res.writableEnded) state.gone = true; });
+  }
+  return state;
+}
 
 /** loadScopedEvent, on a connection the caller already holds. */
 async function scopedEventOn(conn, eventId, user) {
@@ -485,10 +502,11 @@ function sendReadError(res, err, label, fallback) {
 async function getSummary(req, res) {
   const eventId = parseInt(req.params.event_id, 10);
   if (!eventId) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
+  const client = trackClient(res);
 
   try {
     const result = await withConnection(async (conn) => {
-      if (clientGone(req)) return null;
+      if (client.gone) return null;
       const event = await scopedEventOn(conn, eventId, req.user);
       if (!event) return { notFound: true };
 
@@ -504,7 +522,7 @@ async function getSummary(req, res) {
       return { rows, eligible };
     }, { acquireTimeoutMs: READ_ACQUIRE_TIMEOUT_MS });
 
-    if (result === null) return;                           // client already gone
+    if (result === null) { if (!res.headersSent) res.status(499).end(); return; }  // client gone — nothing to send, never leave it open
     if (result.notFound) return res.status(404).json({ success: false, message: 'Event not found, or you do not have access to it.' });
 
     const counts = { pending: 0, sending: 0, accepted: 0, sent: 0, delivered: 0, read: 0, failed: 0 };
@@ -531,6 +549,7 @@ async function getSummary(req, res) {
 async function getLogs(req, res) {
   const eventId = parseInt(req.params.event_id, 10);
   if (!eventId) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
+  const client = trackClient(res);
 
   const q      = String(req.query.q || '').trim();
   const status = String(req.query.status || '').trim().toLowerCase();
@@ -563,12 +582,12 @@ async function getLogs(req, res) {
 
   try {
     const result = await withConnection(async (conn) => {
-      if (clientGone(req)) return null;
+      if (client.gone) return null;
       const event = await scopedEventOn(conn, eventId, req.user);
       if (!event) return { notFound: true };
 
       const [[{ n: total }]] = await conn.execute({ sql: countSql, timeout: READ_QUERY_TIMEOUT_MS }, params);
-      if (clientGone(req)) return null;
+      if (client.gone) return null;
 
       const [logs] = await conn.execute(
         { sql: `SELECT w.id, w.event_id, w.invitation_id, w.guest_name, w.phone_number,
@@ -586,7 +605,7 @@ async function getLogs(req, res) {
       return { event, total, logs };
     }, { acquireTimeoutMs: READ_ACQUIRE_TIMEOUT_MS });
 
-    if (result === null) return;                           // client already gone
+    if (result === null) { if (!res.headersSent) res.status(499).end(); return; }  // client gone — nothing to send, never leave it open
     if (result.notFound) return res.status(404).json({ success: false, message: 'Event not found, or you do not have access to it.' });
 
     const total = Number(result.total) || 0;
