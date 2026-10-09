@@ -173,7 +173,10 @@ export const retrySms            = (logId)         => api.post(`/sms/retry/${log
 // Credentials never reach the browser — the status endpoint only reports whether
 // the server is configured and which template is live.
 export const getWhatsAppStatus   = ()        => api.get('/whatsapp/status');
-export const getWhatsAppSummary  = (eventId) => api.get(`/whatsapp/summary/${eventId}`);
+// `signal` lets the caller cancel a request it no longer needs, so a superseded
+// or unmounted request stops occupying a browser connection and a server slot.
+export const getWhatsAppSummary  = (eventId, { signal } = {}) =>
+  api.get(`/whatsapp/summary/${eventId}`, { signal });
 
 export const sendWhatsAppInvitation = (invitationId, opts = {}) =>
   api.post(`/whatsapp/send/${invitationId}`, opts);
@@ -186,8 +189,8 @@ export const getWhatsAppProgress = (jobId)   => api.get(`/whatsapp/bulk/progress
 export const retryWhatsAppFailed = (eventId) => api.post(`/whatsapp/retry/${eventId}`);
 
 /** Server-side search + pagination — never load every row into the browser. */
-export const getWhatsAppLogs = (eventId, { q = '', status = '', page = 1, pageSize = 25 } = {}) =>
-  api.get(`/whatsapp/logs/${eventId}`, { params: { q, status, page, page_size: pageSize } });
+export const getWhatsAppLogs = (eventId, { q = '', status = '', page = 1, pageSize = 25, signal } = {}) =>
+  api.get(`/whatsapp/logs/${eventId}`, { params: { q, status, page, page_size: pageSize }, signal });
 
 // Post-event thank-you SMS (same Beem service, recipients resolved server-side per event)
 export const getThankYouInfo     = (eventId)       => api.get(`/sms/thank-you/${eventId}`);

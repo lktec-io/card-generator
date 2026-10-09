@@ -1096,7 +1096,7 @@ export default function EventDetailPage() {
         {/* ── WhatsApp (separate channel, separate provider, separate logs) ── */}
         {canSendSms && !isContribution && (
           <WhatsAppPanel
-            refreshKey={waRefresh}
+            key={waRefresh}
             eventId={id}
             selectedIds={selectedIds}
             onClearSelection={() => setSelectedIds([])}

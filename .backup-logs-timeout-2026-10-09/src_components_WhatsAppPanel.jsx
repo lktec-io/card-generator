@@ -44,31 +44,6 @@ function describeError(err, fallback) {
   return `${fallback} Server replied HTTP ${err.response.status}.`;
 }
 
-/** A request we cancelled ourselves — never shown as an error. */
-const isCancel = (err) => err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED';
-
-/**
- * What a read failure actually was. The old message for a timeout told staff to
- * "narrow the search", but the search itself takes milliseconds: a timeout means
- * the server could not get to the request at all. Saying so stops people
- * rewording a search that was never the problem.
- */
-function readFailure(err, what) {
-  const status = err?.response?.status;
-  const code   = err?.response?.data?.code;
-  if (code === 'DB_BUSY' || status === 503) {
-    return `The server is busy right now, so ${what} could not load. This is not caused by your search — try again in a moment.`;
-  }
-  if (code === 'DB_TIMEOUT' || status === 504) {
-    return `The database took too long to answer while loading ${what}. Try again in a moment.`;
-  }
-  if (err?.code === 'ECONNABORTED') {
-    return `The server did not respond in time while loading ${what}. This is not caused by your search — try again in a moment.`;
-  }
-  if (!err?.response) return `Could not reach the server to load ${what}. Check the connection and try again.`;
-  return err.response.data?.message || `Could not load ${what} (HTTP ${status}).`;
-}
-
 const fmt = (ts) => {
   if (!ts) return '—';
   try {
@@ -83,7 +58,7 @@ const fmt = (ts) => {
  * GROUP BY on whatsapp_logs, not anything counted in the browser — so figures
  * from another event can never appear here.
  */
-export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelection, refreshKey = 0 }) {
+export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelection }) {
   const { showToast } = useToast();
 
   const [summary, setSummary]   = useState(null);
@@ -108,71 +83,49 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
 
   const sendGuard = useRef(false);     // one click = one campaign
   const logSeq    = useRef(0);         // discards superseded log responses
-  const logsAbort    = useRef(null);   // cancels the log request a newer one replaces
-  const summaryAbort = useRef(null);
 
   const configured = summary?.whatsapp?.configured;
 
   const loadSummary = useCallback(() => {
     if (!eventId) return;
-    summaryAbort.current?.abort();
-    const ctrl = new AbortController();
-    summaryAbort.current = ctrl;
-    getWhatsAppSummary(eventId, { signal: ctrl.signal })
+    getWhatsAppSummary(eventId)
       .then(({ data }) => { setSummary(data); setSummaryError(''); })
       .catch((err) => {
-        if (isCancel(err)) return;                 // replaced or unmounted — not a failure
         setSummary(null);
         // A failure here used to leave the panel looking simply empty.
-        setSummaryError(readFailure(err, 'the WhatsApp summary'));
+        setSummaryError(err.response?.data?.message
+          || (err.code === 'ECONNABORTED'
+            ? 'The server did not respond in time. Reload to try again.'
+            : `Could not load the WhatsApp summary (${err.response?.status || err.message}).`));
       })
       // always cleared, so "Loading…" cannot outlive the request
-      .finally(() => { if (summaryAbort.current === ctrl) setLoading(false); });
+      .finally(() => setLoading(false));
   }, [eventId]);
 
   const loadLogs = useCallback(() => {
     if (!eventId) return;
-    // Cancel the request this one replaces. Ignoring its answer (logSeq) was not
-    // enough on its own: the stale request still held a browser connection and a
-    // server slot until it finished, which is exactly what a busy server needs least.
-    logsAbort.current?.abort();
-    const ctrl = new AbortController();
-    logsAbort.current = ctrl;
     const seq = ++logSeq.current;
     setLogsLoading(true);
-    setLogsError('');
-    getWhatsAppLogs(eventId, { q: query, status, page, pageSize: PAGE_SIZE, signal: ctrl.signal })
+    getWhatsAppLogs(eventId, { q: query, status, page, pageSize: PAGE_SIZE })
       .then(({ data }) => {
         if (seq !== logSeq.current) return;        // a newer search already won
         setLogs(data.logs || []);
         setTotal(data.total || 0);
         setPages(data.pages || 1);
+        setLogsError('');
       })
       .catch((err) => {
-        if (isCancel(err) || seq !== logSeq.current) return;
-        // Keep whatever rows were on screen — a transient failure should not
-        // blank a list the user was reading — and say what actually happened.
-        setLogsError(readFailure(err, 'the WhatsApp logs'));
+        if (seq !== logSeq.current) return;
+        setLogs([]); setTotal(0); setPages(1);
+        setLogsError(err.response?.data?.message
+          || (err.code === 'ECONNABORTED'
+            ? 'The log search timed out. Narrow the search or try again.'
+            : 'Could not load the WhatsApp logs.'));
       })
-      // always released for the latest request, whatever the outcome
       .finally(() => { if (seq === logSeq.current) setLogsLoading(false); });
   }, [eventId, query, status, page]);
 
-  /* Cancel anything still in flight when the panel goes away. */
-  useEffect(() => () => { logsAbort.current?.abort(); summaryAbort.current?.abort(); }, []);
-
   useEffect(() => { loadSummary(); }, [loadSummary]);
-
-  /* Reload in place when the parent says data changed (e.g. one guest was just
-     messaged). The panel used to be remounted for this, which threw away the
-     current search and page and re-ran every mount request. */
-  const firstRefresh = useRef(true);
-  useEffect(() => {
-    if (firstRefresh.current) { firstRefresh.current = false; return; }
-    loadSummary();
-    loadLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
 
   /* Search is debounced and runs on the server — the browser never filters. */
   useEffect(() => {
@@ -289,13 +242,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
     try {
       const { data } = await retryWhatsAppFailed(eventId);
       beginJob(data);
-      showToast(
-        `Retrying ${data.retrying} failed message${data.retrying > 1 ? 's' : ''}…` +
-        (data.held_back
-          ? ` ${data.held_back} held back: Beem did not confirm whether they were delivered, so they are not resent automatically.`
-          : ''),
-        'success'
-      );
+      showToast(`Retrying ${data.retrying} failed message${data.retrying > 1 ? 's' : ''}…`, 'success');
     } catch (err) {
       sendGuard.current = false;
       showToast(describeError(err, 'Could not start the retry.'), 'error');
@@ -343,10 +290,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
       ))}
 
       {summaryError && (
-        <div className="wa-alert wa-alert--error">
-          <CircleAlert size={16} /><span>{summaryError}</span>
-          <button type="button" className="wa-retry" onClick={loadSummary}><RefreshCw size={13} /> Try again</button>
-        </div>
+        <p className="wa-alert wa-alert--error"><CircleAlert size={16} /><span>{summaryError}</span></p>
       )}
 
       {/* ── campaign summary: real values from whatsapp_logs for this event ── */}
@@ -462,12 +406,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
         </div>
 
         {logsError && (
-          <div className="wa-alert wa-alert--error">
-            <CircleAlert size={16} /><span>{logsError}</span>
-            <button type="button" className="wa-retry" onClick={loadLogs} disabled={logsLoading}>
-              <RefreshCw size={13} /> Try again
-            </button>
-          </div>
+          <p className="wa-alert wa-alert--error"><CircleAlert size={16} /><span>{logsError}</span></p>
         )}
 
         <div className="wa-table-wrap">

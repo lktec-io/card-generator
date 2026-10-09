@@ -67,19 +67,6 @@ function readConfig(env = process.env) {
       'Append ?secret=<the secret> to the callback URL registered with Beem.'
     );
   }
-  // A base64 secret is the usual culprit: '+' is decoded as a space in a URL
-  // query, and '&' or '#' end it early, so the value Beem sends back no longer
-  // matches. Hex secrets (openssl rand -hex 32) have none of these characters.
-  if (cfg.callbackSecret && /[+&#%?/= ]/.test(cfg.callbackSecret)) {
-    const literal = cfg.callbackUrl && cfg.callbackUrl.includes(`secret=${cfg.callbackSecret}`);
-    cfg.warnings.push(
-      'BEEM_WHATSAPP_CALLBACK_SECRET contains characters that change meaning inside a URL (+ & # % ? / = or space). ' +
-      (literal
-        ? 'It appears unencoded in BEEM_WHATSAPP_CALLBACK_URL, so callbacks will not match. '
-        : '') +
-      'URL-encode it in the callback URL registered with Beem, or switch to a hex secret (openssl rand -hex 32).'
-    );
-  }
   if (cfg.callbackUrl && !/^https:\/\//i.test(cfg.callbackUrl)) {
     cfg.warnings.push('BEEM_WHATSAPP_CALLBACK_URL must be public HTTPS for Beem to reach it.');
   }

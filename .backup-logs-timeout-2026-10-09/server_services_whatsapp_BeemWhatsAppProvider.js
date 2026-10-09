@@ -269,24 +269,8 @@ class BeemWhatsAppProvider {
         });
       });
 
-      // Whether the request body actually left this machine. A failure BEFORE
-      // that (bad DNS, refused connection) means Beem never saw the message. A
-      // failure AFTER it — a timeout, a dropped connection — means Beem may well
-      // have accepted it and only the answer was lost. Those are "unconfirmed",
-      // and must not be resent automatically or the guest gets it twice.
-      let sent = false;
-      req.on('finish', () => { sent = true; });
-
-      req.on('timeout', () => {
-        const e = new Error(`Beem did not answer within ${Math.round(this.config.timeoutMs / 1000)}s`);
-        e.code = 'PROVIDER_TIMEOUT';
-        req.destroy(e);
-      });
-      req.on('error', (err) => {
-        // only once the body left: before that Beem cannot have a complete request
-        if (sent) err.unconfirmed = true;
-        reject(err);
-      });
+      req.on('timeout', () => req.destroy(new Error(`Beem WhatsApp timed out after ${this.config.timeoutMs}ms`)));
+      req.on('error', reject);
       req.write(data);
       req.end();
     });

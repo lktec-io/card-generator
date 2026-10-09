@@ -1,7 +1,4 @@
-// Kept exactly as before: .env is resolved from the working directory. Changing
-// which file loads could swap production's configuration underneath it, so the
-// startup report below says which file was used instead.
-const envResult    = require('dotenv').config();
+require('dotenv').config();
 const express      = require('express');
 const cors         = require('cors');
 const path         = require('path');
@@ -50,9 +47,6 @@ ensureSchema()
   .catch((err) => console.error('[schema] check failed:', err.message))
   .finally(() => {
     app.listen(PORT, () => {
-      // Replaces a hardcoded "https://wedding.nardio.online${PORT}" — a log line
-      // only (nothing read it), but wrong twice: the ':' was missing, and this
-      // process serves plain HTTP behind nginx, never https on this port.
-      require('./config/startupCheck').startupReport({ port: PORT, envResult });
+      console.log(`\n💍 Wedding QR Server  →  https://wedding.nardio.online${PORT}\n`);
     });
   });

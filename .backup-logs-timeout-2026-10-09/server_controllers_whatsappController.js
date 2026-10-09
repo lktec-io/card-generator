@@ -14,7 +14,6 @@
 const crypto = require('crypto');
 
 const pool = require('../config/db');
-const { withConnection, poolStats } = require('../config/db');
 const WhatsAppService = require('../services/whatsapp/WhatsAppService');
 const { getConfig } = require('../config/whatsapp');
 const { validatePhone } = require('../utils/phone');
@@ -112,43 +111,14 @@ async function alreadySent(invitationId) {
 }
 
 /**
- * Marks a failure whose outcome is unknown: the request reached Beem but no
- * answer came back, so the message may well have been delivered. Stored on
- * error_message (no schema change) and recognised by the bulk paths below.
- */
-const UNCONFIRMED_PREFIX = '[unconfirmed] ';
-
-/** Was the last attempt for this invitation one whose outcome is unknown? */
-async function hasUnconfirmed(invitationId) {
-  if (!invitationId) return false;
-  const [[row]] = await pool.execute(
-    `SELECT id FROM whatsapp_logs
-      WHERE invitation_id = ? AND status = 'failed' AND error_message LIKE ?
-      LIMIT 1`,
-    // MySQL LIKE treats only % and _ as wildcards, so the brackets match literally
-    [invitationId, `${UNCONFIRMED_PREFIX}%`]
-  );
-  return Boolean(row);
-}
-
-/**
  * Send one invitation and record it. Shared by every flow, so single, bulk and
  * retry behave identically.
- *
- * `holdUnconfirmed`: bulk flows pass true, so a guest whose earlier send may
- * already have been delivered is not messaged a second time automatically. A
- * single, deliberate per-guest send leaves it false — that is a person choosing
- * to resend.
  * @returns {Promise<{ ok:boolean, log_id:number|null, reason?:string, code?:string }>}
  */
-async function sendOne({ invitation, event, baseUrl, force = false, holdUnconfirmed = false }) {
+async function sendOne({ invitation, event, baseUrl, force = false }) {
   if (!force && await alreadySent(invitation.id)) {
     return { ok: false, skipped: true, code: 'ALREADY_SENT', log_id: null,
              reason: `${invitation.guest_name || 'This guest'} already has a successful WhatsApp invitation.` };
-  }
-  if (holdUnconfirmed && await hasUnconfirmed(invitation.id)) {
-    return { ok: false, skipped: true, code: 'UNCONFIRMED', log_id: null,
-             reason: `${invitation.guest_name || 'This guest'} may already have received it — Beem did not confirm the earlier send. Resend to this guest individually if needed.` };
   }
 
   const check = validatePhone(invitation.phone_number);
@@ -183,13 +153,8 @@ async function sendOne({ invitation, event, baseUrl, force = false, holdUnconfir
     await markSent(logId, result);
     return { ok: true, log_id: logId, job_id: result.job_id };
   } catch (err) {
-    // An answer that never came is not the same as a refusal: say so, and keep
-    // it out of automatic resends.
-    const reason = err.unconfirmed
-      ? `${UNCONFIRMED_PREFIX}${err.message} — the message may have been delivered; check before resending.`
-      : err.message;
-    await markFailed(logId, reason);
-    return { ok: false, log_id: logId, code: err.unconfirmed ? 'UNCONFIRMED' : (err.code || 'SEND_FAILED'), reason };
+    await markFailed(logId, err.message);
+    return { ok: false, log_id: logId, code: err.code || 'SEND_FAILED', reason: err.message };
   }
 }
 
@@ -311,8 +276,7 @@ async function runCampaign(job, rows, event, baseUrl, { force = false } = {}) {
     for (const inv of rows) {
       job.current = inv.guest_name;
       try {
-        // campaigns never automatically resend an unconfirmed earlier attempt
-        const out = await sendOne({ invitation: inv, event, baseUrl, force, holdUnconfirmed: true });
+        const out = await sendOne({ invitation: inv, event, baseUrl, force });
         if (out.ok)           job.sent++;
         else if (out.skipped) job.skipped++;
         else {
@@ -375,10 +339,7 @@ async function retryFailed(req, res) {
       return res.status(409).json({ success: false, message: 'A WhatsApp campaign is already running for this event.' });
     }
 
-    // Guests whose attempts failed and who have never succeeded since —
-    // EXCLUDING any guest with an unconfirmed attempt. Those may already have
-    // the message (Beem received the request; only its answer was lost), so a
-    // blanket retry would risk sending them a duplicate.
+    // Guests whose latest attempt failed and who have never succeeded since.
     const [rows] = await pool.execute(
       `SELECT DISTINCT i.id, i.code, i.guest_name, i.phone_number, i.event_id, i.image_url, i.invitation_uuid
          FROM whatsapp_logs w
@@ -387,40 +348,16 @@ async function retryFailed(req, res) {
           AND NOT EXISTS (
             SELECT 1 FROM whatsapp_logs ok
              WHERE ok.invitation_id = w.invitation_id
-               AND ok.status IN ('accepted','sent','delivered','read'))
-          AND NOT EXISTS (
-            SELECT 1 FROM whatsapp_logs u
-             WHERE u.invitation_id = w.invitation_id
-               AND u.status = 'failed' AND u.error_message LIKE ?)`,
-      [eventId, `${UNCONFIRMED_PREFIX}%`]
-    );
-
-    // How many were held back, so the UI can say so rather than hide them.
-    const [[held]] = await pool.execute(
-      `SELECT COUNT(DISTINCT w.invitation_id) AS n
-         FROM whatsapp_logs w
-        WHERE w.event_id = ? AND w.status = 'failed' AND w.error_message LIKE ?
-          AND NOT EXISTS (
-            SELECT 1 FROM whatsapp_logs ok
-             WHERE ok.invitation_id = w.invitation_id
                AND ok.status IN ('accepted','sent','delivered','read'))`,
-      [eventId, `${UNCONFIRMED_PREFIX}%`]
+      [eventId]
     );
-    const heldBack = Number(held?.n) || 0;
-
     if (rows.length === 0) {
-      return res.status(400).json({
-        success: false,
-        held_back: heldBack,
-        message: heldBack
-          ? `Nothing to retry automatically. ${heldBack} guest${heldBack > 1 ? 's' : ''} may already have the message (Beem did not confirm) — resend to them individually only after checking.`
-          : 'Nothing failed for this event.',
-      });
+      return res.status(400).json({ success: false, message: 'Nothing failed for this event.' });
     }
 
     const job = createJob(eventId, rows.length, req.user?.id ?? null);
     _running.add(eventId);
-    res.status(202).json({ success: true, job_id: job.id, total: rows.length, retrying: rows.length, held_back: heldBack });
+    res.status(202).json({ success: true, job_id: job.id, total: rows.length, retrying: rows.length });
 
     const baseUrl = siteBaseUrl(req);
     // force: these rows have no successful send, so the duplicate guard would
@@ -432,54 +369,6 @@ async function retryFailed(req, res) {
   }
 }
 
-// ── read endpoints: bounded, single-connection ──────────────────────────────
-//
-// Measured on a production-sized copy (1,434 logs, a 641-guest event) the logs
-// request costs 2–8 ms of SQL, and stays under 400 ms even at 100,000 rows. The
-// 30 s timeout seen in production was therefore never the query: it was the
-// request waiting for a pool connection that was busy elsewhere (the pool queues
-// without limit). Reproduced locally — with all ten connections busy, the request
-// sat queued until the browser gave up, and was still queued afterwards.
-//
-// So these endpoints:
-//   - take ONE connection for all their statements, with a bounded wait;
-//   - answer 503 "busy" within seconds instead of hanging;
-//   - skip the work entirely if the browser has already gone away.
-
-const READ_ACQUIRE_TIMEOUT_MS = 8000;   // well inside the browser's 30 s
-const READ_QUERY_TIMEOUT_MS   = 10000;  // a runaway statement cannot hold a connection
-
-/** True once the client has disconnected — no point querying for nobody. */
-const clientGone = (req) => Boolean(req.destroyed || req.socket?.destroyed || req.aborted);
-
-/** loadScopedEvent, on a connection the caller already holds. */
-async function scopedEventOn(conn, eventId, user) {
-  const scope = eventScopeSQL(user);
-  const [[event]] = await conn.execute(
-    { sql: `SELECT e.id, e.event_name, e.event_date, e.event_time, e.venue, e.event_mode
-              FROM events e WHERE e.id = ? ${scope.where || ''}`, timeout: READ_QUERY_TIMEOUT_MS },
-    [eventId, ...(scope.params || [])]
-  );
-  return event || null;
-}
-
-/** Map a failure to a response the UI can act on, without database detail. */
-function sendReadError(res, err, label, fallback) {
-  if (res.headersSent) return;
-  if (err && err.code === 'DB_BUSY') {
-    const stats = poolStats();
-    console.warn(`[whatsapp:${label}] no DB connection within ${err.waitedMs} ms — pool open=${stats.open}/${stats.limit} free=${stats.free} queued=${stats.queued}`);
-    res.set('Retry-After', '3');
-    return res.status(503).json({ success: false, code: 'DB_BUSY', message: err.message });
-  }
-  if (err && err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
-    console.warn(`[whatsapp:${label}] query exceeded ${READ_QUERY_TIMEOUT_MS} ms`);
-    return res.status(504).json({ success: false, code: 'DB_TIMEOUT', message: 'The database took too long to answer. Please try again.' });
-  }
-  console.error(`[whatsapp:${label}]`, err?.message || err);
-  return res.status(500).json({ success: false, message: fallback });
-}
-
 // ── GET /whatsapp/summary/:event_id ─────────────────────────────────────────
 // Real counts, straight from the table, for this event only.
 async function getSummary(req, res) {
@@ -487,41 +376,35 @@ async function getSummary(req, res) {
   if (!eventId) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
 
   try {
-    const result = await withConnection(async (conn) => {
-      if (clientGone(req)) return null;
-      const event = await scopedEventOn(conn, eventId, req.user);
-      if (!event) return { notFound: true };
+    const event = await loadScopedEvent(eventId, req.user);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found, or you do not have access to it.' });
 
-      const [rows] = await conn.execute(
-        { sql: 'SELECT status, COUNT(*) AS n FROM whatsapp_logs WHERE event_id = ? GROUP BY status', timeout: READ_QUERY_TIMEOUT_MS },
-        [eventId]
-      );
-      const [[eligible]] = await conn.execute(
-        { sql: `SELECT COUNT(*) AS n FROM invitations
-                 WHERE event_id = ? AND phone_number IS NOT NULL AND phone_number <> ''`, timeout: READ_QUERY_TIMEOUT_MS },
-        [eventId]
-      );
-      return { rows, eligible };
-    }, { acquireTimeoutMs: READ_ACQUIRE_TIMEOUT_MS });
-
-    if (result === null) return;                           // client already gone
-    if (result.notFound) return res.status(404).json({ success: false, message: 'Event not found, or you do not have access to it.' });
-
+    const [rows] = await pool.execute(
+      `SELECT status, COUNT(*) AS n FROM whatsapp_logs WHERE event_id = ? GROUP BY status`,
+      [eventId]
+    );
     const counts = { pending: 0, sending: 0, accepted: 0, sent: 0, delivered: 0, read: 0, failed: 0 };
     let total = 0;
-    for (const r of result.rows) {
+    for (const r of rows) {
       counts[r.status] = Number(r.n) || 0;
       total += Number(r.n) || 0;
     }
 
+    const [[eligible]] = await pool.execute(
+      `SELECT COUNT(*) AS n FROM invitations
+        WHERE event_id = ? AND phone_number IS NOT NULL AND phone_number <> ''`,
+      [eventId]
+    );
+
     res.json({
       success: true, event_id: eventId, total, counts,
-      eligible_guests: Number(result.eligible.n) || 0,
+      eligible_guests: Number(eligible.n) || 0,
       running: _running.has(eventId),
       whatsapp: WhatsAppService.publicStatus(),
     });
   } catch (err) {
-    sendReadError(res, err, 'getSummary', 'Failed to load the WhatsApp summary.');
+    console.error('[whatsapp:getSummary]', err);
+    res.status(500).json({ success: false, message: 'Failed to load the WhatsApp summary.' });
   }
 }
 
@@ -532,139 +415,62 @@ async function getLogs(req, res) {
   const eventId = parseInt(req.params.event_id, 10);
   if (!eventId) return res.status(400).json({ success: false, message: 'Invalid event ID.' });
 
-  const q      = String(req.query.q || '').trim();
-  const status = String(req.query.status || '').trim().toLowerCase();
-  const page   = Math.max(1, parseInt(req.query.page, 10) || 1);
-  const size   = Math.min(PAGE_SIZE_MAX, Math.max(1, parseInt(req.query.page_size, 10) || 25));
-
-  // event_id first and always: this is the event-isolation guarantee.
-  const where = ['w.event_id = ?'];
-  const params = [eventId];
-
-  if (status && status !== 'all') {
-    where.push('w.status = ?');
-    params.push(status);
-  }
-  if (q) {
-    const like = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-    where.push(`(w.guest_name LIKE ? OR w.phone_number LIKE ? OR i.code LIKE ?
-                 OR w.beem_job_id LIKE ? OR w.provider_message_id LIKE ? OR w.message_reference LIKE ?)`);
-    params.push(like, like, like, like, like, like);
-  }
-  const whereSql = where.join(' AND ');
-
-  // The invitations join exists only so a search can match the CN code. Without
-  // a search term it cannot change the count — invitations.id is the primary
-  // key, so the LEFT JOIN never adds rows — but it forced a lookup per log row.
-  // Measured: 122 ms of a 124 ms first page at 100k rows. Joined only when needed.
-  const countSql = q
-    ? `SELECT COUNT(*) AS n FROM whatsapp_logs w LEFT JOIN invitations i ON i.id = w.invitation_id WHERE ${whereSql}`
-    : `SELECT COUNT(*) AS n FROM whatsapp_logs w WHERE ${whereSql}`;
-
   try {
-    const result = await withConnection(async (conn) => {
-      if (clientGone(req)) return null;
-      const event = await scopedEventOn(conn, eventId, req.user);
-      if (!event) return { notFound: true };
+    const event = await loadScopedEvent(eventId, req.user);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found, or you do not have access to it.' });
 
-      const [[{ n: total }]] = await conn.execute({ sql: countSql, timeout: READ_QUERY_TIMEOUT_MS }, params);
-      if (clientGone(req)) return null;
+    const q      = String(req.query.q || '').trim();
+    const status = String(req.query.status || '').trim().toLowerCase();
+    const page   = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const size   = Math.min(PAGE_SIZE_MAX, Math.max(1, parseInt(req.query.page_size, 10) || 25));
 
-      const [logs] = await conn.execute(
-        { sql: `SELECT w.id, w.event_id, w.invitation_id, w.guest_name, w.phone_number,
-                       w.template_id, w.template_language, w.beem_job_id, w.provider_message_id,
-                       w.message_reference, w.status, w.provider_status, w.error_message, w.media_url,
-                       w.sent_at, w.accepted_at, w.delivered_at, w.read_at, w.failed_at, w.created_at,
-                       i.code AS invitation_code
-                  FROM whatsapp_logs w
-                  LEFT JOIN invitations i ON i.id = w.invitation_id
-                 WHERE ${whereSql}
-                 ORDER BY w.created_at DESC, w.id DESC
-                 LIMIT ${size} OFFSET ${(page - 1) * size}`, timeout: READ_QUERY_TIMEOUT_MS },
-        params
-      );
-      return { event, total, logs };
-    }, { acquireTimeoutMs: READ_ACQUIRE_TIMEOUT_MS });
+    // event_id first and always: this is the event-isolation guarantee.
+    const where = ['w.event_id = ?'];
+    const params = [eventId];
 
-    if (result === null) return;                           // client already gone
-    if (result.notFound) return res.status(404).json({ success: false, message: 'Event not found, or you do not have access to it.' });
+    if (status && status !== 'all') {
+      where.push('w.status = ?');
+      params.push(status);
+    }
+    if (q) {
+      const like = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+      where.push(`(w.guest_name LIKE ? OR w.phone_number LIKE ? OR i.code LIKE ?
+                   OR w.beem_job_id LIKE ? OR w.provider_message_id LIKE ? OR w.message_reference LIKE ?)`);
+      params.push(like, like, like, like, like, like);
+    }
+    const whereSql = where.join(' AND ');
 
-    const total = Number(result.total) || 0;
+    const [[{ n: total }]] = await pool.execute(
+      `SELECT COUNT(*) AS n FROM whatsapp_logs w
+         LEFT JOIN invitations i ON i.id = w.invitation_id
+        WHERE ${whereSql}`,
+      params
+    );
+
+    const [logs] = await pool.execute(
+      `SELECT w.id, w.event_id, w.invitation_id, w.guest_name, w.phone_number,
+              w.template_id, w.template_language, w.beem_job_id, w.provider_message_id,
+              w.message_reference, w.status, w.provider_status, w.error_message, w.media_url,
+              w.sent_at, w.accepted_at, w.delivered_at, w.read_at, w.failed_at, w.created_at,
+              i.code AS invitation_code
+         FROM whatsapp_logs w
+         LEFT JOIN invitations i ON i.id = w.invitation_id
+        WHERE ${whereSql}
+        ORDER BY w.created_at DESC, w.id DESC
+        LIMIT ${size} OFFSET ${(page - 1) * size}`,
+      params
+    );
+
     res.json({
-      success: true, logs: result.logs,
-      page, page_size: size, total,
-      pages: Math.max(1, Math.ceil(total / size)),
-      event: { id: result.event.id, event_name: result.event.event_name },
+      success: true, logs,
+      page, page_size: size, total: Number(total) || 0,
+      pages: Math.max(1, Math.ceil((Number(total) || 0) / size)),
+      event: { id: event.id, event_name: event.event_name },
     });
   } catch (err) {
-    sendReadError(res, err, 'getLogs', 'Failed to load the WhatsApp logs.');
+    console.error('[whatsapp:getLogs]', err);
+    res.status(500).json({ success: false, message: 'Failed to load the WhatsApp logs.' });
   }
-}
-
-// ── callback authentication ─────────────────────────────────────────────────
-
-/** Constant-time string equality that never throws on a length mismatch. */
-function safeEqual(a, b) {
-  const x = Buffer.from(String(a));
-  const y = Buffer.from(String(b));
-  return x.length === y.length && crypto.timingSafeEqual(x, y);
-}
-
-/** Top-level field names of a callback body — names only, never values. */
-function bodyKeys(body) {
-  return body && typeof body === 'object' && !Array.isArray(body) ? Object.keys(body).slice(0, 20) : [];
-}
-
-/**
- * Decide whether a callback carries the shared secret.
- *
- * Every place the secret can travel is collected, and the callback is accepted
- * if ANY of them matches exactly. The previous version took only the FIRST
- * non-empty source, so a header Beem sends for its own purposes (its own
- * Authorization or signature header) would shadow a perfectly correct
- * ?secret= and fail every callback. Requiring an exact match on each candidate
- * means this accepts nothing the old check would have rejected for a good reason.
- *
- * On rejection, says what kind of mismatch it was — without revealing either
- * value — because "bad secret" alone cannot tell a missing secret from one that
- * was mangled in the URL.
- *
- * @returns {{ ok: boolean, reason?: string, advice?: string, headers: string[] }}
- */
-function checkCallbackSecret(req, secret) {
-  const headers = ['x-beem-signature', 'x-webhook-secret', 'authorization'].filter((h) => req.get(h));
-  const bearer  = /^Bearer\s+(.+)$/i.exec(req.get('authorization') || '')?.[1];
-
-  const candidates = [
-    req.get('x-beem-signature'), req.get('x-webhook-secret'), bearer,
-    // a repeated ?secret= arrives as an array
-    ...[].concat(req.query?.secret ?? []),
-    req.body && typeof req.body === 'object' ? req.body.secret : undefined,
-  ].filter((v) => typeof v === 'string' && v.trim() !== '').map((v) => v.trim());
-
-  if (candidates.some((c) => safeEqual(c, secret))) return { ok: true, headers };
-
-  if (!candidates.length) {
-    return { ok: false, headers, reason: 'no secret presented',
-      advice: 'Nothing carried a secret. Beem sends no secret header of its own — register the callback URL as …/webhooks/beem/whatsapp?secret=<URL-encoded BEEM_WHATSAPP_CALLBACK_SECRET>, or leave the secret unset.' };
-  }
-
-  // Classify without exposing anything: these compare transformed copies only.
-  if (candidates.some((c) => safeEqual(c.replace(/ /g, '+'), secret))) {
-    return { ok: false, headers, reason: "secret arrived with '+' turned into spaces",
-      advice: "The secret contains '+', which a URL query decodes as a space. URL-encode it in the callback URL ('+' → %2B), or replace it with a hex secret (e.g. openssl rand -hex 32)." };
-  }
-  if (candidates.some((c) => { try { return safeEqual(decodeURIComponent(c), secret); } catch { return false; } })) {
-    return { ok: false, headers, reason: 'secret arrived still URL-encoded (double-encoded)',
-      advice: 'The callback URL encodes the secret twice. Encode it once.' };
-  }
-  // constant-time prefix check, and only for candidates long enough not to be a guess
-  if (candidates.some((c) => c.length >= 8 && c.length < secret.length && safeEqual(c, secret.slice(0, c.length)))) {
-    return { ok: false, headers, reason: 'secret arrived truncated',
-      advice: "The secret contains a character that ends the URL query ('&' or '#'). URL-encode it, or use a hex secret (openssl rand -hex 32)." };
-  }
-  return { ok: false, headers, reason: `secret did not match (${candidates.length} candidate${candidates.length > 1 ? 's' : ''} checked)`,
-    advice: 'The value presented is not BEEM_WHATSAPP_CALLBACK_SECRET. Check the callback URL registered with Beem matches the server .env, and that the API was restarted after the .env changed.' };
 }
 
 // ── POST /webhooks/beem/whatsapp ────────────────────────────────────────────
@@ -683,14 +489,31 @@ async function deliveryWebhook(req, res) {
 
   const cfg = getConfig();
   if (cfg.callbackSecret) {
-    const verdict = checkCallbackSecret(req, cfg.callbackSecret);
-    if (!verdict.ok) {
-      // Enough to diagnose from the log alone — never a secret value, never a
-      // phone number or message body. Only names, counts and a classification.
-      console.warn(`[whatsapp:webhook] rejected a callback (${verdict.reason}). ` +
-        `path=${req.path} query_keys=[${Object.keys(req.query || {}).join(',') || 'none'}] ` +
-        `headers=[${verdict.headers.join(',') || 'none'}] ` +
-        `body_keys=[${bodyKeys(req.body).join(',') || 'none'}]. ${verdict.advice}`);
+    // Beem does not send a custom header of its own, so the usual way to carry
+    // a shared secret is in the callback URL itself
+    // (…/api/webhooks/beem/whatsapp?secret=…). Header forms are accepted too in
+    // case the account is configured to send one.
+    const bearer = /^Bearer\s+(.+)$/i.exec(req.get('authorization') || '')?.[1];
+    const presented = String(
+      req.get('x-beem-signature') || req.get('x-webhook-secret') || bearer
+      || req.query?.secret || req.body?.secret || ''
+    ).trim();
+
+    const a = Buffer.from(presented);
+    const b = Buffer.from(cfg.callbackSecret);
+    const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+    if (!ok) {
+      // Say WHERE we looked and what arrived — never the value of either
+      // secret. Without this the only clue was "bad secret", which does not
+      // distinguish "wrong value" from "Beem sent nothing at all".
+      const seen = ['x-beem-signature', 'x-webhook-secret', 'authorization']
+        .filter((h) => req.get(h));
+      console.warn('[whatsapp:webhook] rejected a callback: shared secret did not match. ' +
+        `presented=${presented ? 'yes' : 'NONE'} via headers=[${seen.join(',') || 'none'}] ` +
+        `query.secret=${req.query?.secret ? 'yes' : 'no'}. ` +
+        (presented
+          ? 'A value arrived but did not match BEEM_WHATSAPP_CALLBACK_SECRET.'
+          : 'No secret arrived at all — append ?secret=<BEEM_WHATSAPP_CALLBACK_SECRET> to the callback URL registered with Beem, or clear BEEM_WHATSAPP_CALLBACK_SECRET to accept unauthenticated callbacks.'));
       return res.status(401).json({ success: false });
     }
   }
