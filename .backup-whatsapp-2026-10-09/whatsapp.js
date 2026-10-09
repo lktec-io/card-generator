@@ -21,9 +21,9 @@
  */
 
 const DEFAULTS = {
-  // Beem Broadcast template send — the endpoint verified working on this
-  // account. Overridable, but this is the correct default, not a guess.
-  apiUrl:   'https://apibroadcast.beem.africa/v1/broadcast/template/api-send',
+  // Beem's WhatsApp send endpoint. Override if the account documentation shows
+  // a different host or version — this is the one value most likely to differ.
+  apiUrl:   'https://apiwhatsapp.beem.africa/v1/messages',
   language: 'en',
   // Basic (same scheme as the working SMS integration) or Bearer.
   authMode: 'basic',
@@ -36,13 +36,7 @@ function readConfig(env = process.env) {
     apiUrl:      str(env.BEEM_WHATSAPP_API_URL)   || DEFAULTS.apiUrl,
     apiKey:      str(env.BEEM_WHATSAPP_API_KEY),
     apiSecret:   str(env.BEEM_WHATSAPP_API_SECRET),
-    // The Beem sender number that goes out as `from_addr`, e.g. 255706422927.
-    // BEEM_WHATSAPP_FROM is the documented name; the two aliases are accepted
-    // so a server already configured under a different name keeps working
-    // instead of silently sending an empty sender.
-    from: str(env.BEEM_WHATSAPP_FROM)
-       || str(env.BEEM_WHATSAPP_FROM_ADDR)
-       || str(env.BEEM_WHATSAPP_SENDER_ID),
+    from:        str(env.BEEM_WHATSAPP_FROM),
     templateId:  str(env.BEEM_WHATSAPP_TEMPLATE_ID),
     language:    str(env.BEEM_WHATSAPP_TEMPLATE_LANGUAGE) || DEFAULTS.language,
     callbackUrl: str(env.BEEM_WHATSAPP_CALLBACK_URL),
@@ -56,20 +50,6 @@ function readConfig(env = process.env) {
     timeoutMs: Number(env.BEEM_WHATSAPP_TIMEOUT_MS) > 0
       ? Number(env.BEEM_WHATSAPP_TIMEOUT_MS) : 20000,
   };
-
-  // Configuration that is present but cannot work as set up. Surfaced to the
-  // UI and the logs so it is noticed before a campaign, not after.
-  cfg.warnings = [];
-  if (cfg.callbackSecret && cfg.callbackUrl && !/[?&]secret=/.test(cfg.callbackUrl)) {
-    cfg.warnings.push(
-      'BEEM_WHATSAPP_CALLBACK_SECRET is set but BEEM_WHATSAPP_CALLBACK_URL does not carry it. ' +
-      'Beem sends no secret header of its own, so delivery callbacks will be rejected. ' +
-      'Append ?secret=<the secret> to the callback URL registered with Beem.'
-    );
-  }
-  if (cfg.callbackUrl && !/^https:\/\//i.test(cfg.callbackUrl)) {
-    cfg.warnings.push('BEEM_WHATSAPP_CALLBACK_URL must be public HTTPS for Beem to reach it.');
-  }
 
   cfg.missing = [];
   if (!cfg.apiKey)     cfg.missing.push('BEEM_WHATSAPP_API_KEY');
@@ -96,7 +76,6 @@ function publicStatus() {
   return {
     configured:  c.configured,
     missing:     c.missing,
-    warnings:    c.warnings || [],
     template_id: c.templateId || null,
     language:    c.language,
     from:        c.from ? `…${c.from.slice(-4)}` : null,

@@ -71,61 +71,47 @@ class BeemWhatsAppProvider {
   }
 
   /**
-   * Build the send payload for one recipient — Beem BROADCAST API format.
+   * Build the send payload for one recipient.
    *
-   *   POST https://apibroadcast.beem.africa/v1/broadcast/template/api-send
-   *   {
-   *     "from_addr": "255706422927",
-   *     "destination_addr": [{ "phoneNumber": "2557…", "params": [6 values] }],
-   *     "channel": "whatsapp",
-   *     "content": { "mediaUrl": "https://…/card.png" },
-   *     "messageTemplateData": { "id": 1850 }
-   *   }
+   * Exposed (and unit-tested) separately from the HTTP call so the exact request
+   * can be inspected without any credentials or network access.
    *
-   * This shape is the one verified working against the live account. An earlier
-   * version of this file built a Meta Cloud API payload instead (`from`, `to`,
-   * `template.components`), which has no `from_addr` at all — that is what
-   * produced "from_addr Cannot be null/undefined".
-   *
-   * `params` is a positional array: the approved template 1850 declares
-   * {{0}}..{{5}}, so order and count are part of the contract, not a detail.
-   *
-   * Exposed separately from the HTTP call so the exact request can be inspected
-   * in tests without credentials or network access.
-   *
-   * @param {{ phone:string, params:string[]|Record<string,string>, mediaUrl?:string, reference?:string }} msg
+   * @param {{ phone:string, params:Record<string,string>, mediaUrl?:string, reference?:string }} msg
    */
   buildPayload(msg) {
     const c = this.config;
+    const components = [];
 
-    const fromAddr = String(c.from || '').trim();
-    if (!fromAddr) {
-      // Never let an absent sender reach Beem as null/undefined — that is the
-      // exact failure this guard exists to prevent.
-      const e = new Error('WhatsApp sender is not configured: set BEEM_WHATSAPP_FROM (the Beem sender number, e.g. 255706422927) in the server environment.');
-      e.code = 'NO_FROM_ADDR';
-      throw e;
+    // Template placeholders, in the order the approved template declares them.
+    const values = Object.values(msg.params || {}).map((v) => ({
+      type: 'text',
+      text: v == null ? '' : String(v),
+    }));
+
+    // Media header (the invitation card) — only when the approved template has one.
+    if (msg.mediaUrl) {
+      components.push({
+        type: 'header',
+        parameters: [{ type: 'image', image: { link: msg.mediaUrl } }],
+      });
+    }
+    if (values.length) {
+      components.push({ type: 'body', parameters: values });
     }
 
-    // Accept either a positional array or the legacy object, but always send an
-    // array — Beem matches by position.
-    const params = (Array.isArray(msg.params) ? msg.params : Object.values(msg.params || {}))
-      .map((v) => (v == null ? '' : String(v)));
-
-    const payload = {
-      from_addr: fromAddr,
-      destination_addr: [
-        { phoneNumber: String(msg.phone), params },
-      ],
-      channel: 'whatsapp',
-      messageTemplateData: { id: templateIdValue(c.templateId) },
+    return {
+      from: c.from,
+      to: msg.phone,
+      type: 'template',
+      message_reference: msg.reference || undefined,
+      template: {
+        name: c.templateId,
+        language: { code: c.language },
+        components,
+      },
+      // Beem returns delivery reports to this URL when it is set
+      callback_url: c.callbackUrl || undefined,
     };
-
-    // The card image header. Only included when this guest actually has a
-    // public HTTPS card, so a guest without one still gets the text template.
-    if (msg.mediaUrl) payload.content = { mediaUrl: msg.mediaUrl };
-
-    return payload;
   }
 
   /**
@@ -150,49 +136,27 @@ class BeemWhatsAppProvider {
     const payload = this.buildPayload({ ...msg, phone: check.phone });
     const res = await this._post(this.config.apiUrl, payload);
 
-    const body  = res.json || {};
-    // Beem nests the useful part under data/result/response depending on the
-    // product, so look one level down as well as at the top.
-    const inner = (body.data && typeof body.data === 'object') ? body.data
-      : (body.result && typeof body.result === 'object') ? body.result
-      : (body.response && typeof body.response === 'object') ? body.response
-      : {};
-
-    // A rejection can arrive with HTTP 200 and an error code in the body — that
-    // is how "from_addr Cannot be null/undefined" came back. Treat any of these
-    // as a failure rather than recording a message that was never accepted.
-    const code = body.code ?? inner.code;
-    const codeRejected = code !== undefined && code !== null
-      && !['100', '0', '200', 'success'].includes(String(code).toLowerCase());
+    // Beem's success envelope varies by product; accept any 2xx that does not
+    // explicitly say it failed, and pull the job id out of the usual places.
+    const body = res.json || {};
     const explicitFailure = body.successful === false || body.success === false
-      || inner.successful === false || inner.success === false
-      || /^(failed|rejected|error|invalid)$/i.test(String(body.status || inner.status || ''))
-      || codeRejected;
+      || /^(failed|rejected|error)$/i.test(String(body.status || ''));
 
     if (res.statusCode < 200 || res.statusCode >= 300 || explicitFailure) {
-      const reason = pick(body, ['message', 'error', 'detail', 'error_message'])
-        || pick(inner, ['message', 'error', 'detail', 'error_message'])
-        || (res.raw ? String(res.raw).slice(0, 200) : '')
+      const reason = body.message || body.error || body.detail
         || `Beem WhatsApp HTTP ${res.statusCode}`;
       const e = new Error(String(reason));
       e.code = 'PROVIDER_REJECTED';
       e.http_status = res.statusCode;
-      e.provider_code = code != null ? String(code) : null;
       e.raw = body;
       throw e;
     }
 
     return {
       success: true,
-      job_id: pick(body, ['job_id', 'jobId', 'request_id', 'requestId'])
-        || pick(inner, ['job_id', 'jobId', 'request_id', 'requestId', 'id']),
-      provider_message_id: pick(body, ['message_id', 'messageId', 'wamid'])
-        || pick(inner, ['message_id', 'messageId', 'wamid']),
-      // Beem accepts the job here; delivery and read arrive later by callback.
-      // Never claim more than "accepted" from a send response.
-      status: STATUS_MAP[String(body.status || inner.status || '').toLowerCase()] || 'accepted',
-      http_status: res.statusCode,
-      provider_code: code != null ? String(code) : null,
+      job_id: pick(body, ['job_id', 'jobId', 'request_id', 'requestId', 'id']),
+      provider_message_id: pick(body, ['message_id', 'messageId', 'wamid', 'id']),
+      status: STATUS_MAP[String(body.status || '').toLowerCase()] || 'accepted',
       raw: body,
     };
   }
@@ -275,16 +239,6 @@ class BeemWhatsAppProvider {
       req.end();
     });
   }
-}
-
-/**
- * Beem identifies the approved template by numeric id (1850), so send a number
- * when the configured value is numeric and the raw string otherwise — a quoted
- * "1850" is rejected by the Broadcast API.
- */
-function templateIdValue(raw) {
-  const s = String(raw == null ? '' : raw).trim();
-  return /^\d+$/.test(s) ? Number(s) : s;
 }
 
 /** First present, non-empty value among several possible field names. */

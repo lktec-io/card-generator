@@ -12,37 +12,6 @@ import '../styles/whatsapp.css';
 
 const STATUS_FILTERS = ['all', 'pending', 'sending', 'accepted', 'sent', 'delivered', 'read', 'failed'];
 const PAGE_SIZE = 25;
-// A campaign is watched for at most this long. Beyond it the poll stops and
-// says so, rather than spinning for the life of the tab.
-const POLL_DEADLINE_MS = 15 * 60 * 1000;
-
-/** What each status actually means, so "accepted" is never read as "delivered". */
-const STATUS_HELP = {
-  pending:   'Queued here, not yet handed to Beem',
-  sending:   'Being handed to Beem now',
-  accepted:  'Beem accepted the job — not yet confirmed delivered',
-  sent:      'Beem reports it left for WhatsApp',
-  delivered: 'WhatsApp confirmed delivery to the handset',
-  read:      'The guest opened it (only when Beem sends a read receipt)',
-  failed:    'Rejected or undeliverable — see the reason in the log',
-};
-
-/**
- * Say what actually went wrong. A request that never reached the application
- * carries no JSON message, so the status (or the absence of a response) has to
- * speak instead of a generic phrase.
- */
-function describeError(err, fallback) {
-  if (!err.response) {
-    return err.code === 'ECONNABORTED'
-      ? 'The server did not respond in time. Nothing was started — try again.'
-      : `${fallback} The server could not be reached (${err.message}).`;
-  }
-  const data = err.response.data;
-  if (data && typeof data === 'object' && data.message) return data.message;
-  if (err.response.status === 413) return 'The request was rejected as too large before it reached the application.';
-  return `${fallback} Server replied HTTP ${err.response.status}.`;
-}
 
 const fmt = (ts) => {
   if (!ts) return '—';
@@ -65,13 +34,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
   const [loading, setLoading]   = useState(true);
   const [job, setJob]           = useState(null);
   const [jobId, setJobId]       = useState(null);
-  const [jobDone, setJobDone]   = useState(false);   // stops the poll for good
-  const [pollError, setPollError] = useState('');
   const [busy, setBusy]         = useState(false);
-  // Separate slots: the summary and the logs load independently, so a
-  // successful log search must not clear a summary failure (or the reverse).
-  const [summaryError, setSummaryError] = useState('');
-  const [logsError,    setLogsError]    = useState('');
 
   const [logs, setLogs]       = useState([]);
   const [total, setTotal]     = useState(0);
@@ -82,47 +45,24 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
   const [logsLoading, setLogsLoading] = useState(false);
 
   const sendGuard = useRef(false);     // one click = one campaign
-  const logSeq    = useRef(0);         // discards superseded log responses
 
   const configured = summary?.whatsapp?.configured;
 
   const loadSummary = useCallback(() => {
     if (!eventId) return;
     getWhatsAppSummary(eventId)
-      .then(({ data }) => { setSummary(data); setSummaryError(''); })
-      .catch((err) => {
-        setSummary(null);
-        // A failure here used to leave the panel looking simply empty.
-        setSummaryError(err.response?.data?.message
-          || (err.code === 'ECONNABORTED'
-            ? 'The server did not respond in time. Reload to try again.'
-            : `Could not load the WhatsApp summary (${err.response?.status || err.message}).`));
-      })
-      // always cleared, so "Loading…" cannot outlive the request
+      .then(({ data }) => setSummary(data))
+      .catch(() => setSummary(null))
       .finally(() => setLoading(false));
   }, [eventId]);
 
   const loadLogs = useCallback(() => {
     if (!eventId) return;
-    const seq = ++logSeq.current;
     setLogsLoading(true);
     getWhatsAppLogs(eventId, { q: query, status, page, pageSize: PAGE_SIZE })
-      .then(({ data }) => {
-        if (seq !== logSeq.current) return;        // a newer search already won
-        setLogs(data.logs || []);
-        setTotal(data.total || 0);
-        setPages(data.pages || 1);
-        setLogsError('');
-      })
-      .catch((err) => {
-        if (seq !== logSeq.current) return;
-        setLogs([]); setTotal(0); setPages(1);
-        setLogsError(err.response?.data?.message
-          || (err.code === 'ECONNABORTED'
-            ? 'The log search timed out. Narrow the search or try again.'
-            : 'Could not load the WhatsApp logs.'));
-      })
-      .finally(() => { if (seq === logSeq.current) setLogsLoading(false); });
+      .then(({ data }) => { setLogs(data.logs || []); setTotal(data.total || 0); setPages(data.pages || 1); })
+      .catch(() => { setLogs([]); setTotal(0); })
+      .finally(() => setLogsLoading(false));
   }, [eventId, query, status, page]);
 
   useEffect(() => { loadSummary(); }, [loadSummary]);
@@ -133,103 +73,47 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
     return () => clearTimeout(t);
   }, [loadLogs]);
 
-  /* Latest callbacks, held in refs so the poll below depends only on the job id.
-     Previously the interval was torn down and restarted — firing an extra
-     immediate poll — every time the search box or page number changed. */
-  const loadSummaryRef = useRef(loadSummary);
-  const loadLogsRef    = useRef(loadLogs);
-  const toastRef       = useRef(showToast);
-  useEffect(() => { loadSummaryRef.current = loadSummary; }, [loadSummary]);
-  useEffect(() => { loadLogsRef.current = loadLogs; }, [loadLogs]);
-  useEffect(() => { toastRef.current = showToast; }, [showToast]);
-
-  /**
-   * Real campaign progress, polled from the job the backend is running.
-   *
-   * Three things keep this from spinning forever:
-   *   - it depends on the job id alone, so it is created once per campaign
-   *   - one poll at a time; a slow response never stacks another on top
-   *   - a hard deadline, so a job that never reports finished still stops
-   */
+  /* Real campaign progress, polled from the job the backend is running. */
   useEffect(() => {
-    if (!jobId || jobDone) return undefined;
-
+    if (!jobId || job?.finished) return undefined;
     let alive = true;
-    let inFlight = false;
-    const startedAt = Date.now();
-
-    const stop = (reason) => {
-      sendGuard.current = false;
-      setJobDone(true);
-      if (reason) setPollError(reason);
-    };
-
     const tick = async () => {
-      if (!alive || inFlight) return;             // never overlap
-      if (Date.now() - startedAt > POLL_DEADLINE_MS) {
-        stop('Stopped watching this campaign after 15 minutes. It may still be running — reload to see the latest counts.');
-        return;
-      }
-      inFlight = true;
       try {
         const { data } = await getWhatsAppProgress(jobId);
         if (!alive) return;
         setJob(data);
-        setPollError('');
         if (data.finished) {
-          stop(null);
-          toastRef.current(
+          sendGuard.current = false;
+          showToast(
             data.failed
               ? `WhatsApp: ${data.sent} sent, ${data.failed} failed${data.skipped ? `, ${data.skipped} skipped` : ''}.`
               : `WhatsApp: all ${data.sent} sent${data.skipped ? `, ${data.skipped} already sent` : ''}.`,
             data.failed ? 'error' : 'success'
           );
-          loadSummaryRef.current();
-          loadLogsRef.current();
+          loadSummary();
+          loadLogs();
         }
-      } catch (err) {
-        if (!alive) return;
-        // 404 means the job is gone (API restarted) — the messages already sent
-        // are in the logs, so stop and say so rather than polling a ghost.
-        const gone = err.response?.status === 404;
-        setJob((j) => ({ ...(j || {}), finished: true }));
-        stop(gone
-          ? 'This campaign is no longer being tracked (the API restarted). The WhatsApp logs below show what was actually sent.'
-          : err.response?.data?.message || 'Lost contact with the campaign. The logs below show what was sent.');
-        loadSummaryRef.current();
-        loadLogsRef.current();
-      } finally {
-        inFlight = false;                          // always released
+      } catch {
+        if (alive) { setJob((j) => ({ ...(j || {}), finished: true })); sendGuard.current = false; }
       }
     };
-
-    const id = setInterval(tick, 1500);
+    const id = setInterval(tick, 1200);
     tick();
     return () => { alive = false; clearInterval(id); };
-  }, [jobId, jobDone]);
+  }, [jobId, job?.finished, showToast, loadSummary, loadLogs]);
 
-  const beginJob = (data) => {
-    setPollError('');
-    setJobDone(false);                 // arm the poll for this campaign
-    setJobId(data.job_id);
-    setJob({ total: data.total, completed: 0, sent: 0, failed: 0, skipped: 0, percent: 0, finished: false, failures: [] });
-  };
-
-  /**
-   * A start that fails must always release the guard and the busy flag, or the
-   * buttons stay disabled with nothing running — which reads as "stuck".
-   */
   const startCampaign = async (ids = null) => {
     if (sendGuard.current || busy) return;
     sendGuard.current = true;
     setBusy(true);
     try {
       const { data } = await sendWhatsAppBulk(eventId, ids);
-      beginJob(data);
+      setJobId(data.job_id);
+      setJob({ total: data.total, completed: 0, sent: 0, failed: 0, skipped: 0, percent: 0, finished: false, failures: [] });
       if (ids && onClearSelection) onClearSelection();
     } catch (err) {
       sendGuard.current = false;
-      showToast(describeError(err, 'Could not start the WhatsApp campaign.'), 'error');
+      showToast(err.response?.data?.message || 'Could not start the WhatsApp campaign.', 'error');
     } finally {
       setBusy(false);
     }
@@ -241,11 +125,12 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
     setBusy(true);
     try {
       const { data } = await retryWhatsAppFailed(eventId);
-      beginJob(data);
+      setJobId(data.job_id);
+      setJob({ total: data.total, completed: 0, sent: 0, failed: 0, skipped: 0, percent: 0, finished: false, failures: [] });
       showToast(`Retrying ${data.retrying} failed message${data.retrying > 1 ? 's' : ''}…`, 'success');
     } catch (err) {
       sendGuard.current = false;
-      showToast(describeError(err, 'Could not start the retry.'), 'error');
+      showToast(err.response?.data?.message || 'Could not start the retry.', 'error');
     } finally {
       setBusy(false);
     }
@@ -285,22 +170,14 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
         </p>
       )}
 
-      {(summary?.whatsapp?.warnings || []).map((w) => (
-        <p key={w} className="wa-alert wa-alert--warn"><TriangleAlert size={16} /><span>{w}</span></p>
-      ))}
-
-      {summaryError && (
-        <p className="wa-alert wa-alert--error"><CircleAlert size={16} /><span>{summaryError}</span></p>
-      )}
-
       {/* ── campaign summary: real values from whatsapp_logs for this event ── */}
       <div className="wa-tiles">
         <div className="wa-tile"><span className="wa-n">{summary?.total ?? 0}</span><span className="wa-l">Total</span></div>
         <div className="wa-tile"><span className="wa-n">{counts.pending ?? 0}</span><span className="wa-l">Pending</span></div>
         <div className="wa-tile"><span className="wa-n">{counts.sending ?? 0}</span><span className="wa-l">Sending</span></div>
-        <div className="wa-tile wa-tile--info" title={STATUS_HELP.accepted}><span className="wa-n">{counts.accepted ?? 0}</span><span className="wa-l">Accepted</span></div>
-        <div className="wa-tile wa-tile--ok" title={STATUS_HELP.delivered}><span className="wa-n">{counts.delivered ?? 0}</span><span className="wa-l">Delivered</span></div>
-        <div className="wa-tile wa-tile--read" title={STATUS_HELP.read}><span className="wa-n">{counts.read ?? 0}</span><span className="wa-l">Read</span></div>
+        <div className="wa-tile wa-tile--info"><span className="wa-n">{counts.accepted ?? 0}</span><span className="wa-l">Accepted</span></div>
+        <div className="wa-tile wa-tile--ok"><span className="wa-n">{counts.delivered ?? 0}</span><span className="wa-l">Delivered</span></div>
+        <div className="wa-tile wa-tile--read"><span className="wa-n">{counts.read ?? 0}</span><span className="wa-l">Read</span></div>
         <div className="wa-tile wa-tile--bad"><span className="wa-n">{counts.failed ?? 0}</span><span className="wa-l">Failed</span></div>
       </div>
 
@@ -353,14 +230,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
           <div className="wa-bar" role="progressbar" aria-valuenow={job.percent ?? 0} aria-valuemin={0} aria-valuemax={100}>
             <span style={{ width: `${job.percent ?? 0}%` }} />
           </div>
-          {!job.finished && !jobDone && job.current_guest && <p className="wa-muted">Sending to {job.current_guest}…</p>}
-          {pollError && <p className="wa-alert wa-alert--warn"><TriangleAlert size={16} /><span>{pollError}</span></p>}
-          {(job.finished || jobDone) && (
-            <p className="wa-muted">
-              Accepted by Beem is not the same as delivered. Delivered and Read appear
-              only when Beem sends the matching receipt.
-            </p>
-          )}
+          {!job.finished && job.current_guest && <p className="wa-muted">Sending to {job.current_guest}…</p>}
           {job.finished && job.failures?.length > 0 && (
             <ul className="wa-failures">
               {job.failures.slice(0, 6).map((f) => (
@@ -405,10 +275,6 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
           ))}
         </div>
 
-        {logsError && (
-          <p className="wa-alert wa-alert--error"><CircleAlert size={16} /><span>{logsError}</span></p>
-        )}
-
         <div className="wa-table-wrap">
           <table className="wa-table">
             <thead>
@@ -426,7 +292,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
                   <td>{l.guest_name || '—'}</td>
                   <td className="wa-mono">{l.phone_number}</td>
                   <td className="wa-mono">{l.invitation_code || '—'}</td>
-                  <td><span className={`wa-status wa-status--${l.status}`} title={STATUS_HELP[l.status] || l.status}>{l.status}</span></td>
+                  <td><span className={`wa-status wa-status--${l.status}`}>{l.status}</span></td>
                   <td className="wa-mono">{fmt(l.read_at || l.delivered_at || l.failed_at || l.sent_at || l.created_at)}</td>
                   <td className="wa-detail">{l.error_message || l.beem_job_id || '—'}</td>
                 </tr>

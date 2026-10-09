@@ -54,21 +54,12 @@ function formatEventDate(raw) {
 }
 
 /**
- * The approved template's body variables, in declaration order.
+ * The template's placeholders, in the order an approved template declares them.
  *
- * Beem template 1850 declares exactly six:
- *   {{0}} guest name   {{1}} event name   {{2}} event date
- *   {{3}} event time   {{4}} venue        {{5}} invitation URL
- *
- * Order and count are part of the approved template, so they are declared here
- * explicitly rather than left to object key order. A previous version returned
- * seven values with the CN code at index 5, which would have put the invitation
- * code where the template expects the link.
- *
- * Changing this list means re-approving the template with Beem.
+ * Kept in one place so the template can be re-approved with a different wording
+ * without hunting through controllers. If the approved template takes fewer
+ * parameters, the extra ones are simply unused — Beem matches by position.
  */
-const TEMPLATE_PARAM_ORDER = ['guest_name', 'event_name', 'event_date', 'event_time', 'venue', 'invitation_link'];
-
 function templateParams({ invitation, event, inviteUrl }) {
   return {
     guest_name: invitation.guest_name || '',
@@ -76,16 +67,9 @@ function templateParams({ invitation, event, inviteUrl }) {
     event_date: formatEventDate(event?.event_date),
     event_time: event?.event_time || '',
     venue:      event?.venue || '',
+    invitation_code: invitation.code || '',
     invitation_link: inviteUrl || '',
   };
-}
-
-/** The same six values as the positional array Beem's Broadcast API expects. */
-function templateParamList(params) {
-  return TEMPLATE_PARAM_ORDER.map((k) => {
-    const v = params?.[k];
-    return v == null ? '' : String(v);
-  });
 }
 
 /**
@@ -146,8 +130,7 @@ async function sendWhatsAppInvitation({ invitation, event, baseUrl = '', include
 
   const result = await provider().send({
     phone: check.phone,
-    // positional, exactly as template 1850 declares its six variables
-    params: templateParamList(params),
+    params,
     mediaUrl: mediaUrl || undefined,
     reference: reference || undefined,
   });
@@ -196,8 +179,6 @@ module.exports = {
   providerName,
   publicStatus,
   templateParams,
-  templateParamList,
-  TEMPLATE_PARAM_ORDER,
   absoluteHttpsUrl,
   __setProvider,
 };

@@ -489,31 +489,12 @@ async function deliveryWebhook(req, res) {
 
   const cfg = getConfig();
   if (cfg.callbackSecret) {
-    // Beem does not send a custom header of its own, so the usual way to carry
-    // a shared secret is in the callback URL itself
-    // (…/api/webhooks/beem/whatsapp?secret=…). Header forms are accepted too in
-    // case the account is configured to send one.
-    const bearer = /^Bearer\s+(.+)$/i.exec(req.get('authorization') || '')?.[1];
-    const presented = String(
-      req.get('x-beem-signature') || req.get('x-webhook-secret') || bearer
-      || req.query?.secret || req.body?.secret || ''
-    ).trim();
-
-    const a = Buffer.from(presented);
+    const presented = req.get('x-beem-signature') || req.get('x-webhook-secret') || req.query?.secret || '';
+    const a = Buffer.from(String(presented));
     const b = Buffer.from(cfg.callbackSecret);
     const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
     if (!ok) {
-      // Say WHERE we looked and what arrived — never the value of either
-      // secret. Without this the only clue was "bad secret", which does not
-      // distinguish "wrong value" from "Beem sent nothing at all".
-      const seen = ['x-beem-signature', 'x-webhook-secret', 'authorization']
-        .filter((h) => req.get(h));
-      console.warn('[whatsapp:webhook] rejected a callback: shared secret did not match. ' +
-        `presented=${presented ? 'yes' : 'NONE'} via headers=[${seen.join(',') || 'none'}] ` +
-        `query.secret=${req.query?.secret ? 'yes' : 'no'}. ` +
-        (presented
-          ? 'A value arrived but did not match BEEM_WHATSAPP_CALLBACK_SECRET.'
-          : 'No secret arrived at all — append ?secret=<BEEM_WHATSAPP_CALLBACK_SECRET> to the callback URL registered with Beem, or clear BEEM_WHATSAPP_CALLBACK_SECRET to accept unauthenticated callbacks.'));
+      console.warn('[whatsapp:webhook] rejected a callback with a bad secret');
       return res.status(401).json({ success: false });
     }
   }
