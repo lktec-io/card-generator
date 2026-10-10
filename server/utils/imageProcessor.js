@@ -1,5 +1,6 @@
 const sharp     = require('sharp');
-const { Resvg } = require('@resvg/resvg-js');
+// resvg runs on a worker thread — see utils/rasterWorker.js for why.
+const { rasterise: rasteriseOffThread } = require('./rasterWorker');
 
 // ════════════════════════════════════════════════════════════════════════════
 //  ★ QR SIZE CONTROL ★  — change QR_SIZE and nothing else.
@@ -144,11 +145,10 @@ function buildAutoContribSVG(cardW, guestName, opts) {
   );
 }
 
+// Same resvg options as before (defined once in rasterWorker), now awaited so
+// the main thread keeps serving requests — check-in included — while it runs.
 function rasterise(svgStr) {
-  return new Resvg(svgStr, {
-    fitTo: { mode: 'original' },
-    font:  { loadSystemFonts: true },
-  }).render().asPng();
+  return rasteriseOffThread(svgStr);
 }
 
 async function buildPaddedQR(qrBuffer, cardScale) {
@@ -251,7 +251,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
     });
 
     console.time('[timer] svg-name');
-    const namePNG = rasterise(buildTextSVG(cardW, cardH, guestName, scaledNameCX, clampedNameY, {
+    const namePNG = await rasterise(buildTextSVG(cardW, cardH, guestName, scaledNameCX, clampedNameY, {
       fontSize: nameFontPx,
       fontWeight: nameFontWeight,
       letterSpacing: '2',
@@ -281,7 +281,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
       });
 
       console.time('[timer] svg-cn');
-      const codePNG = rasterise(buildTextSVG(cardW, cardH, code, scaledCodeCX, clampedCodeY, {
+      const codePNG = await rasterise(buildTextSVG(cardW, cardH, code, scaledCodeCX, clampedCodeY, {
         fontSize: cnFontPx,
         fontWeight: '600',
         letterSpacing: '5',
@@ -295,7 +295,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
         const contactText   = [contactName, contactPhone].filter(Boolean).join('  |  ');
         const contactFontPx = Math.round(Math.min(cnFontPx * 0.55, 48));
         const contactY      = clampedCodeY + Math.round(cnFontPx * 1.3);
-        const contactPNG    = rasterise(buildTextSVG(cardW, cardH, contactText, Math.round(cardW / 2), contactY, {
+        const contactPNG    = await rasterise(buildTextSVG(cardW, cardH, contactText, Math.round(cardW / 2), contactY, {
           fontSize: contactFontPx,
           fontWeight: '400',
           letterSpacing: '1',
@@ -318,7 +318,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
       });
 
       console.time('[timer] svg-type');
-      const typePNG = rasterise(buildTextSVG(cardW, cardH, typeLabel(cardType), scaledTypeCX, clampedTypeY, {
+      const typePNG = await rasterise(buildTextSVG(cardW, cardH, typeLabel(cardType), scaledTypeCX, clampedTypeY, {
         fontSize: typeFontPx,
         fontWeight: '600',
         letterSpacing: '3',
@@ -332,7 +332,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
     // ── AUTO mode (fallback) ──────────────────────────────────────────────────
     if (isContribution) {
       const svg  = buildAutoContribSVG(cardW, guestName, { nameColor, nameFontPx, nameFontWeight, nameTextAlign });
-      const png  = rasterise(svg);
+      const png  = await rasterise(svg);
       const svgH = nameFontPx + 20;
       composites = [{ input: png, top: Math.max(0, cardH - svgH - BOTTOM_MARGIN), left: 0 }];
     } else {
@@ -342,7 +342,7 @@ async function processCardImage(cardBuffer, qrBuffer, guestName, code, opts = {}
         contactName, contactPhone, skipCN,
         skipType: hideType, cardType, typeColor, typeFontPx,
       });
-      const textPNG  = rasterise(textSVG);
+      const textPNG  = await rasterise(textSVG);
       const svgHMatch = textSVG.match(/height="(\d+)"/);
       const textH    = svgHMatch ? Number(svgHMatch[1]) : nameFontPx + cnFontPx + 80;
       const qrX      = Math.floor((cardW - scaledQrBlock) / 2);

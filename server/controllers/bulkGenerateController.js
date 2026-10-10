@@ -61,7 +61,12 @@ const { eventScopeSQL } = require('../middleware/authMiddleware');
 // verification. Raise BULK_CARD_CONCURRENCY only on a box doing nothing else.
 // The pause hands the loop back between cards so queued requests get served.
 const CONCURRENCY = Math.max(1, Math.min(8, Number(process.env.BULK_CARD_CONCURRENCY) || 1));
-const PAUSE_MS    = Math.max(0, Number(process.env.BULK_CARD_PAUSE_MS) ?? 20);
+// `Number(undefined) ?? 20` is NaN (?? only replaces null/undefined), which made
+// `if (PAUSE_MS)` false — the pause never ran unless the env var was set.
+const PAUSE_ENV   = Number(process.env.BULK_CARD_PAUSE_MS);
+const PAUSE_MS    = process.env.BULK_CARD_PAUSE_MS !== undefined && process.env.BULK_CARD_PAUSE_MS !== '' && Number.isFinite(PAUSE_ENV)
+  ? Math.max(0, PAUSE_ENV)
+  : 20;
 const INSERT_CHUNK = 100;   // invitations per transaction in phase 1
 
 const SHEET_MAX_BYTES = 5 * 1024 * 1024;

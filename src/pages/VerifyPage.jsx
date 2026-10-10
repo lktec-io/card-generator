@@ -9,6 +9,10 @@ import '../styles/verifier.css';
 const SEARCH_MIN_CHARS = 2;
 const SEARCH_DEBOUNCE  = 350;
 
+// The server's own message when it answered (e.g. "Server busy — please scan
+// again."), otherwise a real network problem.
+const failureMessage = (err) => err?.response?.data?.message || 'Network error — check server connection.';
+
 export default function VerifyPage() {
   // ── QR scanner state (unchanged) ─────────────────────────────────────
   const [scannerActive, setScannerActive] = useState(true);
@@ -55,9 +59,9 @@ export default function VerifyPage() {
         playError();
         setPopup({ type: 'invalid', name: '', message: data.message });
       }
-    } catch {
+    } catch (err) {
       playError();
-      setPopup({ type: 'invalid', name: '', message: 'Network error — check server connection.' });
+      setPopup({ type: 'invalid', name: '', message: failureMessage(err) });
     } finally {
       setLoading(false);
     }
@@ -94,9 +98,9 @@ export default function VerifyPage() {
         playError();
         setManualPopup({ type: 'invalid', name: '', message: data.message });
       }
-    } catch {
+    } catch (err) {
       playError();
-      setManualPopup({ type: 'invalid', name: '', message: 'Network error — check server connection.' });
+      setManualPopup({ type: 'invalid', name: '', message: failureMessage(err) });
     } finally {
       setManualLoading(false);
       setManualCode('');
@@ -170,9 +174,9 @@ export default function VerifyPage() {
         playError();
         setSearchPopup({ type: 'invalid', name: '', message: data.message });
       }
-    } catch {
+    } catch (err) {
       playError();
-      setSearchPopup({ type: 'invalid', name: '', message: 'Network error — check server connection.' });
+      setSearchPopup({ type: 'invalid', name: '', message: failureMessage(err) });
     } finally {
       setSearchVerifying(false);
     }

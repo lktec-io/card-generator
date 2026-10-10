@@ -10,6 +10,16 @@ const authRoutes   = require('./routes/authRoutes');
 const userRoutes   = require('./routes/userRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
+// Async handler failures go to errorHandler instead of crashing the process
+// (Express 4 + Node 22: an unhandled rejection terminates it). See the module.
+require('./middleware/asyncErrors').install();
+
+// Last line of defence: log, never exit. Exiting would drop every in-flight
+// request and in-memory job (bulk SMS, WhatsApp campaigns, card generation).
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason?.code || '', reason?.message || reason);
+});
+
 // Trigger connection test on startup
 require('./config/db');
 
@@ -17,6 +27,8 @@ const app  = express();
 const PORT = process.env.PORT || 8003;
 
 // ── Middleware ────────────────────────────────────────────────────────────────
+// First, so body parsing and every route are inside the timed request context.
+app.use(require('./middleware/requestTiming'));
 app.use(cors({
   origin:      process.env.CLIENT_URL || 'https://wedding.nardio.online',
   credentials: true,

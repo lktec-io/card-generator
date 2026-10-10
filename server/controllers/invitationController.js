@@ -194,6 +194,35 @@ async function generateCard(req, res) {
   console.log(`[generateCard] ${code} (invitation ${invitationId}) stored at ${storedCard.file} (${storedCard.bytes} bytes)`);
 }
 
+// ── check-in helpers (QR + CN) ───────────────────────────────────────────────
+// Gate check-in runs on its own small pool (config/db.js) so it never queues
+// behind dashboards, guest lists or campaigns.
+const checkinPool = () => pool.verifyPool || pool;
+
+// Atomic: of two staff scanning the same code at the same moment, exactly one
+// UPDATE matches. Returns true if THIS request checked the guest in.
+async function claimCheckIn(connection, invitationId) {
+  const [result] = await connection.execute(
+    "UPDATE invitations SET status = 'used', used_at = NOW() WHERE id = ? AND (status IS NULL OR status <> 'used')",
+    [invitationId]
+  );
+  return result.affectedRows === 1;
+}
+
+async function currentUsedAt(connection, invitationId) {
+  const [[row]] = await connection.execute('SELECT used_at FROM invitations WHERE id = ?', [invitationId]);
+  return row?.used_at ?? null;
+}
+
+function checkInFailure(res, err, label) {
+  console.error(`[${label}]`, err.code || '', err.message);
+  if (err.code === 'DB_BUSY') {
+    res.set('Retry-After', '2');
+    return res.status(503).json({ success: false, type: 'error', message: 'Server busy — please scan again.' });
+  }
+  return res.status(500).json({ success: false, type: 'error', message: 'Verification failed.' });
+}
+
 // ── verifyCode ────────────────────────────────────────────────────────────────
 
 async function verifyCode(req, res) {
@@ -212,9 +241,9 @@ async function verifyCode(req, res) {
     });
   }
 
-  const connection = await pool.getConnection();
-
+  let connection;
   try {
+    connection = await checkinPool().getConnection();
     const [rows] = await connection.execute(
       `SELECT i.id, i.code, i.guest_name, i.card_type, i.status, i.used_at, i.event_id, e.event_mode
          FROM invitations i
@@ -261,11 +290,16 @@ async function verifyCode(req, res) {
       });
     }
 
-    // Mark as used
-    await connection.execute(
-      "UPDATE invitations SET status = 'used', used_at = NOW() WHERE id = ?",
-      [inv.id]
-    );
+    // Mark as used — only if nobody else did in the meantime
+    if (!(await claimCheckIn(connection, inv.id))) {
+      return res.status(200).json({
+        success: false,
+        type:    'used',
+        message: 'Already used — this invitation was already scanned.',
+        name:    inv.guest_name,
+        used_at: await currentUsedAt(connection, inv.id),
+      });
+    }
 
     // Log verification (+ which logged-in user performed it)
     await logVerification(connection, {
@@ -282,10 +316,9 @@ async function verifyCode(req, res) {
     });
 
   } catch (err) {
-    console.error('[verifyCode]', err);
-    return res.status(500).json({ success: false, type: 'error', message: 'Verification failed.' });
+    return checkInFailure(res, err, 'verifyCode');
   } finally {
-    connection.release();
+    connection?.release();
   }
 }
 
@@ -422,8 +455,9 @@ async function verifyManual(req, res) {
     return res.status(200).json({ success: false, type: 'invalid', message: 'Invalid invitation code.' });
   }
 
-  const connection = await pool.getConnection();
+  let connection;
   try {
+    connection = await checkinPool().getConnection();
     const [rows] = await connection.execute(
       `SELECT i.id, i.code, i.guest_name, i.card_type, i.status, i.used_at, i.event_id, e.event_mode
          FROM invitations i
@@ -475,10 +509,16 @@ async function verifyManual(req, res) {
       });
     }
 
-    await connection.execute(
-      "UPDATE invitations SET status = 'used', used_at = NOW() WHERE id = ?",
-      [inv.id]
-    );
+    // Only if nobody else checked this guest in in the meantime
+    if (!(await claimCheckIn(connection, inv.id))) {
+      return res.status(200).json({
+        success: false,
+        type:    'used',
+        message: 'Invitation already used.',
+        name:    inv.guest_name,
+        used_at: await currentUsedAt(connection, inv.id),
+      });
+    }
 
     // Log verification (+ which logged-in user performed it)
     await logVerification(connection, {
@@ -497,10 +537,9 @@ async function verifyManual(req, res) {
     });
 
   } catch (err) {
-    console.error('[verifyManual]', err);
-    return res.status(500).json({ success: false, type: 'error', message: 'Verification failed.' });
+    return checkInFailure(res, err, 'verifyManual');
   } finally {
-    connection.release();
+    connection?.release();
   }
 }
 
