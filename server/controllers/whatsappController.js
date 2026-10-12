@@ -714,62 +714,133 @@ async function deliveryWebhook(req, res) {
     }
   }
 
+  // Beem validates the registered URL with a bare GET and needs 200 before it
+  // enables callbacks. Nothing to process.
+  const empty = !req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0;
+  if (empty) return res.status(200).json({ success: true });
+
   // Acknowledge first: the provider should never wait on our database.
   res.status(200).json({ success: true });
 
   try {
-    const parsed = WhatsAppService.parseCallback(req.body);
-    if (!parsed.matched || !parsed.status) {
-      console.warn('[whatsapp:webhook] unmatched callback:', JSON.stringify(req.body || {}).slice(0, 400));
-      return;
-    }
-
-    // Correlate on the ids we control first, then on the provider's.
-    const [[log]] = await pool.execute(
-      `SELECT id, status FROM whatsapp_logs
-        WHERE (? IS NOT NULL AND message_reference = ?)
-           OR (? IS NOT NULL AND beem_job_id = ?)
-           OR (? IS NOT NULL AND provider_message_id = ?)
-        ORDER BY id DESC LIMIT 1`,
-      [parsed.reference, parsed.reference, parsed.job_id, parsed.job_id,
-       parsed.provider_message_id, parsed.provider_message_id]
-    );
-
-    if (!log) {
-      console.warn(`[whatsapp:webhook] no log matches job=${parsed.job_id} ref=${parsed.reference} msg=${parsed.provider_message_id}`);
-      return;
-    }
-
-    // A duplicate or out-of-order callback must not walk the status backwards:
-    // "delivered" arriving after "read" is ignored.
-    if ((RANK[parsed.status] ?? 0) <= (RANK[log.status] ?? 0) && parsed.status !== 'failed') {
-      return;
-    }
-
-    const stampColumn = {
-      accepted: 'accepted_at', sent: 'sent_at', delivered: 'delivered_at',
-      read: 'read_at', failed: 'failed_at',
-    }[parsed.status];
-
-    await pool.execute(
-      `UPDATE whatsapp_logs
-          SET status = ?, provider_status = ?,
-              ${stampColumn} = COALESCE(${stampColumn}, NOW()),
-              error_message = ?,
-              provider_message_id = COALESCE(provider_message_id, ?),
-              beem_job_id = COALESCE(beem_job_id, ?)
-        WHERE id = ?`,
-      [parsed.status, parsed.raw_status, parsed.status === 'failed' ? (parsed.error || 'failed at provider') : null,
-       parsed.provider_message_id, parsed.job_id, log.id]
-    );
-    console.log(`[whatsapp:webhook] log ${log.id}: ${log.status} → ${parsed.status}`);
+    await applyDeliveryReport(WhatsAppService.parseCallback(req.body), req.body);
   } catch (err) {
     console.error('[whatsapp:webhook]', err.message);
   }
 }
 
+// ── delivery-report application ─────────────────────────────────────────────
+
+/**
+ * Which current statuses each incoming status may replace. Expressed as the
+ * WHERE clause of the UPDATE, so the check and the write are one atomic step:
+ * two reports for the same message arriving together (delivered + read) cannot
+ * both pass a stale read and leave the older one last.
+ *
+ *   accepted → sent → delivered → read      (only ever forward)
+ *   failed   only before delivery: a failure report after delivered/read
+ *            contradicts Beem's own earlier report and is ignored. Nothing
+ *            moves a message out of failed.
+ * A repeat of the current status matches nothing, so duplicates are no-ops.
+ */
+const PROGRESSION = ['pending', 'sending', 'accepted', 'sent', 'delivered', 'read'];
+function replaceableBy(status) {
+  if (status === 'failed') return ['pending', 'sending', 'accepted', 'sent'];
+  const rank = RANK[status];
+  return PROGRESSION.filter((s) => RANK[s] < rank);
+}
+
+const STAMP = { accepted: 'accepted_at', sent: 'sent_at', delivered: 'delivered_at', read: 'read_at', failed: 'failed_at' };
+
+const digits = (v) => String(v || '').replace(/\D/g, '');
+
+/** Field names and the status only — never values that could be personal data. */
+function describeReport(parsed, body) {
+  return `status=${parsed.raw_status || 'none'} broadcast_id=${parsed.job_id || 'none'} ` +
+    `report_id=${parsed.report_id ? 'present' : 'none'} keys=[${bodyKeys(body).join(',') || 'none'}]`;
+}
+
+/**
+ * Find the one whatsapp_logs row a report is about.
+ * Beem documents broadcast_id (= the jobId our send stored) as the correlation key.
+ * Each send carries one recipient, so a job id names one row; if it ever names
+ * several, the report's destination narrows it, and if that cannot decide, the
+ * report is not applied — a wrong row is worse than none.
+ */
+async function findReportRow(parsed) {
+  if (parsed.reference) {
+    const [[row]] = await pool.execute(
+      'SELECT id, status FROM whatsapp_logs WHERE message_reference = ? ORDER BY id DESC LIMIT 1', [parsed.reference]);
+    if (row) return { row };
+  }
+  if (parsed.job_id) {
+    const [rows] = await pool.execute(
+      'SELECT id, status, phone_number FROM whatsapp_logs WHERE beem_job_id = ? ORDER BY id DESC LIMIT 50', [parsed.job_id]);
+    if (rows.length === 1) return { row: rows[0] };
+    if (rows.length > 1) {
+      const dest = digits(parsed.recipient);
+      // masked destinations (255******581) carry no usable digits run — compare only full numbers
+      const byPhone = dest.length >= 9 && !/\*/.test(parsed.recipient || '')
+        ? rows.filter((r) => digits(r.phone_number).endsWith(dest.slice(-9)))
+        : [];
+      if (byPhone.length === 1) return { row: byPhone[0] };
+      return { ambiguous: rows.length };
+    }
+  }
+  if (parsed.provider_message_id) {
+    const [[row]] = await pool.execute(
+      'SELECT id, status FROM whatsapp_logs WHERE provider_message_id = ? ORDER BY id DESC LIMIT 1', [parsed.provider_message_id]);
+    if (row) return { row };
+  }
+  return {};
+}
+
+/**
+ * Apply one parsed delivery report. Returns what happened, for tests and logs:
+ * 'unrecognised' | 'unmatched' | 'ambiguous' | 'ignored' | 'updated'.
+ */
+async function applyDeliveryReport(parsed, body) {
+  if (!parsed.matched || !parsed.status) {
+    console.warn(`[whatsapp:webhook] unrecognised report (${describeReport(parsed, body)})`);
+    return 'unrecognised';
+  }
+
+  const found = await findReportRow(parsed);
+  if (found.ambiguous) {
+    console.warn(`[whatsapp:webhook] report matches ${found.ambiguous} rows and cannot be narrowed — not applied (${describeReport(parsed, body)})`);
+    return 'ambiguous';
+  }
+  const log = found.row;
+  if (!log) {
+    console.warn(`[whatsapp:webhook] no log matches (${describeReport(parsed, body)})`);
+    return 'unmatched';
+  }
+
+  const from = replaceableBy(parsed.status);
+  const stamp = STAMP[parsed.status];
+  const [result] = await pool.execute(
+    `UPDATE whatsapp_logs
+        SET status = ?, provider_status = ?,
+            ${stamp} = COALESCE(${stamp}, NOW()),
+            error_message = ?,
+            provider_message_id = COALESCE(provider_message_id, ?)
+      WHERE id = ? AND status IN (${from.map(() => '?').join(',')})`,
+    [parsed.status, parsed.raw_status,
+     parsed.status === 'failed' ? String(parsed.error || 'failed at provider').slice(0, 1000) : null,
+     parsed.provider_message_id, log.id, ...from]
+  );
+
+  if (result.affectedRows !== 1) {
+    // duplicate, out of order, or contradicted — the row keeps its status
+    console.log(`[whatsapp:webhook] log ${log.id}: ${parsed.status} report ignored (row is ${log.status})`);
+    return 'ignored';
+  }
+  console.log(`[whatsapp:webhook] log ${log.id}: ${log.status} → ${parsed.status}`);
+  return 'updated';
+}
+
 module.exports = {
   getStatus, sendSingle, sendBulk, getProgress, retryFailed, getSummary, getLogs, deliveryWebhook,
   // exported for tests
-  sendOne, alreadySent, SUCCESSFUL,
+  sendOne, alreadySent, SUCCESSFUL, applyDeliveryReport, replaceableBy, checkCallbackSecret,
 };

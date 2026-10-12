@@ -80,6 +80,19 @@ function readConfig(env = process.env) {
       'URL-encode it in the callback URL registered with Beem, or switch to a hex secret (openssl rand -hex 32).'
     );
   }
+  // The decisive check: does ?secret= in the URL DECODE to the configured secret?
+  // (Express decodes the query the same way, '+' included.) Reports yes/no only.
+  if (cfg.callbackSecret && cfg.callbackUrl && /[?&]secret=/.test(cfg.callbackUrl)) {
+    let carried = [];
+    try { carried = new URL(cfg.callbackUrl).searchParams.getAll('secret'); } catch { /* invalid URL: reported below */ }
+    if (!carried.some((v) => v === cfg.callbackSecret)) {
+      cfg.warnings.push(
+        'The secret= value in BEEM_WHATSAPP_CALLBACK_URL does not decode to BEEM_WHATSAPP_CALLBACK_SECRET, ' +
+        'so callbacks sent to that URL will be rejected. Re-create the URL with the secret URL-encoded once ' +
+        "(e.g. encodeURIComponent) and register that exact URL in the Beem Engage portal (API Setup)."
+      );
+    }
+  }
   if (cfg.callbackUrl && !/^https:\/\//i.test(cfg.callbackUrl)) {
     cfg.warnings.push('BEEM_WHATSAPP_CALLBACK_URL must be public HTTPS for Beem to reach it.');
   }

@@ -200,40 +200,66 @@ class BeemWhatsAppProvider {
   /**
    * Turn a delivery callback into the fields we store.
    *
-   * Written defensively on purpose: Beem's callback field names are the part
-   * least pinned down today, so every value is looked for under each name it
-   * plausibly arrives as, and an unrecognised payload returns `matched: false`
-   * instead of throwing or guessing.
+   * Beem's documented template delivery report ("Receive template delivery
+   * report", docs.beem.africa → Moja → Broadcast) is ONE flat JSON object of
+   * strings:
+   *
+   *   { "broadcast_id": "…",   // the jobId the send returned → whatsapp_logs.beem_job_id
+   *     "message_id":   "…",   // "a unique ID for this delivery report" — the REPORT,
+   *                            //   not the message; useless for correlation
+   *     "status":       "accepted" | "delivered" | "read" | "failed",
+   *     "destination":  "255******581",
+   *     "message":      "…",   // message content or status detail
+   *     "timestamp":    "2023-06-26 02:31:29" }
+   *
+   * The previous parser never read `broadcast_id` and treated `message_id` (and
+   * any bare `id`) as the provider's message id — so every genuine report was
+   * looked up by a report id nothing had stored, and matched no row.
+   *
+   * The older field names are still read so nothing previously accepted is
+   * dropped, but no field is treated as a message identifier unless it is named
+   * as one by the provider (wamid). An unrecognised payload returns
+   * `matched: false` rather than a guess.
    *
    * @returns {{ matched:boolean, job_id:string|null, provider_message_id:string|null,
-   *             reference:string|null, status:string|null, raw_status:string|null,
-   *             error:string|null, recipient:string|null }}
+   *             report_id:string|null, reference:string|null, status:string|null,
+   *             raw_status:string|null, error:string|null, recipient:string|null,
+   *             event_time:string|null }}
    */
   parseCallback(payload) {
-    const p = (payload && typeof payload === 'object') ? payload : {};
-    // Some providers wrap the event; look one level down too.
-    const d = (p.data && typeof p.data === 'object') ? p.data
+    const p = (payload && typeof payload === 'object' && !Array.isArray(payload)) ? payload : {};
+    // Beem's documented report is flat. These wrappers are not documented by Beem;
+    // they are kept only so the parser accepts everything it accepted before.
+    const d = (p.data && typeof p.data === 'object' && !Array.isArray(p.data)) ? p.data
       : (Array.isArray(p.results) && p.results[0]) ? p.results[0]
       : (Array.isArray(p.statuses) && p.statuses[0]) ? p.statuses[0]
       : p;
 
     const rawStatus = String(
       pick(d, ['status', 'message_status', 'delivery_status', 'state', 'event']) || ''
-    ).toLowerCase();
+    ).trim().toLowerCase();
 
-    const jobId = pick(d, ['job_id', 'jobId', 'request_id', 'requestId']);
-    const msgId = pick(d, ['message_id', 'messageId', 'wamid', 'id']);
-    const ref   = pick(d, ['message_reference', 'reference', 'client_reference', 'correlation_id']);
+    const status = STATUS_MAP[rawStatus] || null;
+    const jobId  = pick(d, ['broadcast_id', 'broadcastId', 'job_id', 'jobId', 'request_id', 'requestId']);
+    const ref    = pick(d, ['message_reference', 'reference', 'client_reference', 'correlation_id']);
+    // Only an id the provider names as a WhatsApp message id. Beem's report
+    // message_id identifies the report itself and is kept separately.
+    const msgId  = pick(d, ['wamid']);
+
+    const detail = pick(d, ['error', 'error_message', 'reason', 'failure_reason', 'description']);
 
     return {
-      matched: Boolean(jobId || msgId || ref),
+      matched: Boolean(jobId || ref || msgId),
       job_id: jobId,
       provider_message_id: msgId,
+      report_id: pick(d, ['message_id', 'messageId']),
       reference: ref,
-      status: STATUS_MAP[rawStatus] || null,
+      status,
       raw_status: rawStatus || null,
-      error: pick(d, ['error', 'error_message', 'reason', 'failure_reason', 'description']),
-      recipient: pick(d, ['to', 'recipient', 'dest_addr', 'msisdn', 'phone']),
+      // For a failure Beem documents only `message` ("content or status detail").
+      error: detail || (status === 'failed' ? pick(d, ['message']) : null),
+      recipient: pick(d, ['destination', 'to', 'recipient', 'dest_addr', 'msisdn', 'phone']),
+      event_time: pick(d, ['timestamp']),
     };
   }
 
