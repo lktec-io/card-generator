@@ -87,11 +87,12 @@ message from the application.
 sudo nginx -T | grep -n client_max_body_size      # nothing printed = the 1 MB default
 ```
 
-If it is missing or below 12M, add it inside the `server { }` block for
-`card.clixworks.co.tz`:
+If it is missing or below 16M, add it inside the `server { }` block for
+`card.clixworks.co.tz`. (The API accepts a card design up to 10 MB **plus** a guest
+list up to 5 MB in one request, so 12M can still cut off a valid upload.)
 
 ```nginx
-client_max_body_size 12M;
+client_max_body_size 16M;
 ```
 
 ```bash

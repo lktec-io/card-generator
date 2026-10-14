@@ -24,7 +24,7 @@ const STEPS = ['Event', 'Upload', 'Review', 'Preview', 'Generate'];
 
 /* Shown in the preview in place of a real CN. No code is reserved until the
    invitations are actually created, so previewing cannot burn a CN number. */
-const SAMPLE_CODE = 'CN-000';
+const SAMPLE_CODE = 'CN-0000';   // codes are now 4 random digits, e.g. CN-2895
 
 const EXT_MIME = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', jpe: 'image/jpeg',
@@ -69,12 +69,20 @@ function decodeImage(url) {
  * never reached the application (a proxy refused the upload first), or it
  * reached it and the application said why.
  */
-function describeError(err, fallback) {
+const MB = (bytes) => `${(bytes / 1048576).toFixed(1)} MB`;
+
+function describeError(err, fallback, { uploadBytes = 0 } = {}) {
   const res = err.response;
   if (!res) {
-    return err.code === 'ECONNABORTED'
-      ? 'The request timed out before the server answered.'
-      : `${fallback} The server could not be reached (${err.message}).`;
+    if (err.code === 'ECONNABORTED') return 'The request timed out before the server answered.';
+    // No response at all. Measured in Chromium: this is what the browser reports
+    // when a proxy refuses an upload as too large (nginx answers 413 and closes
+    // before reading the body, so the 413 itself never arrives), or when the
+    // connection drops. It is NOT a message from the application.
+    const big = uploadBytes > 1024 * 1024
+      ? ` This upload is ${MB(uploadBytes)}: if the web server's upload limit (nginx client_max_body_size, 1 MB unless raised) is smaller, the server drops the upload exactly like this. Ask the administrator to raise it to 16M.`
+      : ' Check the internet connection and try again.';
+    return `${fallback} The upload was cut off before the server replied.${big} The server did not confirm that anything was created — check the event's guest list before trying again.`;
   }
   const data = res.data;
   if (data && typeof data === 'object' && data.message) return data.message;
@@ -242,11 +250,24 @@ export default function BulkCardGenerator() {
       return;
     }
     setSheetError('');
-    setSheetFile(file);
     setReport(null);
     setValidating(true);
+    // Keep the bytes, not a live handle on the file. If the file is edited,
+    // saved, moved or deleted after it was picked (fixing a row in Excel, a
+    // phone's temporary download expiring), the browser refuses to send the
+    // original and Generate fails as a "Network Error" — reproduced. A snapshot
+    // also guarantees Generate uploads exactly the rows that were validated.
+    let snapshot;
     try {
-      const { data } = await validateGuestSheet(file, eventId);
+      snapshot = new File([await file.arrayBuffer()], file.name, { type: file.type || 'application/octet-stream' });
+    } catch {
+      setValidating(false);
+      setSheetError('That file could not be read. If it is open in another app or stored online, save a copy to this device and pick that.');
+      return;
+    }
+    setSheetFile(snapshot);
+    try {
+      const { data } = await validateGuestSheet(snapshot, eventId);
       setReport(data);
       setStep(2);
     } catch (err) {
@@ -344,9 +365,9 @@ export default function BulkCardGenerator() {
       // though the preview looked fine. The type here comes from the file's own
       // magic bytes, so it is more trustworthy than anything the picker said.
       // Nothing is re-encoded: byte-for-byte the same image reaches the server.
-      setImageFile(
-        file.type === mime ? file : new File([buffer], file.name || `card.${mime.split('/')[1]}`, { type: mime })
-      );
+      // Always the in-memory copy: an original file handle fails the upload as a
+      // "Network Error" if the file changes or disappears after it was picked.
+      setImageFile(new File([buffer], file.name || `card.${mime.split('/')[1]}`, { type: mime }));
       setImagePreview(url);
       setNatural({ w: probe.width, h: probe.height });
       setPos(null);
@@ -415,7 +436,7 @@ export default function BulkCardGenerator() {
       setStep(4);
     } catch (err) {
       const data = err.response?.data;
-      const message = describeError(err, 'Could not start generation.');
+      const message = describeError(err, 'Could not start generation.', { uploadBytes: (imageFile?.size || 0) + (sheetFile?.size || 0) });
       // Rows that went stale between preview and generate send the user back to
       // the review screen with the reasons, rather than a dead end.
       if (data?.invalidRows?.length) { setReport(data); setStep(2); }

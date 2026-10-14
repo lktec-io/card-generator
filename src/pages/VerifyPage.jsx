@@ -234,7 +234,7 @@ export default function VerifyPage() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 className="manual-input cn-number-input"
-                placeholder="001"
+                placeholder="2895"
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 onKeyDown={handleManualKey}

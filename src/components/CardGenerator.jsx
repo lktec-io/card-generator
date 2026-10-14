@@ -526,7 +526,7 @@ export default function CardGenerator({ event }) {
                           letterSpacing="4"
                           style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.6))' }}
                         >
-                          {result?.code || 'CN-000'}
+                          {result?.code || 'CN-0000'}
                         </text>
                       )}
 

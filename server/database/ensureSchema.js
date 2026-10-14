@@ -88,6 +88,18 @@ const REQUIRED_TABLES = [
       updated_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   },
+  {
+    table: 'issued_codes',
+    migration: 'migration_issued_codes.sql',
+    purpose: 'every CN code ever issued, so the code of a deleted invitation is never reused',
+    ddl: `CREATE TABLE IF NOT EXISTS issued_codes (
+      code      VARCHAR(20) NOT NULL PRIMARY KEY,
+      issued_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    // Run once, right after the table is created: every code already on an
+    // invitation counts as issued. INSERT IGNORE — reads invitations, writes only here.
+    after: ['INSERT IGNORE INTO issued_codes (code) SELECT code FROM invitations WHERE code IS NOT NULL'],
+  },
 ];
 
 const REQUIRED_INDEXES = [
@@ -164,10 +176,11 @@ async function ensureSchema({ verbose = true } = {}) {
   log(`[schema] checking database "${result.database}"`);
 
   // Tables first — the columns and indexes below may belong to one of them.
-  for (const { table, ddl, migration, purpose } of REQUIRED_TABLES) {
+  for (const { table, ddl, migration, purpose, after = [] } of REQUIRED_TABLES) {
     try {
       if (await tableExists(table)) { result.present.push(table); continue; }
       await pool.execute(ddl);
+      for (const stmt of after) await pool.execute(stmt);
       result.added.push(table);
       console.log(`[schema] created table ${table} (${purpose}) — equivalent to ${migration}`);
     } catch (err) {
