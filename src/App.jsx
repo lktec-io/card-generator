@@ -12,6 +12,7 @@ import VerificationHistoryPage  from './pages/VerificationHistoryPage';
 import PublicInvitePage         from './pages/PublicInvitePage';
 import ImportPage               from './pages/ImportPage';
 import UsersPage                from './pages/UsersPage';
+import LandingPage              from './pages/LandingPage';
 import { ToastProvider }        from './context/ToastContext';
 import { isLoggedIn, isAdmin, canManage, getRole } from './utils/auth';
 import './styles/global.css';
@@ -27,10 +28,10 @@ function AdminRoute({ children }) {
   return children;
 }
 
-// Operational routes: admin or event_manager only; super_admin → dashboard
+// Operational routes: admin or event_manager only; super_admin → dashboard (/dashboard)
 function OperationalRoute({ children }) {
   if (!isLoggedIn())               return <Navigate to="/login" replace />;
-  if (getRole() === 'super_admin') return <Navigate to="/"      replace />;
+  if (getRole() === 'super_admin') return <Navigate to="/dashboard" replace />;
   if (!canManage())                return <Navigate to="/verify" replace />;
   return children;
 }
@@ -38,13 +39,14 @@ function OperationalRoute({ children }) {
 // Field routes: any logged-in non-super_admin user (managers, verifiers)
 function FieldRoute({ children }) {
   if (!isLoggedIn())               return <Navigate to="/login" replace />;
-  if (getRole() === 'super_admin') return <Navigate to="/"      replace />;
+  if (getRole() === 'super_admin') return <Navigate to="/dashboard" replace />;
   return children;
 }
 
 function AppShell() {
   const { pathname } = useLocation();
-  const noNav = pathname === '/login'
+  // The public landing page carries its own header and footer.
+  const noNav = pathname === '/' || pathname === '/login'
     || pathname.startsWith('/invite/')
     || pathname.startsWith('/display/');
 
@@ -55,6 +57,7 @@ function AppShell() {
       <main>
         <Routes>
           {/* Public */}
+          <Route path="/"              element={<LandingPage />} />
           <Route path="/login"         element={<SignInPage />} />
           <Route path="/invite/:uuid"  element={<PublicInvitePage />} />
           <Route path="/display/:uuid" element={<FieldRoute><PublicInvitePage isPreview /></FieldRoute>} />
@@ -65,7 +68,7 @@ function AppShell() {
           <Route path="/history" element={<ProtectedRoute><VerificationHistoryPage /></ProtectedRoute>} />
 
           {/* Admin only (admin + super_admin) */}
-          <Route path="/"       element={<AdminRoute><DashboardPage /></AdminRoute>} />
+          <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
           <Route path="/admin"  element={<AdminRoute><AdminPage /></AdminRoute>} />
           <Route path="/users"  element={<AdminRoute><UsersPage /></AdminRoute>} />
 

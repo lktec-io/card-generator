@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   MdAdd, MdEvent, MdClose, MdCalendarToday,
   MdLocationOn, MdPeople, MdCheckCircle, MdArrowForward, MdDelete,
-  MdGridView, MdViewList, MdShield,
+  MdGridView, MdViewList, MdShield, MdExpandMore, MdAccessTime, MdPhone, MdHowToReg,
 } from 'react-icons/md';
 import { listEvents, createEvent, deleteEvent, listUsersDropdown } from '../utils/api';
 import { isAdmin } from '../utils/auth';
@@ -41,6 +41,51 @@ function assigneeLabel(ev) {
   return ev.assigned_to_role === 'event_manager' ? `Manager: ${name}` : `Verifier: ${name}`;
 }
 
+/** Upcoming / Today / Past, from the event's own date. No date → no status. */
+function eventStatus(raw) {
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = day(d) - day(new Date());
+  if (diff === 0) return { key: 'today', label: 'Today' };
+  return diff > 0 ? { key: 'upcoming', label: 'Upcoming' } : { key: 'past', label: 'Past' };
+}
+
+/** The secondary fields, shown only when an event is expanded. Data already loaded — no request. */
+function EventDetails({ ev, id }) {
+  const isContribution = ev.event_mode === 'contribution';
+  return (
+    <div className="ev-more" id={id}>
+      <dl className="ev-more-grid">
+        {ev.event_time && <div><dt><MdAccessTime size={13} /> Time</dt><dd>{ev.event_time}</dd></div>}
+        {ev.venue && <div><dt><MdLocationOn size={13} /> Venue</dt><dd>{ev.venue}</dd></div>}
+        {!isContribution && <div><dt><MdShield size={13} /> Assigned</dt><dd>{assigneeLabel(ev)}</dd></div>}
+        {ev.contact_name && <div><dt><MdPhone size={13} /> Contact</dt><dd>{ev.contact_name}{ev.contact_phone ? ` · ${ev.contact_phone}` : ''}</dd></div>}
+        <div><dt><MdPeople size={13} /> Invited</dt><dd>{ev.total_invitations ?? 0}</dd></div>
+        {!isContribution && <div><dt><MdCheckCircle size={13} /> Checked in</dt><dd>{ev.checked_in ?? 0}</dd></div>}
+        {!isContribution && <div><dt><MdHowToReg size={13} /> RSVP</dt><dd>{ev.rsvp_attending ?? 0} attending · {ev.rsvp_declined ?? 0} declined</dd></div>}
+        {isContribution && <div><dt><MdEvent size={13} /> Mode</dt><dd>Contribution campaign</dd></div>}
+      </dl>
+    </div>
+  );
+}
+
+function DetailsToggle({ ev, open, onToggle }) {
+  return (
+    <button
+      type="button"
+      className={`ev-more-toggle${open ? ' is-open' : ''}`}
+      aria-expanded={open}
+      aria-controls={`ev-more-${ev.id}`}
+      onClick={(e) => onToggle(e, ev.id)}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      {open ? 'Hide Details' : 'View All Details'} <MdExpandMore size={16} aria-hidden="true" />
+    </button>
+  );
+}
+
 function formatDate(raw) {
   if (!raw) return null;
   return new Date(raw).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -58,7 +103,19 @@ export default function EventsPage() {
   const [formError,  setFormError]  = useState('');
   const [deleteId,   setDeleteId]   = useState(null);
   const [usersList,  setUsersList]  = useState([]);
+  // Each event expands on its own; nothing is expanded by default.
+  const [openIds,    setOpenIds]    = useState(() => new Set());
   const navigate = useNavigate();
+
+  const toggleDetails = (e, id) => {
+    e.stopPropagation();                         // never opens the event page
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
 
   const load = () => {
     setLoading(true);
@@ -281,16 +338,15 @@ export default function EventsPage() {
                   <h3 className="event-card-name">{ev.event_name}</h3>
                   <div className="event-card-meta">
                     {ev.event_date && <span><MdCalendarToday size={13} /> {formatDate(ev.event_date)}</span>}
-                    {ev.venue      && <span><MdLocationOn size={13} /> {ev.venue}</span>}
-                    {ev.event_mode !== 'contribution' && <span className="ev-assignee"><MdShield size={13} /> {assigneeLabel(ev)}</span>}
+                    {eventStatus(ev.event_date) && <span className={`ev-status ev-status--${eventStatus(ev.event_date).key}`}>{eventStatus(ev.event_date).label}</span>}
+                    <span><MdPeople size={13} /> {ev.total_invitations ?? 0} invited</span>
                   </div>
-                  <div className="event-card-stats">
-                    <div className="ev-stat"><MdPeople size={15}/><strong>{ev.total_invitations ?? 0}</strong><span>Invited</span></div>
-                    <div className="ev-stat ev-stat--green"><MdCheckCircle size={15}/><strong>{ev.checked_in ?? 0}</strong><span>In</span></div>
-                    <div className="ev-stat ev-stat--gold"><MdPeople size={15}/><strong>{ev.rsvp_attending ?? 0}</strong><span>RSVP</span></div>
-                  </div>
+                  {openIds.has(ev.id) && <EventDetails ev={ev} id={`ev-more-${ev.id}`} />}
                 </div>
-                <div className="event-card-footer"><span>View Details</span><MdArrowForward size={15} /></div>
+                <div className="event-card-footer">
+                  <DetailsToggle ev={ev} open={openIds.has(ev.id)} onToggle={toggleDetails} />
+                  <span className="event-card-open">Open <MdArrowForward size={15} /></span>
+                </div>
               </div>
             ))}
           </div>
@@ -307,9 +363,10 @@ export default function EventsPage() {
                   </div>
                   <div className="events-list-meta">
                     {ev.event_date && <span><MdCalendarToday size={13} /> {formatDate(ev.event_date)}</span>}
-                    {ev.venue      && <span><MdLocationOn size={13} /> {ev.venue}</span>}
-                    {ev.event_mode !== 'contribution' && <span className="ev-assignee"><MdShield size={13} /> {assigneeLabel(ev)}</span>}
+                    {eventStatus(ev.event_date) && <span className={`ev-status ev-status--${eventStatus(ev.event_date).key}`}>{eventStatus(ev.event_date).label}</span>}
+                    <DetailsToggle ev={ev} open={openIds.has(ev.id)} onToggle={toggleDetails} />
                   </div>
+                  {openIds.has(ev.id) && <EventDetails ev={ev} id={`ev-more-${ev.id}`} />}
                 </div>
                 <div className="events-list-stats">
                   <span className="ev-stat"><MdPeople size={14}/><strong>{ev.total_invitations ?? 0}</strong></span>

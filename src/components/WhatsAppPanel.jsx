@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   MessageCircle, Send, RefreshCw, Search, Users, LoaderCircle,
-  TriangleAlert, ChevronLeft, ChevronRight, CircleAlert,
+  TriangleAlert, ChevronLeft, ChevronRight, CircleAlert, ChevronDown,
 } from 'lucide-react';
 import {
   getWhatsAppSummary, sendWhatsAppBulk, getWhatsAppProgress, cancelWhatsAppBulk,
@@ -111,6 +111,12 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
   const [logsLoading, setLogsLoading] = useState(false);
 
   const sendGuard = useRef(false);     // one click = one campaign
+  // The log table is collapsed until asked for, and only then fetched. Once
+  // opened it stays mounted, so closing/reopening keeps the search, filter and
+  // page — and makes no new request.
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logsEverOpened, setLogsEverOpened] = useState(false);
+  const logsWanted = useRef(false);
   const logSeq    = useRef(0);         // discards superseded log responses
   const logsAbort    = useRef(null);   // cancels the log request a newer one replaces
   const summaryAbort = useRef(null);
@@ -135,7 +141,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
   }, [eventId]);
 
   const loadLogs = useCallback(() => {
-    if (!eventId) return;
+    if (!eventId || !logsWanted.current) return;   // collapsed and never opened: nothing to fetch
     // Cancel the request this one replaces. Ignoring its answer (logSeq) was not
     // enough on its own: the stale request still held a browser connection and a
     // server slot until it finished, which is exactly what a busy server needs least.
@@ -461,8 +467,24 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
 
       {/* ── logs: searched, filtered and paged on the server ── */}
       <div className="wa-logs">
+        <div className="wa-logs-toggle-row">
+          <h4><Users size={15} /> WhatsApp Logs <span className="wa-muted">({logsEverOpened ? total : (summary?.total ?? 0)})</span></h4>
+          <button
+            type="button"
+            className="wa-logs-toggle"
+            aria-expanded={logsOpen}
+            aria-controls="wa-logs-body"
+            onClick={() => {
+              if (!logsWanted.current) { logsWanted.current = true; setLogsEverOpened(true); loadLogs(); }
+              setLogsOpen((o) => !o);
+            }}
+          >
+            {logsOpen ? 'Hide Logs' : 'View All Logs'} <ChevronDown size={15} className={logsOpen ? 'wa-chev is-open' : 'wa-chev'} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div id="wa-logs-body" hidden={!logsOpen}>
         <div className="wa-logs-head">
-          <h4><Users size={15} /> WhatsApp Logs <span className="wa-muted">({total})</span></h4>
           <div className="wa-search">
             <Search size={15} />
             <input
@@ -536,6 +558,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
             </button>
           </div>
         )}
+        </div>
       </div>
 
       <SendConfirmModal

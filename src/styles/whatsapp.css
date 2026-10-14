@@ -377,3 +377,19 @@
 .wa-retry:disabled { opacity: 0.5; cursor: not-allowed; }
 .wa-retry:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 div.wa-alert { flex-wrap: wrap; }
+
+/* ── logs: collapsed until "View All Logs" ── */
+.wa-logs-toggle-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.wa-logs-toggle-row h4 { margin: 0; display: inline-flex; align-items: center; gap: 0.4rem; }
+.wa-logs-toggle {
+  display: inline-flex; align-items: center; gap: 0.3rem; min-height: 36px; padding: 0.35rem 0.8rem;
+  border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.18); background: transparent; color: inherit;
+  font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
+.wa-logs-toggle:hover { background: rgba(255, 255, 255, 0.06); }
+.wa-logs-toggle:focus-visible { outline: 2px solid #25d366; outline-offset: 2px; }
+.wa-chev { transition: transform 0.2s ease; }
+.wa-chev.is-open { transform: rotate(180deg); }
+#wa-logs-body:not([hidden]) { margin-top: 0.75rem; animation: waLogsIn 0.22s ease-out; }
+@keyframes waLogsIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .wa-chev { transition: none; } #wa-logs-body:not([hidden]) { animation: none; } }

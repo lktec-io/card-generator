@@ -5,7 +5,7 @@ import {
   Eye, Heart, Hourglass, ImagePlus, LayoutGrid,
   List, Map, MapPin, MessageSquareText, Pencil, Save,
   Search, Share2, Shield, ThumbsDown, ThumbsUp, Ticket,
-  Trash2, Users, UsersRound, X, MessageCircle,
+  Trash2, Users, UsersRound, X, MessageCircle, ChevronDown, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage,
   sendInvitationSms, sendBulkSms, getBulkSmsProgress, getSmsLogs, retrySms as apiRetrySms,
@@ -135,6 +135,13 @@ export default function EventDetailPage() {
   const [deleteVmModal,  setDeleteVmModal]  = useState(null);  // vm object | null  // full inv object for modal
   const [invView,  setInvView]  = useState(() => localStorage.getItem('invView') || 'list');
   const [cardQuery, setCardQuery] = useState('');
+  // Guest list paging: 20 rows rendered at a time (search and selection span all pages)
+  const [guestPage, setGuestPage] = useState(1);
+  const invSectionRef = useRef(null);
+  // Secondary sections start collapsed; opening them is UI-only
+  const [tyOpen,     setTyOpen]     = useState(false);
+  const [voiceOpen,  setVoiceOpen]  = useState(false);
+  const smsLogsLoaded = useRef(false);
   const [staffList, setStaffList] = useState([]);   // for the Event Verifier selector (admins only)
   const canAssignVerifier = isAdmin();                // same rule as the server's canAssign()
 
@@ -226,7 +233,7 @@ export default function EventDetailPage() {
     }
   };
 
-  useEffect(() => { setCardQuery(''); setTyMessage(''); setTyJob(null); load(); loadVoice(); loadThankYou(); }, [id]);
+  useEffect(() => { setCardQuery(''); setGuestPage(1); setTyMessage(''); setTyJob(null); load(); loadVoice(); loadThankYou(); }, [id]);
 
   useEffect(() => {
     if (!canAssignVerifier) return;
@@ -687,6 +694,15 @@ export default function EventDetailPage() {
   // "Select all" covers the rows actually on screen that can be messaged, so it
   // follows the card search rather than silently selecting hidden guests.
   const selectableIds  = shownInvs.filter(inv => inv.phone_number).map(inv => inv.id);
+  const GUEST_PAGE_SIZE = 20;
+  const guestPages     = Math.max(1, Math.ceil(shownInvs.length / GUEST_PAGE_SIZE));
+  const curGuestPage   = Math.min(guestPage, guestPages);
+  const pageInvs       = shownInvs.slice((curGuestPage - 1) * GUEST_PAGE_SIZE, curGuestPage * GUEST_PAGE_SIZE);
+  const goGuestPage    = (p) => {
+    setGuestPage(Math.min(Math.max(1, p), guestPages));
+    const el = invSectionRef.current;
+    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const analytics      = data?.analytics || null;
 
   // Thank-you recipients — counts come from the server; the server resolves the guests itself
@@ -996,9 +1012,30 @@ export default function EventDetailPage() {
           <div className="ev-inv-section ty-section" style={{ marginTop: '1.5rem' }}>
             <div className="ev-inv-head">
               <h2><Heart size={17} /> Post-Event Thank You</h2>
-              {tyInfo && <span className="log-count">{tyCounts.with_phone} with phone</span>}
+              <button
+                type="button"
+                className="btn-outline section-toggle"
+                aria-expanded={tyOpen}
+                aria-controls="ty-details"
+                onClick={() => setTyOpen((o) => !o)}
+              >
+                {tyOpen ? 'Hide Thank You SMS' : 'View Thank You SMS'} <ChevronDown size={15} className={tyOpen ? 'section-toggle-icon is-open' : 'section-toggle-icon'} aria-hidden="true" />
+              </button>
             </div>
 
+            {/* Compact summary — always visible; nothing is sent from here */}
+            <p className="section-summary">
+              {tyInfo
+                ? <>
+                    {tyInfo.counts.checked_in.with_phone} checked-in {tyInfo.counts.checked_in.with_phone === 1 ? 'guest' : 'guests'} with a phone ·{' '}
+                    {tyInfo.saved_template ? 'message saved for this event' : 'default message'}
+                    {tyInfo.tracking_available && tyAlready > 0 ? ` · ${tyAlready} already thanked` : ''}
+                    {tyBusy ? ' · sending in progress' : ''}
+                  </>
+                : tyLoading ? 'Loading thank-you details…' : 'Thank-you details could not be loaded.'}
+            </p>
+
+            <div id="ty-details" hidden={!tyOpen}>
             {!tyInfo ? (
               <div className="ty-body">
                 {tyLoading ? (
@@ -1129,6 +1166,7 @@ export default function EventDetailPage() {
 
             </div>
             )}
+            </div>
           </div>
         )}
 
@@ -1143,7 +1181,7 @@ export default function EventDetailPage() {
         )}
 
         {/* ── Invitations section ── */}
-        <div className="ev-inv-section">
+        <div className="ev-inv-section" ref={invSectionRef}>
           <div className="ev-inv-head">
             <h2>Invitations ({invs.length})</h2>
             <div className="ev-inv-toolbar">
@@ -1211,14 +1249,14 @@ export default function EventDetailPage() {
               <input
                 type="search"
                 value={cardQuery}
-                onChange={(e) => setCardQuery(e.target.value)}
+                onChange={(e) => { setCardQuery(e.target.value); setGuestPage(1); }}
                 placeholder="Search guest name or invitation code…"
                 aria-label="Search this event's cards by guest name or invitation code"
                 autoComplete="off"
                 spellCheck={false}
               />
               {cardQuery && (
-                <button type="button" className="card-search-clear" onClick={() => setCardQuery('')} aria-label="Clear search">
+                <button type="button" className="card-search-clear" onClick={() => { setCardQuery(''); setGuestPage(1); }} aria-label="Clear search">
                   <X size={16} />
                 </button>
               )}
@@ -1251,7 +1289,7 @@ export default function EventDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {shownInvs.map(inv => (
+                  {pageInvs.map(inv => (
                     <tr key={inv.id}>
                       <td>
                         {inv.image_url
@@ -1277,7 +1315,8 @@ export default function EventDetailPage() {
                       <th className="inv-pick">
                         <input
                           type="checkbox"
-                          aria-label="Select all guests with a phone number"
+                          aria-label={`Select all ${selectableIds.length} matching guests with a phone number, on every page`}
+                          title="Selects every matching guest with a phone number — on all pages, not just this one"
                           checked={selectableIds.length > 0 && selectedIds.length === selectableIds.length}
                           ref={(el) => { if (el) el.indeterminate = selectedIds.length > 0 && selectedIds.length < selectableIds.length; }}
                           onChange={(e) => setSelectedIds(e.target.checked ? selectableIds : [])}
@@ -1289,7 +1328,7 @@ export default function EventDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {shownInvs.map(inv => (
+                  {pageInvs.map(inv => (
                     <tr key={inv.id} className={selectedIds.includes(inv.id) ? 'inv-row--picked' : undefined}>
                       {canSendSms && (
                         <td className="inv-pick">
@@ -1330,7 +1369,7 @@ export default function EventDetailPage() {
           ) : (
             /* ── GRID VIEW ── */
             <div className="inv-grid">
-              {shownInvs.map(inv => (
+              {pageInvs.map(inv => (
                 <div key={inv.id} className="inv-grid-card">
                   {/* Card image */}
                   <div className="inv-grid-img">
@@ -1357,6 +1396,27 @@ export default function EventDetailPage() {
               ))}
             </div>
           )}
+
+          {shownInvs.length > 0 && (
+            <nav className="guest-pager" aria-label="Guest list pages">
+              <span className="guest-pager-info" aria-live="polite">
+                Showing {(curGuestPage - 1) * GUEST_PAGE_SIZE + 1}–{Math.min(curGuestPage * GUEST_PAGE_SIZE, shownInvs.length)} of {shownInvs.length}
+                {cardQuery.trim() ? ' matching' : ''} {shownInvs.length === 1 ? 'guest' : 'guests'}
+                {canSendSms && selectedIds.length > 0 && <> · <strong>{selectedIds.length} selected</strong> (all pages)</>}
+              </span>
+              {guestPages > 1 && (
+                <span className="guest-pager-ctrls">
+                  <button type="button" className="btn-outline guest-pager-btn" onClick={() => goGuestPage(curGuestPage - 1)} disabled={curGuestPage <= 1} aria-label="Previous page">
+                    <ChevronLeft size={16} /> Previous
+                  </button>
+                  <span className="guest-pager-page">Page {curGuestPage} of {guestPages}</span>
+                  <button type="button" className="btn-outline guest-pager-btn" onClick={() => goGuestPage(curGuestPage + 1)} disabled={curGuestPage >= guestPages} aria-label="Next page">
+                    Next <ChevronRight size={16} />
+                  </button>
+                </span>
+              )}
+            </nav>
+          )}
         </div>
 
         {/* ── Voice Messages section — Invitation Events only ── */}
@@ -1364,17 +1424,25 @@ export default function EventDetailPage() {
         <div className="ev-inv-section" style={{ marginTop: '1.5rem' }}>
           <div className="ev-inv-head">
             <h2>Ujumbe wa Sauti ({voiceMsgs.length})</h2>
-            <button className="btn-outline" onClick={loadVoice} disabled={loadingVoice} style={{ fontSize: '0.78rem', padding: '0.45rem 0.9rem' }}>
-              {loadingVoice ? 'Loading…' : 'Refresh'}
-            </button>
+            <span className="section-head-actions">
+              {voiceMsgs.length > 0 && (
+                <button type="button" className="btn-outline section-toggle" aria-expanded={voiceOpen} aria-controls="voice-list"
+                  onClick={() => setVoiceOpen((o) => !o)}>
+                  {voiceOpen ? 'Hide Voice Messages' : 'View Voice Messages'} <ChevronDown size={15} className={voiceOpen ? 'section-toggle-icon is-open' : 'section-toggle-icon'} aria-hidden="true" />
+                </button>
+              )}
+              <button className="btn-outline" onClick={loadVoice} disabled={loadingVoice} style={{ fontSize: '0.78rem', padding: '0.45rem 0.9rem' }}>
+                {loadingVoice ? 'Loading…' : 'Refresh'}
+              </button>
+            </span>
           </div>
 
-          {voiceMsgs.length === 0 ? (
+          {voiceMsgs.length > 0 && !voiceOpen ? null : voiceMsgs.length === 0 ? (
             <p className="ev-info-empty" style={{ padding: '1.5rem 0', textAlign: 'center' }}>
               Hakuna ujumbe wa sauti bado.
             </p>
           ) : (
-            <div className="table-scroll">
+            <div className="table-scroll" id="voice-list">
               <table className="inv-table">
                 <thead>
                   <tr>
@@ -1419,13 +1487,26 @@ export default function EventDetailPage() {
         <div className="ev-inv-section" style={{ marginTop: '1.5rem' }}>
           <div className="ev-inv-head">
             <h2>SMS Logs</h2>
-            <button
-              className="btn-outline"
-              onClick={() => { setShowLogs(s => !s); if (!showLogs) loadSmsLogs(); }}
-              style={{ fontSize: '0.78rem', padding: '0.45rem 0.9rem' }}
-            >
-              {showLogs ? 'Hide' : 'View Logs'}
-            </button>
+            <span className="section-head-actions">
+              {showLogs && (
+                <button type="button" className="btn-outline" onClick={loadSmsLogs} disabled={loadingLogs} style={{ fontSize: '0.78rem', padding: '0.45rem 0.9rem' }}>
+                  {loadingLogs ? 'Loading…' : 'Refresh'}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-outline section-toggle"
+                aria-expanded={showLogs}
+                onClick={() => {
+                  // fetched once on first open; Refresh reloads on demand
+                  if (!showLogs && !smsLogsLoaded.current) { smsLogsLoaded.current = true; loadSmsLogs(); }
+                  setShowLogs((v) => !v);
+                }}
+                style={{ fontSize: '0.78rem', padding: '0.45rem 0.9rem' }}
+              >
+                {showLogs ? 'Hide Logs' : 'View All Logs'}
+              </button>
+            </span>
           </div>
 
           {showLogs && (

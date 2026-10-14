@@ -10,14 +10,14 @@ import '../styles/components.css';
 
 // Super admin: platform owner — no operational access
 const SUPER_ADMIN_LINKS = [
-  { to: '/',      end: true,  icon: <LayoutDashboard size={16} />,          label: 'Dashboard' },
+  { to: '/dashboard', end: true,  icon: <LayoutDashboard size={16} />,          label: 'Dashboard' },
   { to: '/users', end: false, icon: <Users size={16} />,             label: 'Users'     },
   { to: '/history', end: false, icon: <History size={16} />,          label: 'History'   },
   { to: '/admin', end: false, icon: <ShieldCheck size={16} />, label: 'Admin'     },
 ];
 
 const ADMIN_LINKS = [
-  { to: '/',        end: true,  icon: <LayoutDashboard size={16} />,          label: 'Dashboard'    },
+  { to: '/dashboard', end: true,  icon: <LayoutDashboard size={16} />,          label: 'Dashboard'    },
   { to: '/events',  end: false, icon: <CalendarDays size={16} />,              label: 'Events'       },
   { to: '/create',  end: false, icon: <ImagePlus size={16} />,  label: 'Create Cards' },
   { to: '/import',  end: false, icon: <FileUp size={16} />,         label: 'Import'       },
@@ -77,7 +77,7 @@ export default function Navbar() {
   const role   = getRole();
   const name   = getUserName();
   const links  = isSuperAdmin() ? SUPER_ADMIN_LINKS : isAdmin() ? ADMIN_LINKS : isEventManager() ? MANAGER_LINKS : VERIFIER_LINKS;
-  const logoTo = isSuperAdmin() || isAdmin() ? '/' : canManage() ? '/events' : '/verify';
+  const logoTo = isSuperAdmin() || isAdmin() ? '/dashboard' : canManage() ? '/events' : '/verify';
 
   const handleLogout = () => {
     close();

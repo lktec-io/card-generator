@@ -3,7 +3,7 @@
   "name": "Cardhub Digital Invitation",
   "short_name": "Cardhub",
   "description": "Event Invitation System",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

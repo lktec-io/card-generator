@@ -1094,3 +1094,88 @@ backdrop-filter: blur(4px);
 @media (max-width: 640px) {
   #ev-verifier { min-height: 44px; font-size: 1rem; }   /* touch-sized; 16px stops iOS zoom */
 }
+
+/* ── compact event summary + per-event "View All Details" ───────────── */
+.ev-status {
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  border: 1px solid currentColor;
+}
+.ev-status--upcoming { color: #4ade80; }
+.ev-status--today    { color: #fbbf24; }
+.ev-status--past     { color: rgba(255, 255, 255, 0.5); }
+
+.ev-more-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 34px;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ev-more-toggle:hover { background: rgba(255, 255, 255, 0.06); }
+.ev-more-toggle:focus-visible { outline: 2px solid var(--gold, #d4af37); outline-offset: 2px; }
+.ev-more-toggle svg { transition: transform 0.2s ease; }
+.ev-more-toggle.is-open svg { transform: rotate(180deg); }
+
+.ev-more { margin-top: 0.75rem; animation: evMoreIn 0.22s ease-out; }
+.ev-more-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem 0.9rem; margin: 0; }
+.ev-more-grid > div { min-width: 0; }
+.ev-more-grid dt { display: flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; }
+.ev-more-grid dd { margin: 0.1rem 0 0; font-size: 0.85rem; overflow-wrap: anywhere; }
+
+.event-card-footer { gap: 0.5rem; }
+.event-card-open { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto; }
+
+@keyframes evMoreIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ev-more { animation: none; } .ev-more-toggle svg { transition: none; } }
+
+/* ── event page: collapsible secondary sections + guest pager ───────── */
+.section-head-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.section-toggle { display: inline-flex; align-items: center; gap: 0.3rem; }
+.section-toggle-icon { transition: transform 0.2s ease; }
+.section-toggle-icon.is-open { transform: rotate(180deg); }
+.section-summary { margin: 0.25rem 0 0; font-size: 0.82rem; opacity: 0.7; }
+#ty-details:not([hidden]), #voice-list { animation: evMoreIn 0.22s ease-out; }
+
+.guest-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  margin-top: 1rem;
+  font-size: 0.84rem;
+}
+.guest-pager-info { opacity: 0.75; }
+.guest-pager-ctrls { display: inline-flex; align-items: center; gap: 0.5rem; }
+.guest-pager-btn { display: inline-flex; align-items: center; gap: 0.2rem; min-height: 38px; padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+.guest-pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.guest-pager-page { min-width: 6.5rem; text-align: center; font-weight: 600; }
+
+@media (max-width: 560px) {
+  .guest-pager { justify-content: center; text-align: center; }
+  .guest-pager-ctrls { width: 100%; justify-content: space-between; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .section-toggle-icon { transition: none; }
+  #ty-details:not([hidden]), #voice-list { animation: none; }
+}
+
+/* compact summary refinements: chip sized to its text, own colour; expanding one
+   card never stretches its neighbours */
+.event-card-meta .ev-status, .events-list-meta .ev-status { width: fit-content; align-self: flex-start; }
+.event-card-meta .ev-status--upcoming, .events-list-meta .ev-status--upcoming { color: #4ade80; }
+.event-card-meta .ev-status--today,    .events-list-meta .ev-status--today    { color: #fbbf24; }
+.events-grid { align-items: start; }
+.ev-more-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }

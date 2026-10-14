@@ -28,7 +28,7 @@ export default function LoginPage() {
           navigate('/events', { replace: true });
         } else {
           // admin and super_admin both go to dashboard
-          navigate('/', { replace: true });
+          navigate('/dashboard', { replace: true });
         }
       } else {
         setError(data.message || 'Login failed.');
