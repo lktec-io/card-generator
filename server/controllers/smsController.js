@@ -2,6 +2,7 @@
 
 const pool       = require('../config/db');
 const SmsService = require('../services/sms/SmsService');
+const { maskPhone } = require('../utils/maskPhone');
 const { eventScopeSQL } = require('../middleware/authMiddleware');
 // Same Single/Double wording that is printed on the card itself
 const { typeLabel } = require('../utils/imageProcessor');
@@ -241,6 +242,13 @@ async function sendBulk(req, res) {
     }
 
     const jobId = createJob(eventId, invitations.length);
+    // Invitation blasts can be cancelled and report per-recipient results.
+    // Thank-you jobs share this tracker but are left exactly as they were.
+    Object.assign(_jobs.get(jobId), {
+      cancellable: true, userId: req.user?.id ?? null,
+      completed: 0, unconfirmed: 0, results: [], failures: [],
+      cancelRequested: false, cancelled: false,
+    });
 
     // Respond immediately — do not await the sending loop
     res.json({ success: true, job_id: jobId, total: invitations.length });
@@ -252,6 +260,11 @@ async function sendBulk(req, res) {
 
       for (const inv of invitations) {
         if (!job) break;
+        // Cancellation takes effect between recipients: the message in flight
+        // finishes and is recorded; nobody after it is submitted.
+        if (job.cancelRequested) break;
+        job.current = inv.guest_name;
+        const outcome = { invitation_id: inv.id, guest_name: inv.guest_name, phone: maskPhone(inv.phone_number) };
 
         const cardTypeLabel = inv.card_type ? typeLabel(inv.card_type) : '';
         const message = buildMessage(invitationTemplate(event, cardTypeLabel), {
@@ -268,17 +281,29 @@ async function sendBulk(req, res) {
           const result = await SmsService.send(inv.phone_number, message);
           await writeLog({ event_id: eventId, invitation_id: inv.id, phone_number: inv.phone_number, provider, message, status: 'sent', provider_message_id: result.provider_message_id });
           job.sent++;
+          outcome.outcome = 'accepted';
         } catch (err) {
           await writeLog({ event_id: eventId, invitation_id: inv.id, phone_number: inv.phone_number, provider, message, status: 'failed', error_message: err.message });
           job.failed++;
+          // `unconfirmed` is a subset of `failed`: Beem may have the message.
+          if (err.unconfirmed) job.unconfirmed++;
+          Object.assign(outcome, { outcome: err.unconfirmed ? 'unconfirmed' : 'failed', code: err.code || null, reason: err.message });
+          job.failures.push({ phone: outcome.phone, guest_name: inv.guest_name, reason: err.message });
+        } finally {
+          job.completed++;
+          job.results.push(outcome);
         }
 
         // Brief pause between messages — avoids saturating the Beem rate limit
         await new Promise(r => setTimeout(r, 200));
       }
 
-      if (job) job.done = true;
-      console.log(`[sendBulk] event=${eventId} job=${jobId} sent=${job?.sent} failed=${job?.failed}`);
+      if (job) {
+        job.current = null;
+        job.cancelled = job.cancelRequested && job.completed < job.total;
+        job.done = true;
+      }
+      console.log(`[sendBulk] event=${eventId} job=${jobId} sent=${job?.sent} failed=${job?.failed}${job?.cancelled ? ` cancelled after ${job.completed}/${job.total}` : ''}`);
     });
 
   } catch (err) {
@@ -305,10 +330,39 @@ function getBulkProgress(req, res) {
     already: job.already || 0,
     skipped_no_phone: job.skipped_no_phone || 0,
     skipped_already:  job.skipped_already  || 0,
-    // Per-failure reasons as reported by the provider (thank-you jobs)
+    // Per-failure reasons as reported by the provider
     failures: job.failures || [],
     started_at: job.startedAt,
+    // Invitation blasts only (absent on thank-you jobs)
+    ...(job.cancellable ? {
+      cancellable:      true,
+      completed:        job.completed,
+      unconfirmed:      job.unconfirmed,
+      current_guest:    job.current || null,
+      cancel_requested: job.cancelRequested,
+      cancelled:        job.cancelled,
+      not_processed:    job.done ? job.total - job.completed : 0,
+      results:          job.done ? job.results : undefined,
+    } : {}),
   });
+}
+
+// ── POST /sms/bulk/cancel/:job_id ────────────────────────────────────────────
+// Stops an invitation SMS blast before its next recipient. Messages already
+// handed to Beem cannot be recalled.
+function cancelBulk(req, res) {
+  const job = _jobs.get(req.params.job_id);
+  if (!job) return res.status(404).json({ success: false, message: 'Job not found or expired (30 min TTL).' });
+  if (!job.cancellable) return res.status(409).json({ success: false, message: 'This send cannot be cancelled.' });
+  if (job.userId && req.user?.id !== job.userId && req.user?.role !== 'super_admin') {
+    return res.status(403).json({ success: false, message: 'That send belongs to another user.' });
+  }
+  if (job.done) return res.status(409).json({ success: false, message: 'This send has already finished.', finished: true });
+  if (!job.cancelRequested) {
+    job.cancelRequested = true;
+    console.log(`[sendBulk] job=${req.params.job_id} cancel requested after ${job.completed}/${job.total}`);
+  }
+  res.json({ success: true, cancel_requested: true, completed: job.completed, total: job.total });
 }
 
 // ── GET /sms/logs/:event_id ───────────────────────────────────────────────────
@@ -730,6 +784,6 @@ async function sendThankYouBulk(req, res) {
 }
 
 module.exports = {
-  sendSingle, sendBulk, getBulkProgress, getSmsLogs, retrySms,
+  sendSingle, sendBulk, getBulkProgress, cancelBulk, getSmsLogs, retrySms,
   getThankYouInfo, saveThankYouTemplate, sendThankYouSingle, sendThankYouBulk,
 };

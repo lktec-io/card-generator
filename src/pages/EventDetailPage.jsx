@@ -10,11 +10,12 @@ import {
 import { getEvent, updateEvent, deleteInvitation, getVoiceMessages, deleteVoiceMessage,
   sendInvitationSms, sendBulkSms, getBulkSmsProgress, getSmsLogs, retrySms as apiRetrySms,
   listUsersDropdown, getThankYouInfo, saveThankYouTemplate, sendThankYouSms, sendThankYouBulkSms,
-  sendWhatsAppInvitation,
+  sendWhatsAppInvitation, cancelBulkSms,
 } from '../utils/api';
 import { isAdmin, canManage } from '../utils/auth';
 import WhatsAppPanel from '../components/WhatsAppPanel';
 import SendProgressModal from '../components/SendProgressModal';
+import BulkSendModal, { SendConfirmModal } from '../components/BulkSendModal';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
 import ConfirmModal from '../components/ConfirmModal';
@@ -170,7 +171,11 @@ export default function EventDetailPage() {
   const [selectedIds,    setSelectedIds]    = useState([]); // for "send to selected"
   const [smsConfirm,     setSmsConfirm]     = useState(null);  // invitation | null
   const [bulkSmsConfirm, setBulkSmsConfirm] = useState(false);
-  const [bulkJob,        setBulkJob]        = useState(null);  // { jobId, total, sent, failed, done }
+  const [bulkJob,        setBulkJob]        = useState(null);  // { jobId, total, sent, failed, done } + server progress fields
+  const [smsModalOpen,   setSmsModalOpen]   = useState(false); // live progress / results of the bulk SMS
+  const [bulkSmsStarting, setBulkSmsStarting] = useState(false);
+  const bulkSmsGuard = useRef(false);                            // one confirmation = one blast
+  const [waConfirm,      setWaConfirm]      = useState(null);  // invitation | null — WhatsApp single confirm
   const [smsLogs,        setSmsLogs]        = useState([]);
   const [loadingLogs,    setLoadingLogs]    = useState(false);
   const [showLogs,       setShowLogs]       = useState(false);
@@ -347,19 +352,27 @@ export default function EventDetailPage() {
 
   /* ── Send bulk SMS ── */
   const handleBulkSms = async () => {
-    setBulkSmsConfirm(false);
+    if (bulkSmsGuard.current) return;                  // a second click never starts a second blast
+    bulkSmsGuard.current = true;
+    setBulkSmsStarting(true);
     try {
       const { data } = await sendBulkSms(id);
-      setBulkJob({ jobId: data.job_id, total: data.total, sent: 0, failed: 0, done: false });
+      setBulkSmsConfirm(false);
+      setBulkJob({ jobId: data.job_id, total: data.total, sent: 0, failed: 0, completed: 0, done: false });
+      setSmsModalOpen(true);
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
         try {
           const { data: p } = await getBulkSmsProgress(data.job_id);
-          setBulkJob({ jobId: p.job_id, total: p.total, sent: p.sent, failed: p.failed, done: p.done });
+          // keep every field the server reports (completed, unconfirmed, results, cancelled…)
+          setBulkJob({ ...p, jobId: p.job_id });
           if (p.done) {
             clearInterval(pollRef.current);
             pollRef.current = null;
-            showToast(`Bulk SMS complete — ${p.sent} sent, ${p.failed} failed.`, 'success');
+            bulkSmsGuard.current = false;
+            showToast(p.cancelled
+              ? `Bulk SMS cancelled — ${p.sent} sent, ${p.failed} failed, ${p.not_processed || 0} not sent.`
+              : `Bulk SMS complete — ${p.sent} sent, ${p.failed} failed.`, p.failed ? 'error' : 'success');
           }
         } catch (pollErr) {
           // 404 = job expired or the server restarted: it will never report done.
@@ -367,13 +380,19 @@ export default function EventDetailPage() {
           if (pollErr.response?.status === 404) {
             clearInterval(pollRef.current);
             pollRef.current = null;
+            bulkSmsGuard.current = false;
             setBulkJob(null);
+            setSmsModalOpen(false);
             showToast('Lost track of the bulk SMS job — check the SMS log for what was sent.', 'error');
           }
         }
       }, 1200);
     } catch (err) {
+      bulkSmsGuard.current = false;
+      setBulkSmsConfirm(false);
       showToast(err.response?.data?.message || 'Failed to start bulk SMS.', 'error');
+    } finally {
+      setBulkSmsStarting(false);
     }
   };
 
@@ -607,7 +626,7 @@ export default function EventDetailPage() {
             carries the label and tooltip instead. */}
         <button
           className={`btn-action btn-wa-row${waState === 'sent' ? ' btn-wa-row--sent' : waState === 'failed' ? ' btn-wa-row--failed' : ''}`}
-          onClick={() => handleWhatsApp(inv)}
+          onClick={() => (inv.phone_number ? setWaConfirm(inv) : showToast('This guest has no phone number.', 'info'))}
           disabled={waState === 'sending'}
           title={inv.phone_number ? `Send WhatsApp to ${inv.phone_number}` : 'No phone number'}
           aria-label="WhatsApp"
@@ -1162,8 +1181,9 @@ export default function EventDetailPage() {
               <div className="sms-progress-wrap">
                 {bulkJob.done ? (
                   <div className="sms-progress-done">
-                    <span>SMS blast complete — <strong>{bulkJob.sent}</strong> sent, <strong>{bulkJob.failed}</strong> failed.</span>
-                    <button className="sms-progress-close" onClick={() => setBulkJob(null)}>✕</button>
+                    <span>SMS blast {bulkJob.cancelled ? 'cancelled' : 'complete'} — <strong>{bulkJob.sent}</strong> sent, <strong>{bulkJob.failed}</strong> failed{bulkJob.cancelled ? <>, <strong>{bulkJob.not_processed || 0}</strong> not sent</> : null}.</span>
+                    <button type="button" className="bs-inline-link" onClick={() => setSmsModalOpen(true)}>View results</button>
+                    <button className="sms-progress-close" onClick={() => { setBulkJob(null); setSmsModalOpen(false); }}>✕</button>
                   </div>
                 ) : (
                   <div className="sms-progress-running">
@@ -1176,6 +1196,9 @@ export default function EventDetailPage() {
                     <span className="sms-progress-text">
                       Sending {bulkJob.sent + bulkJob.failed} of {bulkJob.total}…
                     </span>
+                    {!smsModalOpen && (
+                      <button type="button" className="bs-inline-link" onClick={() => setSmsModalOpen(true)}>Show progress</button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1482,18 +1505,23 @@ export default function EventDetailPage() {
       />
 
       {/* SMS single confirm */}
-      <ConfirmModal
+      <SendConfirmModal
         open={!!smsConfirm}
-        title="Send SMS?"
-        message={smsConfirm ? (
-          <>Send invitation SMS to <strong>{smsConfirm.guest_name}</strong>?<br />
-          <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>{smsConfirm.phone_number}</span></>
-        ) : ''}
-        confirmLabel="Send"
-        cancelLabel="Cancel"
-        danger={false}
+        channel="sms"
+        count={1}
+        detail={smsConfirm ? <><strong>{smsConfirm.guest_name}</strong> · {smsConfirm.phone_number}</> : null}
         onConfirm={() => handleSendSms(smsConfirm)}
         onCancel={() => setSmsConfirm(null)}
+      />
+
+      {/* WhatsApp single confirm — previously sent on the first click */}
+      <SendConfirmModal
+        open={!!waConfirm}
+        channel="whatsapp"
+        count={1}
+        detail={waConfirm ? <><strong>{waConfirm.guest_name}</strong> · {waConfirm.phone_number}</> : null}
+        onConfirm={() => { const inv = waConfirm; setWaConfirm(null); handleWhatsApp(inv); }}
+        onCancel={() => setWaConfirm(null)}
       />
 
       {/* Bulk thank-you progress — every number comes from the server's job state */}
@@ -1565,17 +1593,24 @@ export default function EventDetailPage() {
       />
 
       {/* SMS bulk confirm */}
-      <ConfirmModal
+      <SendConfirmModal
         open={bulkSmsConfirm}
-        title="Send SMS to All Guests?"
-        message={
-          <>Send an invitation SMS to <strong>{guestsWithPhone}</strong> guest{guestsWithPhone !== 1 ? 's' : ''} with phone numbers?</>
-        }
-        confirmLabel="Send All"
-        cancelLabel="Cancel"
-        danger={false}
+        channel="sms"
+        count={guestsWithPhone}
+        busy={bulkSmsStarting}
+        detail="Every guest of this event with a phone number receives the invitation SMS."
         onConfirm={handleBulkSms}
-        onCancel={() => setBulkSmsConfirm(false)}
+        onCancel={() => { if (!bulkSmsStarting) setBulkSmsConfirm(false); }}
+      />
+
+      {/* SMS bulk — live progress, cancel and results (server job state only) */}
+      <BulkSendModal
+        key={bulkJob?.jobId || 'none'}
+        open={smsModalOpen && !!bulkJob}
+        channel="sms"
+        job={bulkJob}
+        onCancelSending={() => cancelBulkSms(bulkJob.jobId)}
+        onClose={() => setSmsModalOpen(false)}
       />
     </div>
   );

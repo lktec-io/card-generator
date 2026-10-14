@@ -4,10 +4,11 @@ import {
   TriangleAlert, ChevronLeft, ChevronRight, CircleAlert,
 } from 'lucide-react';
 import {
-  getWhatsAppSummary, sendWhatsAppBulk, getWhatsAppProgress,
+  getWhatsAppSummary, sendWhatsAppBulk, getWhatsAppProgress, cancelWhatsAppBulk,
   retryWhatsAppFailed, getWhatsAppLogs,
 } from '../utils/api';
 import { useToast } from '../context/ToastContext';
+import BulkSendModal, { SendConfirmModal } from './BulkSendModal';
 import '../styles/whatsapp.css';
 
 const STATUS_FILTERS = ['all', 'pending', 'sending', 'accepted', 'sent', 'delivered', 'read', 'failed'];
@@ -97,6 +98,9 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
   // successful log search must not clear a summary failure (or the reverse).
   const [summaryError, setSummaryError] = useState('');
   const [logsError,    setLogsError]    = useState('');
+  // Nothing is sent until the user confirms: { kind: 'all'|'selected'|'retry', count, ids }
+  const [confirm, setConfirm]     = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);   // live progress / results
 
   const [logs, setLogs]       = useState([]);
   const [total, setTotal]     = useState(0);
@@ -274,9 +278,11 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
       const { data } = await sendWhatsAppBulk(eventId, ids);
       beginJob(data);
       if (ids && onClearSelection) onClearSelection();
+      return true;
     } catch (err) {
       sendGuard.current = false;
       showToast(describeError(err, 'Could not start the WhatsApp campaign.'), 'error');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -296,12 +302,30 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
           : ''),
         'success'
       );
+      return true;
     } catch (err) {
       sendGuard.current = false;
       showToast(describeError(err, 'Could not start the retry.'), 'error');
+      return false;
     } finally {
       setBusy(false);
     }
+  };
+
+  /* Confirmation first; the confirmed action is the existing start/retry above. */
+  const askConfirm = (kind) => {
+    if (sendGuard.current || busy) return;
+    const count = kind === 'all' ? (summary?.eligible_guests || 0)
+      : kind === 'selected' ? selectedIds.length
+      : (counts.failed || 0);
+    setConfirm({ kind, count, ids: kind === 'selected' ? [...selectedIds] : null });
+  };
+
+  const onConfirmed = async () => {
+    if (!confirm || busy) return;
+    const started = confirm.kind === 'retry' ? await retryFailed() : await startCampaign(confirm.ids);
+    setConfirm(null);
+    if (started) setModalOpen(true);
   };
 
   const counts  = summary?.counts || {};
@@ -366,7 +390,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
           type="button"
           className="btn-wa"
           disabled={!configured || running || busy || !(summary?.eligible_guests)}
-          onClick={() => startCampaign(null)}
+          onClick={() => askConfirm('all')}
           title={configured ? 'Send the WhatsApp invitation to every guest with a phone number' : 'WhatsApp is not configured'}
         >
           {running ? <LoaderCircle size={15} className="wa-spin" /> : <MessageCircle size={15} />}
@@ -378,7 +402,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
           type="button"
           className="btn-wa btn-wa--ghost"
           disabled={!configured || running || busy || selectedIds.length === 0}
-          onClick={() => startCampaign(selectedIds)}
+          onClick={() => askConfirm('selected')}
           title={selectedIds.length ? `Send to the ${selectedIds.length} selected guest(s)` : 'Select guests in the list first'}
         >
           <Send size={15} /> Send WhatsApp to Selected
@@ -389,7 +413,7 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
           type="button"
           className="btn-wa btn-wa--ghost"
           disabled={!configured || running || busy || !(counts.failed > 0)}
-          onClick={retryFailed}
+          onClick={() => askConfirm('retry')}
           title="Retry only the messages that failed"
         >
           <RefreshCw size={15} /> Retry Failed
@@ -416,6 +440,11 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
               Accepted by Beem is not the same as delivered. Delivered and Read appear
               only when Beem sends the matching receipt.
             </p>
+          )}
+          {!modalOpen && (
+            <button type="button" className="bs-inline-link" onClick={() => setModalOpen(true)}>
+              {job.finished || jobDone ? 'View results' : 'Show progress'}
+            </button>
           )}
           {job.finished && job.failures?.length > 0 && (
             <ul className="wa-failures">
@@ -508,6 +537,31 @@ export default function WhatsAppPanel({ eventId, selectedIds = [], onClearSelect
           </div>
         )}
       </div>
+
+      <SendConfirmModal
+        open={!!confirm}
+        channel="whatsapp"
+        count={confirm?.count || 0}
+        busy={busy}
+        detail={confirm?.kind === 'retry'
+          ? 'Only messages that definitely failed are retried. Sends Beem never confirmed are held back so nobody gets a duplicate.'
+          : confirm?.kind === 'all'
+            ? 'Guests who already have a successful WhatsApp invitation are skipped automatically.'
+            : null}
+        onConfirm={onConfirmed}
+        onCancel={() => { if (!busy) setConfirm(null); }}
+      />
+
+      <BulkSendModal
+        key={jobId || 'none'}
+        open={modalOpen && !!job}
+        channel="whatsapp"
+        job={job}
+        error={pollError}
+        onCancelSending={() => cancelWhatsAppBulk(jobId)}
+        onClose={() => setModalOpen(false)}
+        onRetryFailed={() => { setModalOpen(false); askConfirm('retry'); }}
+      />
     </section>
   );
 }

@@ -33,7 +33,7 @@ const {
 
 const {
   getStatus: waStatus, sendSingle: waSendSingle, sendBulk: waSendBulk,
-  getProgress: waProgress, retryFailed: waRetryFailed, getSummary: waSummary,
+  getProgress: waProgress, cancelCampaign: waCancel, retryFailed: waRetryFailed, getSummary: waSummary,
   getLogs: waLogs, deliveryWebhook: waWebhook,
 } = require('../controllers/whatsappController');
 
@@ -44,7 +44,7 @@ const { sendVoiceMessage, getVoiceMessages, deleteVoiceMessage } = require('../c
 const { listTemplates }          = require('../controllers/templateController');
 const { getGlobalStats }         = require('../controllers/statsController');
 const { getVerificationHistory } = require('../controllers/verificationLogController');
-const { sendSingle, sendBulk, getBulkProgress, getSmsLogs, retrySms,
+const { sendSingle, sendBulk, getBulkProgress, cancelBulk, getSmsLogs, retrySms,
         getThankYouInfo, saveThankYouTemplate, sendThankYouSingle, sendThankYouBulk } = require('../controllers/smsController');
 
 // ── API status ─────────────────────────────────────────────────────────────
@@ -112,6 +112,7 @@ router.delete('/voice-messages/:id',       requireAdmin,   deleteVoiceMessage);
 router.post('/sms/send/:invitation_id',      requireManager, sendSingle);
 router.post('/sms/bulk/:event_id',           requireManager, sendBulk);
 router.get( '/sms/bulk/progress/:job_id',   requireManager, getBulkProgress);
+router.post('/sms/bulk/cancel/:job_id',     requireManager, cancelBulk);
 router.get( '/sms/logs/:event_id',          requireAuth,    getSmsLogs);
 router.post('/sms/retry/:log_id',           requireManager, retrySms);
 
@@ -122,6 +123,7 @@ router.get( '/whatsapp/status',                  requireManager, waStatus);
 router.post('/whatsapp/send/:invitation_id',     requireManager, waSendSingle);
 router.post('/whatsapp/bulk/:event_id',          requireManager, waSendBulk);
 router.get( '/whatsapp/bulk/progress/:job_id',   requireManager, waProgress);
+router.post('/whatsapp/bulk/cancel/:job_id',     requireManager, waCancel);
 router.post('/whatsapp/retry/:event_id',         requireManager, waRetryFailed);
 router.get( '/whatsapp/summary/:event_id',       requireManager, waSummary);
 router.get( '/whatsapp/logs/:event_id',          requireAuth,    waLogs);

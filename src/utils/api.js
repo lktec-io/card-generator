@@ -163,6 +163,8 @@ export const deleteUser        = (id)         => api.delete(`/users/${id}`);
 export const sendInvitationSms   = (invitationId)  => api.post(`/sms/send/${invitationId}`);
 export const sendBulkSms         = (eventId)       => api.post(`/sms/bulk/${eventId}`);
 export const getBulkSmsProgress  = (jobId)         => api.get(`/sms/bulk/progress/${jobId}`);
+// Stops an invitation SMS blast before its next recipient (already-submitted messages stand)
+export const cancelBulkSms       = (jobId)         => api.post(`/sms/bulk/cancel/${jobId}`);
 // Server-side search + pagination. Called with no options it behaves as before.
 export const getSmsLogs = (eventId, { q = '', status = '', page = 1, pageSize = 50 } = {}) =>
   api.get(`/sms/logs/${eventId}`, { params: { q, status, page, page_size: pageSize } });
@@ -186,6 +188,7 @@ export const sendWhatsAppBulk = (eventId, invitationIds = null) =>
   api.post(`/whatsapp/bulk/${eventId}`, invitationIds ? { invitation_ids: invitationIds } : {});
 
 export const getWhatsAppProgress = (jobId)   => api.get(`/whatsapp/bulk/progress/${jobId}`);
+export const cancelWhatsAppBulk  = (jobId)   => api.post(`/whatsapp/bulk/cancel/${jobId}`);
 export const retryWhatsAppFailed = (eventId) => api.post(`/whatsapp/retry/${eventId}`);
 
 /** Server-side search + pagination — never load every row into the browser. */

@@ -18,6 +18,7 @@ const { withConnection, poolStats } = require('../config/db');
 const WhatsAppService = require('../services/whatsapp/WhatsAppService');
 const { getConfig } = require('../config/whatsapp');
 const { validatePhone } = require('../utils/phone');
+const { maskPhone } = require('../utils/maskPhone');
 const { eventScopeSQL } = require('../middleware/authMiddleware');
 const { RANK } = require('../services/whatsapp/BeemWhatsAppProvider');
 
@@ -243,6 +244,13 @@ function createJob(eventId, total, userId) {
   _jobs.set(id, {
     id, eventId, userId, total, sent: 0, failed: 0, skipped: 0, completed: 0,
     current: null, finished: false, startedAt: Date.now(), finishedAt: null, failures: [],
+    // `unconfirmed` is a subset of `failed`: Beem received the request but its
+    // answer never came, so delivery is unknown. Kept inside `failed` so every
+    // existing reader of the counters is unaffected.
+    unconfirmed: 0,
+    // one entry per processed recipient, phone masked — shown once the job ends
+    results: [],
+    cancelRequested: false, cancelled: false,
   });
   return _jobs.get(id);
 }
@@ -309,14 +317,25 @@ async function runCampaign(job, rows, event, baseUrl, { force = false } = {}) {
   const gap = Math.max(0, Math.round(1000 / Math.max(1, getConfig().ratePerSecond)));
   try {
     for (const inv of rows) {
+      // Cancellation takes effect between recipients: the one in flight always
+      // finishes and is recorded; nobody after it is submitted.
+      if (job.cancelRequested) break;
       job.current = inv.guest_name;
+      const result = { invitation_id: inv.id, guest_name: inv.guest_name, phone: maskPhone(inv.phone_number) };
       try {
         // campaigns never automatically resend an unconfirmed earlier attempt
         const out = await sendOne({ invitation: inv, event, baseUrl, force, holdUnconfirmed: true });
-        if (out.ok)           job.sent++;
-        else if (out.skipped) job.skipped++;
-        else {
+        if (out.ok) {
+          job.sent++;
+          Object.assign(result, { outcome: 'accepted' });
+        } else if (out.skipped) {
+          job.skipped++;
+          Object.assign(result, { outcome: 'skipped', code: out.code, reason: out.reason });
+        } else {
           job.failed++;
+          const unconfirmed = out.code === 'UNCONFIRMED';
+          if (unconfirmed) job.unconfirmed++;
+          Object.assign(result, { outcome: unconfirmed ? 'unconfirmed' : 'failed', code: out.code, reason: out.reason });
           if (job.failures.length < 200) {
             job.failures.push({
               invitation_id: inv.id, log_id: out.log_id, code: inv.code,
@@ -326,14 +345,17 @@ async function runCampaign(job, rows, event, baseUrl, { force = false } = {}) {
         }
       } catch (err) {
         job.failed++;
+        Object.assign(result, { outcome: 'failed', code: 'UNEXPECTED', reason: 'Unexpected server error' });
         console.error(`[whatsapp:campaign] ${inv.code} unexpected: ${err.message}`);
       } finally {
         job.completed++;
+        job.results.push(result);
       }
       if (gap) await new Promise((r) => setTimeout(r, gap));   // provider rate limit
     }
   } finally {
     job.current = null;
+    job.cancelled = job.cancelRequested && job.completed < job.total;
     job.finished = true;
     job.finishedAt = Date.now();
     _running.delete(job.eventId);
@@ -356,7 +378,39 @@ function getProgress(req, res) {
     current_guest: job.current, finished: job.finished,
     started_at: job.startedAt, finished_at: job.finishedAt,
     failures: job.failures,
+    unconfirmed: job.unconfirmed,
+    cancel_requested: job.cancelRequested,
+    cancelled: job.cancelled,
+    // recipients never submitted because the campaign was cancelled
+    not_processed: job.finished ? job.total - job.completed : 0,
+    // per-recipient outcomes (masked phones) — only once the job has ended, so
+    // polling stays small
+    results: job.finished ? job.results : undefined,
   });
+}
+
+/** Owner of the job, or a super admin. Same rule as the progress endpoint. */
+function canControlJob(job, user) {
+  return !job.userId || user?.id === job.userId || user?.role === 'super_admin';
+}
+
+// ── POST /whatsapp/bulk/cancel/:job_id ──────────────────────────────────────
+// Stops the campaign before its next recipient. Messages already handed to
+// Beem cannot be recalled — the response and the final results say so.
+function cancelCampaign(req, res) {
+  const job = _jobs.get(req.params.job_id);
+  if (!job) return res.status(404).json({ success: false, message: 'That campaign has expired. Open the WhatsApp logs to see what was sent.' });
+  if (!canControlJob(job, req.user)) {
+    return res.status(403).json({ success: false, message: 'That campaign belongs to another user.' });
+  }
+  if (job.finished) {
+    return res.status(409).json({ success: false, message: 'This campaign has already finished.', finished: true });
+  }
+  if (!job.cancelRequested) {
+    job.cancelRequested = true;
+    console.log(`[whatsapp] job=${job.id} cancel requested after ${job.completed}/${job.total}`);
+  }
+  res.json({ success: true, cancel_requested: true, completed: job.completed, total: job.total });
 }
 
 // ── POST /whatsapp/retry/:event_id ──────────────────────────────────────────
@@ -840,7 +894,7 @@ async function applyDeliveryReport(parsed, body) {
 }
 
 module.exports = {
-  getStatus, sendSingle, sendBulk, getProgress, retryFailed, getSummary, getLogs, deliveryWebhook,
+  getStatus, sendSingle, sendBulk, getProgress, cancelCampaign, retryFailed, getSummary, getLogs, deliveryWebhook,
   // exported for tests
   sendOne, alreadySent, SUCCESSFUL, applyDeliveryReport, replaceableBy, checkCallbackSecret,
 };
