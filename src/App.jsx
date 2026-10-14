@@ -79,7 +79,8 @@ function AppShell() {
           <Route path="/import"     element={<OperationalRoute><ImportPage /></OperationalRoute>} />
         </Routes>
       </main>
-      <InstallPrompt />
+      {/* the staff app install prompt is not shown on the public landing page */}
+      {pathname !== '/' && <InstallPrompt />}
     </>
   );
 }

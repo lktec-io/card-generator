@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   MdAdd, MdEvent, MdClose, MdCalendarToday,
   MdLocationOn, MdPeople, MdCheckCircle, MdArrowForward, MdDelete,
-  MdGridView, MdViewList, MdShield, MdExpandMore, MdAccessTime, MdPhone, MdHowToReg,
+  MdGridView, MdViewList, MdShield, MdExpandMore, MdAccessTime, MdPhone, MdHowToReg, MdCheckroom,
 } from 'react-icons/md';
 import { listEvents, createEvent, deleteEvent, listUsersDropdown } from '../utils/api';
 import { isAdmin } from '../utils/auth';
@@ -66,7 +66,22 @@ function EventDetails({ ev, id }) {
         {!isContribution && <div><dt><MdCheckCircle size={13} /> Checked in</dt><dd>{ev.checked_in ?? 0}</dd></div>}
         {!isContribution && <div><dt><MdHowToReg size={13} /> RSVP</dt><dd>{ev.rsvp_attending ?? 0} attending · {ev.rsvp_declined ?? 0} declined</dd></div>}
         {isContribution && <div><dt><MdEvent size={13} /> Mode</dt><dd>Contribution campaign</dd></div>}
+        {!isContribution && ev.maps_link && (
+          <div><dt><MdLocationOn size={13} /> Map</dt>
+            <dd><a href={ev.maps_link} target="_blank" rel="noreferrer" className="ev-more-link" onClick={(e) => e.stopPropagation()}>Open directions</a></dd></div>
+        )}
       </dl>
+      {!isContribution && (ev.dress_code_main || ev.dress_code_secondary || ev.dress_code_accent || ev.dress_code_notes) && (
+        <div className="ev-more-dress">
+          <span className="ev-more-dress-label"><MdCheckroom size={13} /> Dress code</span>
+          <span className="ev-more-swatches">
+            {[['Primary', ev.dress_code_main], ['Secondary', ev.dress_code_secondary], ['Accent', ev.dress_code_accent]]
+              .filter(([, c]) => c)
+              .map(([label, c]) => <span key={label} className="ev-more-swatch" style={{ background: c }} title={`${label} ${c}`} aria-label={`${label} colour ${c}`} />)}
+          </span>
+          {ev.dress_code_notes && <p className="ev-more-dress-notes">{ev.dress_code_notes}</p>}
+        </div>
+      )}
     </div>
   );
 }

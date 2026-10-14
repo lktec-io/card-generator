@@ -141,6 +141,8 @@ export default function EventDetailPage() {
   // Secondary sections start collapsed; opening them is UI-only
   const [tyOpen,     setTyOpen]     = useState(false);
   const [voiceOpen,  setVoiceOpen]  = useState(false);
+  // Event details (analytics, info, dress code) — collapsed until asked for; always open while editing
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const smsLogsLoaded = useRef(false);
   const [staffList, setStaffList] = useState([]);   // for the Event Verifier selector (admins only)
   const canAssignVerifier = isAdmin();                // same rule as the server's canAssign()
@@ -704,6 +706,7 @@ export default function EventDetailPage() {
     if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const analytics      = data?.analytics || null;
+  const showDetails    = detailsOpen || editing;
 
   // Thank-you recipients — counts come from the server; the server resolves the guests itself
   const tyCounts       = tyInfo?.counts?.[tyGroup] || { total: 0, with_phone: 0 };
@@ -763,7 +766,7 @@ export default function EventDetailPage() {
                 </button>
               </>
             ) : (
-              <button className="btn-outline" onClick={() => setEditing(true)}>
+              <button className="btn-outline" onClick={() => { setDetailsOpen(true); setEditing(true); }}>
                 <Pencil size={15} /> Edit Event
               </button>
             )}
@@ -785,6 +788,28 @@ export default function EventDetailPage() {
           </div>
         )}
 
+        {/* ── Compact summary + View All Details (UI only — nothing is fetched or saved) ── */}
+        <div className="ev-summary-bar">
+          <p className="ev-summary">
+            {ev?.event_date && <span><Calendar size={14} aria-hidden="true" /> {formatDate(ev.event_date)}</span>}
+            {!isContribution && ev?.event_time && <span>{ev.event_time}</span>}
+            {!isContribution && ev?.venue && <span><MapPin size={14} aria-hidden="true" /> {ev.venue}</span>}
+            {!isContribution && <span><Shield size={14} aria-hidden="true" /> {assigneeLabel(ev)}</span>}
+          </p>
+          {!editing && (
+            <button
+              type="button"
+              className="btn-outline section-toggle"
+              aria-expanded={showDetails}
+              aria-controls="ev-all-details"
+              onClick={() => setDetailsOpen((o) => !o)}
+            >
+              {showDetails ? 'Hide Details' : 'View All Details'} <ChevronDown size={15} className={showDetails ? 'section-toggle-icon is-open' : 'section-toggle-icon'} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
+        <div id="ev-all-details" hidden={!showDetails}>
         {/* ── Invitation analytics — Single / Double from the existing card_type ── */}
         {!isContribution && analytics && (
           <div className="ev-analytics">
@@ -1005,6 +1030,7 @@ export default function EventDetailPage() {
               )}
             </div>
           )}
+        </div>
         </div>
 
         {/* ── Post-event thank-you SMS — managers/admins, invitation events ── */}

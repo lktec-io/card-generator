@@ -1179,3 +1179,18 @@ backdrop-filter: blur(4px);
 .event-card-meta .ev-status--today,    .events-list-meta .ev-status--today    { color: #fbbf24; }
 .events-grid { align-items: start; }
 .ev-more-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+
+/* dress code + map inside an expanded event card */
+.ev-more-link { color: var(--gold, #d4af37); text-decoration: underline; text-underline-offset: 2px; }
+.ev-more-dress { margin-top: 0.6rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; }
+.ev-more-dress-label { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; }
+.ev-more-swatches { display: inline-flex; gap: 0.3rem; }
+.ev-more-swatch { width: 18px; height: 18px; border-radius: 4px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.ev-more-dress-notes { flex-basis: 100%; margin: 0; font-size: 0.82rem; opacity: 0.85; overflow-wrap: anywhere; }
+
+/* event page: compact summary above the collapsible details */
+.ev-summary-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1rem; margin: 0.25rem 0 1rem; }
+.ev-summary { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0; font-size: 0.86rem; opacity: 0.85; }
+.ev-summary span { display: inline-flex; align-items: center; gap: 0.3rem; }
+#ev-all-details:not([hidden]) { animation: evMoreIn 0.22s ease-out; }
+@media (prefers-reduced-motion: reduce) { #ev-all-details:not([hidden]) { animation: none; } }
