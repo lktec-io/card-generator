@@ -6,6 +6,7 @@ import {
   MdStopCircle, MdRefresh, MdHourglassEmpty,
 } from 'react-icons/md';
 import { friendlyReason, safeDetail, normaliseJob } from '../utils/sendResults';
+import { SmsBalanceNotice } from './SmsBalance';
 import '../styles/bulk-send.css';
 
 /**
@@ -76,6 +77,8 @@ export function SendConfirmModal({ open, channel, count, detail, busy = false, o
         </p>
         <p className="bs-count"><strong>{n}</strong> recipient{n === 1 ? '' : 's'}</p>
         {detail && <div className="bs-detail">{detail}</div>}
+        {/* live Beem balance before any SMS goes out — informational, never blocks */}
+        {channel === 'sms' && <SmsBalanceNotice />}
         <div className="bs-actions">
           <button type="button" className="bs-btn bs-btn--ghost" onClick={onCancel} disabled={busy}>Cancel</button>
           <button type="button" className="bs-btn bs-btn--primary" onClick={confirmOnce} disabled={busy || n === 0} autoFocus>

@@ -5,7 +5,8 @@ const router    = express.Router();
 
 const upload        = require('../middleware/upload');
 const verifyToken                              = require('../middleware/authMiddleware');
-const { requireAdmin, requireManager, requireAuth, optionalAuth } = require('../middleware/authMiddleware');
+const { requireAdmin, requireManager, requireAuth, optionalAuth, requireSmsBalance } = require('../middleware/authMiddleware');
+const { getSmsBalance } = require('../controllers/smsBalanceController');
 
 // Audio upload multer — accepts audio/* and video/webm (Chrome records audio as video/webm)
 const audioUpload = multer({
@@ -114,6 +115,8 @@ router.post('/sms/bulk/:event_id',           requireManager, sendBulk);
 router.get( '/sms/bulk/progress/:job_id',   requireManager, getBulkProgress);
 router.post('/sms/bulk/cancel/:job_id',     requireManager, cancelBulk);
 router.get( '/sms/logs/:event_id',          requireAuth,    getSmsLogs);
+// Live Beem SMS credit balance — super_admin + explicit SMS_BALANCE_USER_IDS only
+router.get( '/sms/balance',                 requireSmsBalance, getSmsBalance);
 router.post('/sms/retry/:log_id',           requireManager, retrySms);
 
 // ── WhatsApp ────────────────────────────────────────────────────────────────

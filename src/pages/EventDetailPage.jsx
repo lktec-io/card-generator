@@ -16,6 +16,8 @@ import { isAdmin, canManage } from '../utils/auth';
 import WhatsAppPanel from '../components/WhatsAppPanel';
 import SendProgressModal from '../components/SendProgressModal';
 import BulkSendModal, { SendConfirmModal } from '../components/BulkSendModal';
+import { SmsBalanceNotice } from '../components/SmsBalance';
+import { refreshSmsBalance } from '../utils/smsBalance';
 import { useToast } from '../context/ToastContext';
 import VoicePlayerMini from '../components/VoicePlayerMini';
 import ConfirmModal from '../components/ConfirmModal';
@@ -356,6 +358,8 @@ export default function EventDetailPage() {
       showToast(err.response?.data?.message
         || (err.response ? 'Failed to send SMS.' : 'No answer from the server — check the SMS log before resending.'), 'error');
       setTimeout(() => setSmsSending(prev => ({ ...prev, [inv.id]: 'idle' })), 6000);
+    } finally {
+      refreshSmsBalance({ fresh: true });       // the new figure comes from Beem, never computed
     }
   };
 
@@ -379,6 +383,7 @@ export default function EventDetailPage() {
             clearInterval(pollRef.current);
             pollRef.current = null;
             bulkSmsGuard.current = false;
+            refreshSmsBalance({ fresh: true });
             showToast(p.cancelled
               ? `Bulk SMS cancelled — ${p.sent} sent, ${p.failed} failed, ${p.not_processed || 0} not sent.`
               : `Bulk SMS complete — ${p.sent} sent, ${p.failed} failed.`, p.failed ? 'error' : 'success');
@@ -465,6 +470,7 @@ export default function EventDetailPage() {
     } finally {
       tySingleRef.current = false;
       setTySendingId(null);
+      refreshSmsBalance({ fresh: true });
     }
   };
 
@@ -514,6 +520,7 @@ export default function EventDetailPage() {
             clearInterval(tyPollRef.current);
             tyPollRef.current = null;
             loadThankYou();      // refresh the already-thanked list behind the modal
+            refreshSmsBalance({ fresh: true });
           }
         } catch (pollErr) {
           if (pollErr.response?.status === 404) {   // job gone — it will never finish
@@ -1669,6 +1676,7 @@ export default function EventDetailPage() {
               {tySkipped > 0 && <> · {tySkipped} skipped (no phone)</>}
               {!tyResend && tyAlready > 0 && <> · {tyAlready} already thanked</>}
             </span>
+            <div style={{ marginTop: '0.75rem' }}><SmsBalanceNotice /></div>
           </>
         }
         confirmLabel="Continue"

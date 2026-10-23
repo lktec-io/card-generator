@@ -1,0 +1,43 @@
+/* Live Beem SMS credit balance — dashboard card + send-confirmation notice.
+   Uses the app's existing dark/gold tokens; restrained 8px rounding. */
+
+.smsb-card {
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-md, 8px);
+  background: var(--glass-bg, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--glass-border, rgba(212, 175, 55, 0.18));
+  margin-bottom: 1.25rem;
+}
+.smsb-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.smsb-title { display: inline-flex; align-items: center; gap: 0.4rem; margin: 0; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted, rgba(255, 255, 255, 0.6)); }
+.smsb-title svg { color: var(--gold, #d4af37); font-size: 1.05rem; }
+.smsb-value { margin: 0.35rem 0 0; line-height: 1.1; }
+.smsb-value strong { font-size: 1.9rem; font-weight: 800; color: #fff; }
+.smsb-value span { font-size: 0.9rem; color: var(--gold, #d4af37); font-weight: 700; margin-left: 0.2rem; }
+.smsb-meta { margin: 0.3rem 0 0; font-size: 0.76rem; color: var(--text-muted, rgba(255, 255, 255, 0.55)); }
+.smsb-error { margin: 0.4rem 0 0; font-size: 0.84rem; color: #fca5a5; }
+.smsb-warn { display: flex; align-items: flex-start; gap: 0.35rem; margin: 0.45rem 0 0; font-size: 0.8rem; color: #fbbf24; }
+.smsb-warn svg { flex-shrink: 0; margin-top: 0.1rem; }
+
+.smsb-refresh {
+  display: inline-grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: var(--radius-md, 8px); border: 1px solid var(--glass-border, rgba(212, 175, 55, 0.18));
+  background: transparent; color: var(--gold, #d4af37); cursor: pointer;
+}
+.smsb-refresh:hover:not(:disabled) { background: var(--gold-dim, rgba(212, 175, 55, 0.12)); }
+.smsb-refresh:disabled { opacity: 0.55; cursor: progress; }
+.smsb-refresh:focus-visible { outline: 2px solid var(--gold, #d4af37); outline-offset: 2px; }
+.smsb-spin { animation: smsbSpin 0.9s linear infinite; }
+@keyframes smsbSpin { to { transform: rotate(360deg); } }
+
+/* inside the send confirmation */
+.smsb-notice {
+  margin: 0 0 0.75rem; padding: 0.6rem 0.75rem; text-align: left;
+  border-radius: var(--radius-md, 8px); background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.85rem; color: rgba(255, 255, 255, 0.85);
+}
+.smsb-notice-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.smsb-notice-row strong { color: #fff; }
+.smsb-notice .smsb-refresh { width: 30px; height: 30px; }
+
+@media (prefers-reduced-motion: reduce) { .smsb-spin { animation: none; } }

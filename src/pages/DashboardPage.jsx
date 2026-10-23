@@ -6,6 +6,7 @@ import {
 } from 'react-icons/md';
 import { getGlobalStats, listEvents } from '../utils/api';
 import { isAdmin } from '../utils/auth';
+import { SmsBalanceCard } from '../components/SmsBalance';
 import '../styles/dashboard.css';
 
 /* ── Formatting ──────────────────────────────────────────────────────── */
@@ -248,6 +249,9 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+
+      {/* Live Beem SMS credits — hidden for users without the permission; never blocks the dashboard */}
+      <SmsBalanceCard />
 
       {loading ? (
         <div className="dash-loading">

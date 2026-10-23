@@ -126,7 +126,32 @@ function verificationScopeSQL(user) {
   return { where: 'AND e.assigned_to = ?', params: [user.id] };
 }
 
+/**
+ * Who may see the account-wide Beem SMS credit balance: super_admin, plus users
+ * granted it explicitly by id in SMS_BALANCE_USER_IDS (comma-separated, server
+ * .env). No new role and no schema change — an empty list means super_admin only.
+ */
+function canViewSmsBalance(user) {
+  if (!user) return false;
+  if (user.role === 'super_admin') return true;
+  const ids = String(process.env.SMS_BALANCE_USER_IDS || '')
+    .split(',').map((s) => s.trim()).filter((s) => /^\d+$/.test(s));
+  return ids.includes(String(user.id));
+}
+
+function requireSmsBalance(req, res, next) {
+  const user = _verify(req);
+  if (!user) return res.status(401).json({ success: false, message: 'Authentication required.' });
+  if (!canViewSmsBalance(user)) {
+    return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'You do not have permission to view the SMS balance.' });
+  }
+  req.user = user;
+  next();
+}
+
 module.exports                       = verifyToken;
+module.exports.requireSmsBalance     = requireSmsBalance;
+module.exports.canViewSmsBalance     = canViewSmsBalance;
 module.exports.requireAdmin          = requireAdmin;
 module.exports.requireManager        = requireManager;
 module.exports.requireAuth           = requireAuth;

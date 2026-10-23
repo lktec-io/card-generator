@@ -165,6 +165,8 @@ export const sendBulkSms         = (eventId)       => api.post(`/sms/bulk/${even
 export const getBulkSmsProgress  = (jobId)         => api.get(`/sms/bulk/progress/${jobId}`);
 // Stops an invitation SMS blast before its next recipient (already-submitted messages stand)
 export const cancelBulkSms       = (jobId)         => api.post(`/sms/bulk/cancel/${jobId}`);
+// Live Beem SMS credit balance (credits, not money). fresh=true asks Beem now.
+export const getSmsBalance       = ({ fresh = false, signal } = {}) => api.get('/sms/balance', { params: fresh ? { fresh: 1 } : {}, signal });
 // Server-side search + pagination. Called with no options it behaves as before.
 export const getSmsLogs = (eventId, { q = '', status = '', page = 1, pageSize = 50 } = {}) =>
   api.get(`/sms/logs/${eventId}`, { params: { q, status, page, page_size: pageSize } });
