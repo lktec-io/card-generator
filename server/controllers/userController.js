@@ -1,10 +1,27 @@
 const pool   = require('../config/db');
 const bcrypt = require('bcryptjs');
+const { hasPermissionColumn } = require('../utils/smsBalanceAccess');
 
 const VALID_ROLES        = ['admin', 'event_manager', 'verifier'];
 const VALID_ACCESS_TYPES = ['invitation', 'contribution', 'both'];
 
 const USER_SELECT = 'id, name, email, role, status, access_type, created_by, created_at';
+
+// USER_SELECT plus the SMS-balance permission once that column exists
+async function userSelect() {
+  return (await hasPermissionColumn()) ? `${USER_SELECT}, can_view_sms_balance` : USER_SELECT;
+}
+
+// The "Can View SMS Balance" value to write, or null to leave it unchanged.
+// Only super_admin may grant or revoke it, and only when the field is sent —
+// so edits that do not include it (or come from an admin) keep the current value.
+async function smsBalanceGrant(req) {
+  if (req.user?.role !== 'super_admin') return null;
+  if (!Object.prototype.hasOwnProperty.call(req.body, 'can_view_sms_balance')) return null;
+  if (!(await hasPermissionColumn())) return null;
+  const v = req.body.can_view_sms_balance;
+  return v === true || v === 1 || v === '1' || v === 'true' ? 1 : 0;
+}
 
 // Returns { where, params } to scope users to the requester (admin sees only their sub-users)
 function userScopeSQL(user) {
@@ -20,7 +37,7 @@ async function listUsers(req, res) {
   try {
     const scope = userScopeSQL(req.user);
     const [users] = await pool.execute(
-      `SELECT ${USER_SELECT} FROM users ${scope.where} ORDER BY created_at DESC`,
+      `SELECT ${await userSelect()} FROM users ${scope.where} ORDER BY created_at DESC`,
       scope.params
     );
     res.json({ success: true, users });
@@ -64,12 +81,18 @@ async function createUser(req, res) {
   try {
     const createdBy = req.user?.id || null;
     const hash = await bcrypt.hash(password, 12);
-    const [result] = await pool.execute(
-      'INSERT INTO users (name, email, password, role, access_type, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [cleanName, cleanEmail, hash, safeRole, safeAccessType, createdBy]
-    );
+    const grant = await smsBalanceGrant(req);
+    const [result] = grant === null
+      ? await pool.execute(
+        'INSERT INTO users (name, email, password, role, access_type, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+        [cleanName, cleanEmail, hash, safeRole, safeAccessType, createdBy]
+      )
+      : await pool.execute(
+        'INSERT INTO users (name, email, password, role, access_type, created_by, can_view_sms_balance) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [cleanName, cleanEmail, hash, safeRole, safeAccessType, createdBy, grant]
+      );
     const [[user]] = await pool.execute(
-      `SELECT ${USER_SELECT} FROM users WHERE id = ?`,
+      `SELECT ${await userSelect()} FROM users WHERE id = ?`,
       [result.insertId]
     );
     console.log(`[createUser] "${user.name}" <${user.email}> role=${user.role} access=${user.access_type}`);
@@ -98,7 +121,7 @@ async function getUser(req, res) {
   try {
     const owned = ownedByClause(req.user);
     const [[user]] = await pool.execute(
-      `SELECT ${USER_SELECT} FROM users WHERE id = ? ${owned.clause}`,
+      `SELECT ${await userSelect()} FROM users WHERE id = ? ${owned.clause}`,
       [id, ...owned.params]
     );
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
@@ -127,21 +150,24 @@ async function updateUser(req, res) {
 
   try {
     const owned = ownedByClause(req.user);
+    const grant = await smsBalanceGrant(req);
+    const grantSet    = grant === null ? '' : ', can_view_sms_balance = ?';
+    const grantParams = grant === null ? [] : [grant];
     if (password) {
       const hash = await bcrypt.hash(password, 12);
       await pool.execute(
-        `UPDATE users SET name = ?, email = ?, role = ?, access_type = ?, password = ? WHERE id = ? ${owned.clause}`,
-        [cleanName, cleanEmail, safeRole, safeAccessType, hash, id, ...owned.params]
+        `UPDATE users SET name = ?, email = ?, role = ?, access_type = ?, password = ?${grantSet} WHERE id = ? ${owned.clause}`,
+        [cleanName, cleanEmail, safeRole, safeAccessType, hash, ...grantParams, id, ...owned.params]
       );
     } else {
       await pool.execute(
-        `UPDATE users SET name = ?, email = ?, role = ?, access_type = ? WHERE id = ? ${owned.clause}`,
-        [cleanName, cleanEmail, safeRole, safeAccessType, id, ...owned.params]
+        `UPDATE users SET name = ?, email = ?, role = ?, access_type = ?${grantSet} WHERE id = ? ${owned.clause}`,
+        [cleanName, cleanEmail, safeRole, safeAccessType, ...grantParams, id, ...owned.params]
       );
     }
 
     const [[user]] = await pool.execute(
-      `SELECT ${USER_SELECT} FROM users WHERE id = ?`,
+      `SELECT ${await userSelect()} FROM users WHERE id = ?`,
       [id]
     );
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
@@ -176,7 +202,7 @@ async function toggleStatus(req, res) {
     await pool.execute('UPDATE users SET status = ? WHERE id = ?', [newStatus, id]);
 
     const [[user]] = await pool.execute(
-      `SELECT ${USER_SELECT} FROM users WHERE id = ?`, [id]
+      `SELECT ${await userSelect()} FROM users WHERE id = ?`, [id]
     );
     res.json({ success: true, user });
   } catch (err) {

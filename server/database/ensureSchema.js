@@ -50,6 +50,11 @@ const REQUIRED_COLUMNS = [
     ddl: "ALTER TABLE sms_logs ADD COLUMN sms_kind ENUM('invitation','thank_you') NOT NULL DEFAULT 'invitation' AFTER provider",
     migration: 'migration_thank_you_sms.sql', purpose: 'tells thank-you messages apart in sms_logs',
   },
+  {
+    table: 'users', column: 'can_view_sms_balance',
+    ddl: 'ALTER TABLE users ADD COLUMN can_view_sms_balance TINYINT(1) NOT NULL DEFAULT 0',
+    migration: 'migration_sms_balance_permission.sql', purpose: 'per-user "Can View SMS Balance" permission',
+  },
 ];
 
 // Whole tables the application needs. Created with IF NOT EXISTS, so this is

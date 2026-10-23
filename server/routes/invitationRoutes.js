@@ -115,7 +115,7 @@ router.post('/sms/bulk/:event_id',           requireManager, sendBulk);
 router.get( '/sms/bulk/progress/:job_id',   requireManager, getBulkProgress);
 router.post('/sms/bulk/cancel/:job_id',     requireManager, cancelBulk);
 router.get( '/sms/logs/:event_id',          requireAuth,    getSmsLogs);
-// Live Beem SMS credit balance — super_admin + explicit SMS_BALANCE_USER_IDS only
+// Live Beem SMS credit balance — super_admin + users granted "Can View SMS Balance"
 router.get( '/sms/balance',                 requireSmsBalance, getSmsBalance);
 router.post('/sms/retry/:log_id',           requireManager, retrySms);
 

@@ -338,6 +338,23 @@
   color: var(--white);
 }
 
+.user-modal-check label {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+.user-modal-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
 .user-modal-pw-wrap {
   position: relative;
 }

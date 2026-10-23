@@ -7,7 +7,7 @@ import {
 import {
   listUsers, createUser, updateUser, toggleUserStatus, deleteUser,
 } from '../utils/api';
-import { getUserId } from '../utils/auth';
+import { getUserId, isSuperAdmin } from '../utils/auth';
 import { useToast } from '../context/ToastContext';
 import '../styles/users.css';
 
@@ -49,15 +49,17 @@ function formatDate(raw) {
 
 /* ── Empty form ───────────────────────────────────────────────────────── */
 
-const EMPTY_FORM = { name: '', email: '', password: '', role: 'verifier' };
+const EMPTY_FORM = { name: '', email: '', password: '', role: 'verifier', can_view_sms_balance: false };
 
 /* ── User form modal ──────────────────────────────────────────────────── */
 
 function UserModal({ user, onClose, onSaved }) {
   const isEdit = !!user;
+  // Only super_admin grants it; on edit, only when the server reports the field
+  const canGrantSms = isSuperAdmin() && (!isEdit || 'can_view_sms_balance' in user);
   const [form,    setForm]    = useState(
     isEdit
-      ? { name: user.name, email: user.email, role: user.role, password: '' }
+      ? { name: user.name, email: user.email, role: user.role, password: '', can_view_sms_balance: !!Number(user.can_view_sms_balance) }
       : EMPTY_FORM
   );
   const [saving,  setSaving]  = useState(false);
@@ -66,8 +68,8 @@ function UserModal({ user, onClose, onSaved }) {
   const { showToast } = useToast();
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm(f => ({ ...f, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
@@ -85,6 +87,7 @@ function UserModal({ user, onClose, onSaved }) {
     try {
       const payload = { name: form.name, email: form.email, role: form.role };
       if (form.password) payload.password = form.password;
+      if (canGrantSms) payload.can_view_sms_balance = form.can_view_sms_balance;
 
       const { data } = isEdit
         ? await updateUser(user.id, payload)
@@ -165,6 +168,21 @@ function UserModal({ user, onClose, onSaved }) {
               <option value="admin">Admin — full access</option>
             </select>
           </div>
+
+          {canGrantSms && (
+            <div className="user-modal-field user-modal-check">
+              <label>
+                <input
+                  type="checkbox"
+                  name="can_view_sms_balance"
+                  checked={form.can_view_sms_balance}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+                Can View SMS Balance
+              </label>
+            </div>
+          )}
 
           {error && <p className="users-error" style={{ margin: '0.5rem 0' }}>{error}</p>}
 

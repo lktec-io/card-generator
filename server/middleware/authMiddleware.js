@@ -129,7 +129,7 @@ function verificationScopeSQL(user) {
 /**
  * Who may see the account-wide Beem SMS credit balance: super_admin, plus users
  * granted it explicitly by id in SMS_BALANCE_USER_IDS (comma-separated, server
- * .env). No new role and no schema change — an empty list means super_admin only.
+ * .env). Grants made in User Management are checked by requireSmsBalance.
  */
 function canViewSmsBalance(user) {
   if (!user) return false;
@@ -139,10 +139,21 @@ function canViewSmsBalance(user) {
   return ids.includes(String(user.id));
 }
 
-function requireSmsBalance(req, res, next) {
+// super_admin, SMS_BALANCE_USER_IDS, or users.can_view_sms_balance = 1 (read on
+// every request, so a grant or revoke takes effect without re-login).
+async function requireSmsBalance(req, res, next) {
   const user = _verify(req);
   if (!user) return res.status(401).json({ success: false, message: 'Authentication required.' });
-  if (!canViewSmsBalance(user)) {
+  let allowed = canViewSmsBalance(user);
+  if (!allowed) {
+    try {
+      allowed = await require('../utils/smsBalanceAccess').isGrantedInDb(user.id);
+    } catch (err) {
+      console.error(`[sms:balance] permission check failed: ${err.message}`);
+      allowed = false;
+    }
+  }
+  if (!allowed) {
     return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'You do not have permission to view the SMS balance.' });
   }
   req.user = user;
